@@ -59,7 +59,7 @@ def load_design2code_dataset(dataset_dir: str, case_id: Optional[str] = None) ->
         return tasks
 
     for cid, html_path, png_path in pairs:
-        init_code_path = html_path.replace("testset_final", "initialize")
+        init_code_path = html_path.replace("Design2Code-HARD", "initialize")
         tasks.append({
             "case_id": cid,
             "init_code_path": init_code_path,
@@ -171,7 +171,7 @@ def run_tasks_parallel(tasks: List[Dict], args, max_workers: int = 8) -> tuple:
 def main():
     parser = argparse.ArgumentParser(description="Design2Code Runner for AgenticVerifier")
 
-    parser.add_argument("--dataset-path", default="data/design2code/testset_final", help="Path to Design2Code dataset directory")
+    parser.add_argument("--dataset-path", default="data/design2code/Design2Code-HARD", help="Path to Design2Code dataset directory")
     parser.add_argument("--output-dir", default=f"output/design2code/{time.strftime('%Y%m%d_%H%M%S')}", help="Output directory for results")
 
     # Selection

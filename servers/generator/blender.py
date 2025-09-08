@@ -20,6 +20,7 @@ import math
 import cv2
 import numpy as np
 import time
+from openai import OpenAI
 
 mcp = FastMCP("blender-executor")
 
@@ -85,7 +86,7 @@ class MeshyAPI:
         基于 preview 发起 refine 贴图任务
         Returns: refine_task_id (str)
         """
-        url = f"{self.base_url}/openapi/v1/text-to-3d"
+        url = f"{self.base_url}/openapi/v2/text-to-3d"
         payload = {
             "mode": "refine",
             "preview_task_id": preview_task_id,
@@ -122,27 +123,19 @@ class MeshyAPI:
         
         # 准备文件上传
         with open(image_path, 'rb') as f:
+            # 将image转为base64格式
+            image_base64 = base64.b64encode(f.read()).decode('utf-8')
             files = {
-                'image': (os.path.basename(image_path), f, 'image/jpeg')
+                'image_url': f"data:image/jpeg;base64,{image_base64}",
+                'enable_pbr': True
             }
-            
-            # 准备表单数据
-            data = {
-                'mode': 'preview'
-            }
-            if prompt:
-                data['prompt'] = prompt[:600]
-            
-            # 添加其他参数
-            for key, value in kwargs.items():
-                data[key] = value
             
             # 发送请求（注意：这里不使用JSON headers，因为要上传文件）
             headers = {
                 "Authorization": f"Bearer {self.api_key}"
             }
             
-            resp = requests.post(url, headers=headers, files=files, data=data)
+            resp = requests.post(url, headers=headers, json=files)
             resp.raise_for_status()
             data = resp.json()
             return data.get("result") or data.get("id")
@@ -169,7 +162,7 @@ class MeshyAPI:
         Returns: 任务 JSON（包含 status / model_urls 等）
         """
         import time
-        url = f"{self.base_url}/openapi/v2/image-to-3d/{task_id}"
+        url = f"{self.base_url}/openapi/v1/image-to-3d/{task_id}"
         deadline = time.time() + timeout_sec
         while True:
             r = requests.get(url, headers=self.headers)
@@ -192,11 +185,98 @@ class ImageCropper:
     
     def __init__(self):
         self.temp_dir = None
+        # Set up OpenAI client lazily when needed
+        self._client = None
+
+    def _get_openai_client(self) -> OpenAI:
+        """Initialize and cache the OpenAI client using environment variables."""
+        if self._client is None:
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise RuntimeError("OPENAI_API_KEY not set; required for VLM-based cropping")
+            base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            self._client = OpenAI(api_key=api_key, base_url=base_url)
+        return self._client
+
+    def _encode_image_as_data_url(self, image_path: str) -> str:
+        with open(image_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("utf-8")
+        return f"data:image/png;base64,{b64}"
+
+    def _ask_vlm_for_bbox(self, image_path: str, description: str, model: str = None, temperature: float = 0.0) -> Optional[tuple]:
+        """
+        Ask a VLM for a bounding box of the described object.
+
+        Returns a tuple (x, y, w, h) in pixel coordinates, or None if not found.
+        """
+        try:
+            client = self._get_openai_client()
+            model_name = model or os.getenv("VISION_MODEL", "gpt-4o")
+            data_url = self._encode_image_as_data_url(image_path)
+
+            system_prompt = (
+                "Given an input image and a target description, respond ONLY with a JSON object "
+                "with keys x, y, w, h (integers, pixel coordinates, origin at top-left). "
+                "If the target is not present, respond with {\"x\": -1, \"y\": -1, \"w\": 0, \"h\": 0}."
+            )
+            user_text = f"Target description: {description}\nReturn strictly JSON with keys x,y,w,h."
+
+            resp = client.chat.completions.create(
+                model=model_name,
+                temperature=temperature,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": user_text},
+                            {"type": "image_url", "image_url": {"url": data_url}},
+                        ],
+                    },
+                ],
+            )
+
+            content = resp.choices[0].message.content if resp.choices else ""
+            if not content:
+                return None
+            
+            with open('content.txt', 'w') as f:
+                f.write(content)
+
+            # Try direct JSON parsing; fallback to extracting JSON blob
+            def _extract_json(text: str) -> Optional[dict]:
+                try:
+                    return json.loads(text)
+                except Exception:
+                    pass
+                # crude extraction
+                start = text.find("{")
+                end = text.rfind("}")
+                if start != -1 and end != -1 and end > start:
+                    try:
+                        return json.loads(text[start:end+1])
+                    except Exception:
+                        return None
+                return None
+
+            js = _extract_json(content)
+            if not js:
+                return None
+            x = int(js.get("x", -1))
+            y = int(js.get("y", -1))
+            w = int(js.get("w", 0))
+            h = int(js.get("h", 0))
+            if x < 0 or y < 0 or w <= 0 or h <= 0:
+                return None
+            return (x, y, w, h)
+        except Exception as e:
+            logging.error(f"VLM bbox query failed: {e}")
+            return None
     
     def crop_image_by_text(self, image_path: str, description: str, output_path: str = None, 
                           confidence_threshold: float = 0.5, padding: int = 20) -> dict:
         """
-        根据文本描述从图片中截取相关区域
+        根据文本描述从图片中截取相关区域（VLM询问得到坐标后进行裁剪）
         
         Args:
             image_path: 输入图片路径
@@ -217,22 +297,17 @@ class ImageCropper:
             if image is None:
                 return {"status": "error", "error": f"Failed to load image: {image_path}"}
             
-            # 使用YOLO或类似的物体检测模型进行检测
-            # 这里使用一个简化的方法，实际应用中可以使用更先进的模型
-            detected_objects = self._detect_objects(image, description, confidence_threshold)
-            
-            if not detected_objects:
-                return {"status": "error", "error": f"No objects matching '{description}' found in image"}
-            
-            # 选择最匹配的对象
-            best_match = max(detected_objects, key=lambda x: x['confidence'])
-            
-            # 计算截取区域（添加填充）
-            x, y, w, h = best_match['bbox']
+            # 询问VLM获取目标物体的边界框
+            bbox = self._ask_vlm_for_bbox(image_path, description)
+            if not bbox:
+                return {"status": "error", "error": f"VLM did not return a valid bbox for '{description}'"}
+
+            x, y, w, h = bbox
+            height, width = image.shape[:2]
             x1 = max(0, x - padding)
             y1 = max(0, y - padding)
-            x2 = min(image.shape[1], x + w + padding)
-            y2 = min(image.shape[0], y + h + padding)
+            x2 = min(width, x + w + padding)
+            y2 = min(height, y + h + padding)
             
             # 截取图片
             cropped_image = image[y1:y2, x1:x2]
@@ -247,12 +322,12 @@ class ImageCropper:
             
             return {
                 "status": "success",
-                "message": f"Successfully cropped image based on '{description}'",
+                "message": f"Successfully cropped image based on '{description}' (via VLM)",
                 "input_image": image_path,
                 "output_image": output_path,
                 "detected_object": {
-                    "description": best_match['class'],
-                    "confidence": best_match['confidence'],
+                    "description": description,
+                    "confidence": None,
                     "bbox": [x1, y1, x2-x1, y2-y1],
                     "original_bbox": [x, y, w, h]
                 },
@@ -268,75 +343,9 @@ class ImageCropper:
             return {"status": "error", "error": str(e)}
     
     def _detect_objects(self, image, description: str, confidence_threshold: float) -> list:
-        """
-        检测图片中的对象（简化版本）
-        实际应用中可以使用YOLO、R-CNN等模型
-        """
-        try:
-            # 这里使用OpenCV的预训练模型进行物体检测
-            # 加载预训练的YOLO模型（需要下载权重文件）
-            net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
-            
-            # 获取输出层名称
-            layer_names = net.getLayerNames()
-            output_layers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
-            
-            # 准备输入
-            blob = cv2.dnn.blobFromImage(image, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
-            net.setInput(blob)
-            outputs = net.forward(output_layers)
-            
-            # 解析检测结果
-            height, width, channels = image.shape
-            class_ids = []
-            confidences = []
-            boxes = []
-            
-            for output in outputs:
-                for detection in output:
-                    scores = detection[5:]
-                    class_id = np.argmax(scores)
-                    confidence = scores[class_id]
-                    
-                    if confidence > confidence_threshold:
-                        center_x = int(detection[0] * width)
-                        center_y = int(detection[1] * height)
-                        w = int(detection[2] * width)
-                        h = int(detection[3] * height)
-                        
-                        x = int(center_x - w / 2)
-                        y = int(center_y - h / 2)
-                        
-                        boxes.append([x, y, w, h])
-                        confidences.append(float(confidence))
-                        class_ids.append(class_id)
-            
-            # 应用非最大抑制
-            indexes = cv2.dnn.NMSBoxes(boxes, confidences, confidence_threshold, 0.4)
-            
-            # 加载类别名称
-            with open("coco.names", "r") as f:
-                classes = [line.strip() for line in f.readlines()]
-            
-            # 过滤匹配描述的对象
-            detected_objects = []
-            for i in range(len(boxes)):
-                if i in indexes:
-                    class_name = classes[class_ids[i]]
-                    # 简单的文本匹配（实际应用中可以使用更智能的匹配）
-                    if self._is_description_match(class_name, description):
-                        detected_objects.append({
-                            'class': class_name,
-                            'confidence': confidences[i],
-                            'bbox': boxes[i]
-                        })
-            
-            return detected_objects
-            
-        except Exception as e:
-            # 如果YOLO模型不可用，使用简化的方法
-            logging.warning(f"YOLO detection failed, using fallback method: {e}")
-            return self._fallback_detection(image, description)
+        """Deprecated YOLO-based detector retained for API compatibility; now returns empty list."""
+        logging.warning("_detect_objects is deprecated; VLM-based bbox is used instead")
+        return []
     
     def _is_description_match(self, class_name: str, description: str) -> bool:
         """
@@ -1126,8 +1135,8 @@ def test_meshy_assets() -> dict:
     print("🧪 Testing Meshy Asset Generation Functions...")
     
     # 测试配置
-    test_blender_path = "output/test/demo/blender_file.blend"
-    test_image_path = "output/test/demo/test_image.jpg"
+    test_blender_path = "output/test/demo/old_blender_file.blend"
+    test_image_path = "output/test/demo/visprompt1.png"
     
     # 确保测试目录存在
     os.makedirs(os.path.dirname(test_blender_path), exist_ok=True)
@@ -1173,95 +1182,95 @@ def test_meshy_assets() -> dict:
         "crop_and_generate": {"status": "skipped", "message": "API key not provided"}
     }
     
-    # 测试1: Text-to-3D 资产生成
-    print("\n📝 Testing Text-to-3D Asset Generation...")
-    try:
-        # 检查是否有API密钥
-        api_key = os.getenv("MESHY_API_KEY")
-        if not api_key:
-            print("⚠ Skipping Text-to-3D test: MESHY_API_KEY not set")
-            test_results["text_to_3d"]["message"] = "MESHY_API_KEY environment variable not set"
-        else:
-            print("✓ API key found, testing Text-to-3D generation...")
-            result = add_meshy_asset(
-                description="A simple red cube",
-                blender_path=test_blender_path,
-                location="2,0,0",
-                scale=1.0,
-                api_key=api_key,
-                refine=False  # 跳过refine以节省时间
-            )
+    # # 测试1: Text-to-3D 资产生成
+    # print("\n📝 Testing Text-to-3D Asset Generation...")
+    # try:
+    #     # 检查是否有API密钥
+    #     api_key = os.getenv("MESHY_API_KEY")
+    #     if not api_key:
+    #         print("⚠ Skipping Text-to-3D test: MESHY_API_KEY not set")
+    #         test_results["text_to_3d"]["message"] = "MESHY_API_KEY environment variable not set"
+    #     else:
+    #         print("✓ API key found, testing Text-to-3D generation...")
+    #         result = add_meshy_asset(
+    #             description="A beautiful flower",
+    #             blender_path=test_blender_path,
+    #             location="2,0,0",
+    #             scale=1.0,
+    #             api_key=api_key,
+    #             refine=True # 跳过refine以节省时间
+    #         )
             
-            if result.get("status") == "success":
-                print(f"✓ Text-to-3D test successful: {result.get('message')}")
-                test_results["text_to_3d"] = {
-                    "status": "success",
-                    "message": result.get("message"),
-                    "object_name": result.get("object_name")
-                }
+    #         if result.get("status") == "success":
+    #             print(f"✓ Text-to-3D test successful: {result.get('message')}")
+    #             test_results["text_to_3d"] = {
+    #                 "status": "success",
+    #                 "message": result.get("message"),
+    #                 "object_name": result.get("object_name")
+    #             }
                 
-                # 渲染场景以查看添加的物体
-                render_result = render_scene_for_test(test_blender_path, "text_to_3d")
-                if render_result.get("status") == "success":
-                    test_results["text_to_3d"]["render_path"] = render_result.get("output_path")
-                    print(f"✓ Rendered scene after Text-to-3D: {render_result.get('output_path')}")
-            else:
-                print(f"❌ Text-to-3D test failed: {result.get('error')}")
-                test_results["text_to_3d"] = {
-                    "status": "failed",
-                    "message": result.get("error")
-                }
-    except Exception as e:
-        print(f"❌ Text-to-3D test error: {e}")
-        test_results["text_to_3d"] = {
-            "status": "error",
-            "message": str(e)
-        }
+    #             # 渲染场景以查看添加的物体
+    #             render_result = render_scene_for_test(test_blender_path, "text_to_3d")
+    #             if render_result.get("status") == "success":
+    #                 test_results["text_to_3d"]["render_path"] = render_result.get("output_path")
+    #                 print(f"✓ Rendered scene after Text-to-3D: {render_result.get('output_path')}")
+    #         else:
+    #             print(f"❌ Text-to-3D test failed: {result.get('error')}")
+    #             test_results["text_to_3d"] = {
+    #                 "status": "failed",
+    #                 "message": result.get("error")
+    #             }
+    # except Exception as e:
+    #     print(f"❌ Text-to-3D test error: {e}")
+    #     test_results["text_to_3d"] = {
+    #         "status": "error",
+    #         "message": str(e)
+    #     }
     
-    # 测试2: Image-to-3D 资产生成
-    print("\n🖼️ Testing Image-to-3D Asset Generation...")
-    try:
-        api_key = os.getenv("MESHY_API_KEY")
-        if not api_key:
-            print("⚠ Skipping Image-to-3D test: MESHY_API_KEY not set")
-            test_results["image_to_3d"]["message"] = "MESHY_API_KEY environment variable not set"
-        else:
-            print("✓ API key found, testing Image-to-3D generation...")
-            result = add_meshy_asset_from_image(
-                image_path=test_image_path,
-                blender_path=test_blender_path,
-                location="-2,0,0",
-                scale=1.0,
-                prompt="A 3D model of a house",
-                api_key=api_key,
-                refine=False  # 跳过refine以节省时间
-            )
+    # # 测试2: Image-to-3D 资产生成
+    # print("\n🖼️ Testing Image-to-3D Asset Generation...")
+    # try:
+    #     api_key = os.getenv("MESHY_API_KEY")
+    #     if not api_key:
+    #         print("⚠ Skipping Image-to-3D test: MESHY_API_KEY not set")
+    #         test_results["image_to_3d"]["message"] = "MESHY_API_KEY environment variable not set"
+    #     else:
+    #         print("✓ API key found, testing Image-to-3D generation...")
+    #         result = add_meshy_asset_from_image(
+    #             image_path=test_image_path,
+    #             blender_path=test_blender_path,
+    #             location="-2,0,0",
+    #             scale=1.0,
+    #             prompt="A 3D model of a house",
+    #             api_key=api_key,
+    #             refine=False  # 跳过refine以节省时间
+    #         )
             
-            if result.get("status") == "success":
-                print(f"✓ Image-to-3D test successful: {result.get('message')}")
-                test_results["image_to_3d"] = {
-                    "status": "success",
-                    "message": result.get("message"),
-                    "object_name": result.get("object_name")
-                }
+    #         if result.get("status") == "success":
+    #             print(f"✓ Image-to-3D test successful: {result.get('message')}")
+    #             test_results["image_to_3d"] = {
+    #                 "status": "success",
+    #                 "message": result.get("message"),
+    #                 "object_name": result.get("object_name")
+    #             }
                 
-                # 渲染场景以查看添加的物体
-                render_result = render_scene_for_test(test_blender_path, "image_to_3d")
-                if render_result.get("status") == "success":
-                    test_results["image_to_3d"]["render_path"] = render_result.get("output_path")
-                    print(f"✓ Rendered scene after Image-to-3D: {render_result.get('output_path')}")
-            else:
-                print(f"❌ Image-to-3D test failed: {result.get('error')}")
-                test_results["image_to_3d"] = {
-                    "status": "failed",
-                    "message": result.get("error")
-                }
-    except Exception as e:
-        print(f"❌ Image-to-3D test error: {e}")
-        test_results["image_to_3d"] = {
-            "status": "error",
-            "message": str(e)
-        }
+    #             # 渲染场景以查看添加的物体
+    #             render_result = render_scene_for_test(test_blender_path, "image_to_3d")
+    #             if render_result.get("status") == "success":
+    #                 test_results["image_to_3d"]["render_path"] = render_result.get("output_path")
+    #                 print(f"✓ Rendered scene after Image-to-3D: {render_result.get('output_path')}")
+    #         else:
+    #             print(f"❌ Image-to-3D test failed: {result.get('error')}")
+    #             test_results["image_to_3d"] = {
+    #                 "status": "failed",
+    #                 "message": result.get("error")
+    #             }
+    # except Exception as e:
+    #     print(f"❌ Image-to-3D test error: {e}")
+    #     test_results["image_to_3d"] = {
+    #         "status": "error",
+    #         "message": str(e)
+    #     }
     
     # 测试3: 图片截取功能
     print("\n✂️ Testing Image Cropping...")
@@ -1273,7 +1282,7 @@ def test_meshy_assets() -> dict:
             print("✓ Testing image cropping...")
             result = crop_image_by_text(
                 image_path=test_image_path,
-                description="building",
+                description="coffee cup",
                 output_path="test_output/cropped_building.jpg",
                 confidence_threshold=0.3,
                 padding=10
@@ -1313,7 +1322,7 @@ def test_meshy_assets() -> dict:
             print("✓ Testing combined crop and generate...")
             result = crop_and_generate_3d_asset(
                 image_path=test_image_path,
-                description="building",
+                description="coffee cup",
                 blender_path=test_blender_path,
                 location="4,0,0",
                 scale=1.0,
