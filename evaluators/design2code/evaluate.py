@@ -435,83 +435,6 @@ def calculate_color_similarity(rgb1: tuple, rgb2: tuple) -> float:
     except:
         return 0.0
 
-
-def render_html_to_image(html_content: str, output_path: str, width: int = 1024, height: int = 768) -> bool:
-    """
-    Render HTML content to an image using a headless browser.
-    
-    Args:
-        html_content (str): HTML content to render
-        output_path (str): Path to save the rendered image
-        width (int): Image width
-        height (int): Image height
-        
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    try:
-        # Try using playwright first
-        try:
-            from playwright.sync_api import sync_playwright
-            
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page(viewport={'width': width, 'height': height})
-                page.set_content(html_content)
-                page.screenshot(path=output_path, full_page=True)
-                browser.close()
-                return True
-        except ImportError:
-            pass
-        
-        # Fallback to selenium
-        try:
-            from selenium import webdriver
-            from selenium.webdriver.chrome.options import Options
-            
-            chrome_options = Options()
-            chrome_options.add_argument('--headless')
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument(f'--window-size={width},{height}')
-            
-            driver = webdriver.Chrome(options=chrome_options)
-            driver.get(f"data:text/html,{html_content}")
-            driver.save_screenshot(output_path)
-            driver.quit()
-            return True
-        except ImportError:
-            pass
-        
-        # Last resort: try wkhtmltoimage
-        try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
-                f.write(html_content)
-                temp_html = f.name
-            
-            cmd = [
-                'wkhtmltoimage',
-                '--width', str(width),
-                '--height', str(height),
-                '--format', 'png',
-                temp_html,
-                output_path
-            ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            os.unlink(temp_html)
-            return result.returncode == 0
-            
-        except Exception:
-            pass
-        
-        return False
-        
-    except Exception as e:
-        print(f"Error rendering HTML to image: {e}")
-        return False
-
-
 def process_design2code_instance(output_base_dir: str, task_dir: str):
     """
     Process a single Design2Code task instance directory and compute metrics across rounds.
@@ -522,37 +445,27 @@ def process_design2code_instance(output_base_dir: str, task_dir: str):
                where best_scores is a dict with the 5 metrics
     """
     task_instance_dir = os.path.join(output_base_dir, task_dir)
-    renders_dir = os.path.join(task_instance_dir, "renders")
-    html_dir = os.path.join(task_instance_dir, "html")
 
-    if not os.path.exists(renders_dir) or not os.path.exists(html_dir):
+    if not os.path.exists(task_instance_dir):
         return task_dir, {}, None
 
     # Look for ground truth files
-    gt_renders_dir = f"data/design2code/{task_dir}/renders/goal"
-    gt_html_dir = f"data/design2code/{task_dir}/html/goal"
+    gt_render_path = f"data/design2code/Design2Code-HARD/{task_dir}.png"
+    gt_html_path = f"data/design2code/Design2Code-HARD/{task_dir}.html"
     
-    if not os.path.exists(gt_renders_dir) or not os.path.exists(gt_html_dir):
+    if not os.path.exists(gt_render_path) or not os.path.exists(gt_html_path):
         return task_dir, {}, None
 
     task_instance_scores = {}
 
     # Get all round directories (1, 2, 3, 4, etc.)
-    round_dirs = [d for d in os.listdir(renders_dir)
-                 if os.path.isdir(os.path.join(renders_dir, d))]
-    try:
-        round_dirs.sort(key=lambda x: int(x))
-    except Exception:
-        # Fallback to lexical sort if non-numeric dirs exist
-        round_dirs.sort()
-
-    if not round_dirs:
-        return task_dir, {}, None
-
-    for round_dir in round_dirs:
-        round_path = os.path.join(renders_dir, round_dir)
-        html_round_path = os.path.join(html_dir, round_dir)
-        task_instance_scores[round_dir] = {}
+    for round in range(1, 11):
+        # Process render
+        render_path = os.path.join(task_instance_dir, f"round_{round}_optimized.png")
+        html_path = os.path.join(task_instance_dir, f"round_{round}.html")
+        
+        if not os.path.exists(render_path) or not os.path.exists(html_path):
+            continue
 
         # Collect all metric scores for this round
         block_scores = []
@@ -560,113 +473,54 @@ def process_design2code_instance(output_base_dir: str, task_dir: str):
         position_scores = []
         color_scores = []
         clip_scores = []
-
-        # Process render1
-        render1_path = os.path.join(round_path, "render1.png")
-        gt_render1_path = os.path.join(gt_renders_dir, "render1.png")
-        html1_path = os.path.join(html_round_path, "render1.html")
-        gt_html1_path = os.path.join(gt_html_dir, "render1.html")
         
-        if (os.path.exists(render1_path) and os.path.exists(gt_render1_path) and
-            os.path.exists(html1_path) and os.path.exists(gt_html1_path)):
-            try:
-                # Read HTML files
-                with open(html1_path, 'r', encoding='utf-8') as f:
-                    proposal_html = f.read()
-                with open(gt_html1_path, 'r', encoding='utf-8') as f:
-                    gt_html = f.read()
-                
-                # Compute all 5 metrics
-                block_score = block_metric(proposal_html, gt_html)
-                text_score = text_metric(proposal_html, gt_html)
-                position_score = position_metric(proposal_html, gt_html)
-                color_score = color_metric(proposal_html, gt_html)
-                
-                # CLIP metric (visual similarity)
-                proposal_render = Image.open(render1_path)
-                gt_render = Image.open(gt_render1_path)
-                clip_score = float(clip_similarity(proposal_render, gt_render))
-                
-                # Store scores
-                block_scores.append(block_score)
-                text_scores.append(text_score)
-                position_scores.append(position_score)
-                color_scores.append(color_score)
-                clip_scores.append(clip_score)
-                
-                task_instance_scores[round_dir]['render1'] = {
-                    'block': block_score,
-                    'text': text_score,
-                    'position': position_score,
-                    'color': color_score,
-                    'clip': clip_score
-                }
-            except Exception as e:
-                print(f"Error processing render1 for {task_dir}/{round_dir}: {e}")
-
-        # Process render2
-        render2_path = os.path.join(round_path, "render2.png")
-        gt_render2_path = os.path.join(gt_renders_dir, "render2.png")
-        html2_path = os.path.join(html_round_path, "render2.html")
-        gt_html2_path = os.path.join(gt_html_dir, "render2.html")
-        
-        if (os.path.exists(render2_path) and os.path.exists(gt_render2_path) and
-            os.path.exists(html2_path) and os.path.exists(gt_html2_path)):
-            try:
-                # Read HTML files
-                with open(html2_path, 'r', encoding='utf-8') as f:
-                    proposal_html2 = f.read()
-                with open(gt_html2_path, 'r', encoding='utf-8') as f:
-                    gt_html2 = f.read()
-                
-                # Compute all 5 metrics
-                block_score2 = block_metric(proposal_html2, gt_html2)
-                text_score2 = text_metric(proposal_html2, gt_html2)
-                position_score2 = position_metric(proposal_html2, gt_html2)
-                color_score2 = color_metric(proposal_html2, gt_html2)
-                
-                # CLIP metric (visual similarity)
-                proposal_render2 = Image.open(render2_path)
-                gt_render2 = Image.open(gt_render2_path)
-                clip_score2 = float(clip_similarity(proposal_render2, gt_render2))
-                
-                # Store scores
-                block_scores.append(block_score2)
-                text_scores.append(text_score2)
-                position_scores.append(position_score2)
-                color_scores.append(color_score2)
-                clip_scores.append(clip_score2)
-                
-                task_instance_scores[round_dir]['render2'] = {
-                    'block': block_score2,
-                    'text': text_score2,
-                    'position': position_score2,
-                    'color': color_score2,
-                    'clip': clip_score2
-                }
-            except Exception as e:
-                print(f"Error processing render2 for {task_dir}/{round_dir}: {e}")
-
-        # Calculate average scores for this round
-        if block_scores and text_scores and position_scores and color_scores and clip_scores:
-            task_instance_scores[round_dir]['avg_block'] = sum(block_scores) / len(block_scores)
-            task_instance_scores[round_dir]['avg_text'] = sum(text_scores) / len(text_scores)
-            task_instance_scores[round_dir]['avg_position'] = sum(position_scores) / len(position_scores)
-            task_instance_scores[round_dir]['avg_color'] = sum(color_scores) / len(color_scores)
-            task_instance_scores[round_dir]['avg_clip'] = sum(clip_scores) / len(clip_scores)
+        try:
+            # Read HTML files
+            with open(html_path, 'r', encoding='utf-8') as f:
+                proposal_html = f.read()
+            with open(gt_html_path, 'r', encoding='utf-8') as f:
+                gt_html = f.read()
+            
+            # Compute all 5 metrics
+            block_score = block_metric(proposal_html, gt_html)
+            text_score = text_metric(proposal_html, gt_html)
+            position_score = position_metric(proposal_html, gt_html)
+            color_score = color_metric(proposal_html, gt_html)
+            
+            # CLIP metric (visual similarity)
+            proposal_render = Image.open(render_path)
+            gt_render = Image.open(gt_render_path)
+            clip_score = float(clip_similarity(proposal_render, gt_render))
+            
+            # Store scores
+            block_scores.append(block_score)
+            text_scores.append(text_score)
+            position_scores.append(position_score)
+            color_scores.append(color_score)
+            clip_scores.append(clip_score)
+            
+            task_instance_scores[round] = {
+                'block': block_score,
+                'text': text_score,
+                'position': position_score,
+                'color': color_score,
+                'clip': clip_score
+            }
+        except Exception as e:
+            print(f"Error processing render for {task_dir}/{round}: {e}")
 
     # Determine best rounds for each metric
     valid_rounds = {k: v for k, v in task_instance_scores.items() 
-                   if all(key in v for key in ['avg_block', 'avg_text', 'avg_position', 'avg_color', 'avg_clip'])}
+                   if all(key in v for key in ['block', 'text', 'position', 'color', 'clip'])}
     
     best_scores = None
     if valid_rounds:
         best_scores = {
-            'block': max(valid_rounds.values(), key=lambda x: x['avg_block'])['avg_block'],
-            'text': max(valid_rounds.values(), key=lambda x: x['avg_text'])['avg_text'],
-            'position': max(valid_rounds.values(), key=lambda x: x['avg_position'])['avg_position'],
-            'color': max(valid_rounds.values(), key=lambda x: x['avg_color'])['avg_color'],
-            'clip': max(valid_rounds.values(), key=lambda x: x['avg_clip'])['avg_clip']
+            'block': max(valid_rounds.values(), key=lambda x: x['block'])['block'],
+            'text': max(valid_rounds.values(), key=lambda x: x['text'])['text'],
+            'position': max(valid_rounds.values(), key=lambda x: x['position'])['position'],
+            'color': max(valid_rounds.values(), key=lambda x: x['color'])['color'],
+            'clip': max(valid_rounds.values(), key=lambda x: x['clip'])['clip']
         }
 
     # Save individual instance scores
@@ -691,7 +545,7 @@ def extract_task_type_and_number(task_dir_name):
         tuple: (task_type, task_number) or (None, None) if invalid
     """
     # Common Design2Code task types
-    task_types = ['design', 'layout', 'component', 'page', 'form', 'dashboard', 'landing']
+    task_types = ['g']
     
     for task_type in task_types:
         if task_dir_name.startswith(task_type):
@@ -746,8 +600,6 @@ def main():
                 tasks_by_type[task_type] = []
             tasks_by_type[task_type].append((task_dir, task_number))
     
-    print(f"Grouped tasks by type: {list(tasks_by_type.keys())}")
-    
     scores_across_tasks = {}
     intermediates = {}
     
@@ -796,60 +648,28 @@ def main():
                     print(f"    Error processing {task_type} instance: {e}")
 
         # Aggregate per-round averages across all instances (rounds 1..9)
-        per_round_values = {str(i): {
+        per_round_values = {i: {
             'block': [], 'text': [], 'position': [], 'color': [], 'clip': [], 'penalized_count': 0
         } for i in range(1, 11)}
         
         for instance_scores in scores_across_instances['instance_details'].values():
             # Collect available round indices for this instance
             available_rounds = sorted(
-                [int(r) for r, v in instance_scores.items() if isinstance(v, dict) and 
-                 all(key in v for key in ['avg_block', 'avg_text', 'avg_position', 'avg_color', 'avg_clip'])]
+                [r for r, v in instance_scores.items() if isinstance(v, dict) and 
+                 all(key in v for key in ['block', 'text', 'position', 'color', 'clip'])]
             )
             if not available_rounds:
                 continue
-            max_available_round = max(available_rounds)
-
+            
             for round_idx in range(1, 11):
-                key = str(round_idx)
+                key = round_idx
                 # Case 1: round exists normally
-                if key in instance_scores and all(metric in instance_scores[key] for metric in ['avg_block', 'avg_text', 'avg_position', 'avg_color', 'avg_clip']):
-                    per_round_values[key]['block'].append(instance_scores[key]['avg_block'])
-                    per_round_values[key]['text'].append(instance_scores[key]['avg_text'])
-                    per_round_values[key]['position'].append(instance_scores[key]['avg_position'])
-                    per_round_values[key]['color'].append(instance_scores[key]['avg_color'])
-                    per_round_values[key]['clip'].append(instance_scores[key]['avg_clip'])
-                    continue
-
-                # Case 2: earlier round missing but later rounds exist -> penalize
-                if round_idx < max_available_round:
-                    # Find the next available later round to base the penalty on
-                    later_rounds = [r for r in available_rounds if r > round_idx]
-                    if not later_rounds:
-                        continue
-                    next_round = min(later_rounds)
-                    next_key = str(next_round)
-                    base_scores = {
-                        'block': instance_scores[next_key]['avg_block'],
-                        'text': instance_scores[next_key]['avg_text'],
-                        'position': instance_scores[next_key]['avg_position'],
-                        'color': instance_scores[next_key]['avg_color'],
-                        'clip': instance_scores[next_key]['avg_clip']
-                    }
-                    # Decaying penalty: higher for earlier rounds, lower for later rounds
-                    if MAX_ROUNDS > 1:
-                        t = (round_idx - 1) / (MAX_ROUNDS - 1)
-                    else:
-                        t = 0.0
-                    penalty_factor_round = penalty_max + t * (penalty_min - penalty_max)
-                    per_round_values[key]['block'].append(base_scores['block'] * penalty_factor_round)
-                    per_round_values[key]['text'].append(base_scores['text'] * penalty_factor_round)
-                    per_round_values[key]['position'].append(base_scores['position'] * penalty_factor_round)
-                    per_round_values[key]['color'].append(base_scores['color'] * penalty_factor_round)
-                    per_round_values[key]['clip'].append(base_scores['clip'] * penalty_factor_round)
-                    per_round_values[key]['penalized_count'] += 1
-                    continue
-                # Case 3: missing because process ended (no later rounds) -> ignore
+                if key in instance_scores and all(metric in instance_scores[key] for metric in ['block', 'text', 'position', 'color', 'clip']):
+                    per_round_values[key]['block'].append(instance_scores[key]['block'])
+                    per_round_values[key]['text'].append(instance_scores[key]['text'])
+                    per_round_values[key]['position'].append(instance_scores[key]['position'])
+                    per_round_values[key]['color'].append(instance_scores[key]['color'])
+                    per_round_values[key]['clip'].append(instance_scores[key]['clip'])
 
         per_round_summary = {}
         for key, vals in per_round_values.items():
@@ -860,8 +680,7 @@ def main():
                     'avg_position': sum(vals['position']) / len(vals['position']),
                     'avg_color': sum(vals['color']) / len(vals['color']),
                     'avg_clip': sum(vals['clip']) / len(vals['clip']),
-                    'num_instances': len(vals['block']),
-                    'num_penalized': int(vals['penalized_count'])
+                    'num_instances': len(vals['block'])
                 }
 
         # Store per-round aggregation in intermediates structure too
