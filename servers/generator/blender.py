@@ -21,6 +21,7 @@ import cv2
 import numpy as np
 import time
 from openai import OpenAI
+import re
 
 mcp = FastMCP("blender-executor")
 
@@ -603,11 +604,13 @@ def exec_script(code: str, round: int) -> dict:
 @mcp.tool()
 def add_meshy_asset(
     description: str,
-    blender_path: str,
     location: str = "0,0,0",
     scale: float = 1.0,
     api_key: str = None,
-    refine: bool = True
+    refine: bool = True,
+    save_dir: str = "output/meshy_assets",
+    filename: str = None,
+    blender_path: str = None
 ) -> dict:
     """
     使用 Meshy Text-to-3D 生成资产并导入到当前场景（生成→轮询→下载→导入）
@@ -663,47 +666,46 @@ def add_meshy_asset(
         if not file_url:
             return {"status": "error", "error": "No downloadable model_urls found"}
 
-        # 5) 下载模型到临时目录
-        temp_dir = tempfile.mkdtemp(prefix="meshy_gen_")
+        # 5) 下载模型到本地持久目录
+        os.makedirs(save_dir, exist_ok=True)
         # 处理无扩展名直链：默认 .glb
         guessed_ext = os.path.splitext(file_url.split("?")[0])[1].lower()
         if guessed_ext not in [".glb", ".gltf", ".fbx", ".obj", ".zip"]:
             guessed_ext = ".glb"
-        local_path = os.path.join(temp_dir, f"meshy_model{guessed_ext}")
+        safe_desc = re.sub(r"[^a-zA-Z0-9_-]+", "_", description)[:60] or "asset"
+        base_name = filename or f"text_{safe_desc}_{int(time.time())}"
+        local_path = os.path.join(save_dir, f"{base_name}{guessed_ext}")
         print(f"[Meshy] Downloading model to: {local_path}")
         meshy.download_model_url(file_url, local_path)
 
-        # 6) 若为 ZIP，解压出 3D 文件
-        importer = AssetImporter(blender_path)
-        if local_path.endswith(".zip"):
-            extracted = importer.extract_zip_asset(local_path, temp_dir)
-            import_path = extracted
-        else:
-            import_path = local_path
+        # 6) 若为 ZIP，解压出 3D 文件到保存目录下的同名子目录
+        if blender_path:
+            importer = AssetImporter(blender_path)
+            if local_path.endswith(".zip"):
+                extract_subdir = os.path.join(save_dir, base_name)
+                os.makedirs(extract_subdir, exist_ok=True)
+                extracted = importer.extract_zip_asset(local_path, extract_subdir)
+                import_path = extracted
+            else:
+                import_path = local_path
 
-        # 7) 导入 Blender
-        imported_object_name = importer.import_asset(import_path, location=asset_location, scale=scale)
-        print(f"[Meshy] Imported object: {imported_object_name}")
+            # 7) 导入 Blender
+            imported_object_name = importer.import_asset(import_path, location=asset_location, scale=scale)
+            print(f"[Meshy] Imported object: {imported_object_name}")
 
-        # 8) 保存 Blender 文件
-        try:
-            bpy.ops.wm.save_mainfile(filepath=blender_path)
-            print(f"Blender file saved to: {blender_path}")
-            
-            # 清理备份文件以避免生成 .blend1 文件
-            backup_file = blender_path + "1"
-            if os.path.exists(backup_file):
-                os.remove(backup_file)
-                print(f"Removed backup file: {backup_file}")
+            # 8) 保存 Blender 文件
+            try:
+                bpy.ops.wm.save_mainfile(filepath=blender_path)
+                print(f"Blender file saved to: {blender_path}")
                 
-        except Exception as save_error:
-            print(f"Warning: Failed to save blender file: {save_error}")
-
-        # 9) 清理临时目录
-        try:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-        except Exception as cleanup_error:
-            print(f"Warning: Failed to cleanup temp files: {cleanup_error}")
+                # 清理备份文件以避免生成 .blend1 文件
+                backup_file = blender_path + "1"
+                if os.path.exists(backup_file):
+                    os.remove(backup_file)
+                    print(f"Removed backup file: {backup_file}")
+                    
+            except Exception as save_error:
+                print(f"Warning: Failed to save blender file: {save_error}")
 
         return {
             "status": "success",
@@ -711,7 +713,8 @@ def add_meshy_asset(
             "asset_name": description,
             "object_name": imported_object_name,
             "location": asset_location,
-            "scale": scale
+            "scale": scale,
+            "saved_model_path": import_path
         }
 
     except Exception as e:
@@ -721,12 +724,14 @@ def add_meshy_asset(
 @mcp.tool()
 def add_meshy_asset_from_image(
     image_path: str,
-    blender_path: str,
     location: str = "0,0,0",
     scale: float = 1.0,
     prompt: str = None,
     api_key: str = None,
-    refine: bool = True
+    refine: bool = True,
+    save_dir: str = "output/meshy_assets",
+    filename: str = None,
+    blender_path: str = None,
 ) -> dict:
     """
     使用 Meshy Image-to-3D 根据输入图片生成资产并导入到当前场景（生成→轮询→下载→导入）
@@ -790,48 +795,47 @@ def add_meshy_asset_from_image(
         if not file_url:
             return {"status": "error", "error": "No downloadable model_urls found"}
 
-        # 5) 下载模型到临时目录
-        temp_dir = tempfile.mkdtemp(prefix="meshy_image_gen_")
+        # 5) 下载模型到本地持久目录
+        os.makedirs(save_dir, exist_ok=True)
         # 处理无扩展名直链：默认 .glb
         guessed_ext = os.path.splitext(file_url.split("?")[0])[1].lower()
         if guessed_ext not in [".glb", ".gltf", ".fbx", ".obj", ".zip"]:
             guessed_ext = ".glb"
-        local_path = os.path.join(temp_dir, f"meshy_image_model{guessed_ext}")
+        safe_source = re.sub(r"[^a-zA-Z0-9_-]+", "_", os.path.splitext(os.path.basename(image_path))[0])[:60] or "image"
+        base_name = filename or f"image_{safe_source}_{int(time.time())}"
+        local_path = os.path.join(save_dir, f"{base_name}{guessed_ext}")
         print(f"[Meshy] Downloading Image-to-3D model to: {local_path}")
         meshy.download_model_url(file_url, local_path)
 
-        # 6) 若为 ZIP，解压出 3D 文件
-        importer = AssetImporter(blender_path)
-        if local_path.endswith(".zip"):
-            extracted = importer.extract_zip_asset(local_path, temp_dir)
-            import_path = extracted
-        else:
-            import_path = local_path
+        # 6) 若为 ZIP，解压出 3D 文件到保存目录下的同名子目录
+        if blender_path:
+            importer = AssetImporter(blender_path)
+            if local_path.endswith(".zip"):
+                extract_subdir = os.path.join(save_dir, base_name)
+                os.makedirs(extract_subdir, exist_ok=True)
+                extracted = importer.extract_zip_asset(local_path, extract_subdir)
+                import_path = extracted
+            else:
+                import_path = local_path
 
-        # 7) 导入 Blender
-        imported_object_name = importer.import_asset(import_path, location=asset_location, scale=scale)
-        print(f"[Meshy] Imported Image-to-3D object: {imported_object_name}")
+            # 7) 导入 Blender
+            imported_object_name = importer.import_asset(import_path, location=asset_location, scale=scale)
+            print(f"[Meshy] Imported Image-to-3D object: {imported_object_name}")
 
-        # 8) 保存 Blender 文件
-        try:
-            bpy.ops.wm.save_mainfile(filepath=blender_path)
-            print(f"Blender file saved to: {blender_path}")
-            
-            # 清理备份文件以避免生成 .blend1 文件
-            backup_file = blender_path + "1"
-            if os.path.exists(backup_file):
-                os.remove(backup_file)
-                print(f"Removed backup file: {backup_file}")
+            # 8) 保存 Blender 文件
+            try:
+                bpy.ops.wm.save_mainfile(filepath=blender_path)
+                print(f"Blender file saved to: {blender_path}")
                 
-        except Exception as save_error:
-            print(f"Warning: Failed to save blender file: {save_error}")
+                # 清理备份文件以避免生成 .blend1 文件
+                backup_file = blender_path + "1"
+                if os.path.exists(backup_file):
+                    os.remove(backup_file)
+                    print(f"Removed backup file: {backup_file}")
+                    
+            except Exception as save_error:
+                print(f"Warning: Failed to save blender file: {save_error}")
 
-        # 9) 清理临时目录
-        try:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-        except Exception as cleanup_error:
-            print(f"Warning: Failed to cleanup temp files: {cleanup_error}")
-        
         return {
             "status": "success",
             "message": "Meshy Image-to-3D asset generated and imported",
@@ -839,7 +843,8 @@ def add_meshy_asset_from_image(
             "prompt": prompt,
             "object_name": imported_object_name,
             "location": asset_location,
-            "scale": scale
+            "scale": scale,
+            "saved_model_path": local_path
         }
         
     except Exception as e:

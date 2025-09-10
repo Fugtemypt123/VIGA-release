@@ -75,7 +75,7 @@ def vlm_list_objects(client: OpenAI, model: str, image_path: str) -> List[Dict[s
 def generate_assets_from_image(
     input_image: str,
     output_dir: str,
-    blender_file: str = "output/test/demo/old_blender_file.blend",
+    blender_file: str = None,
     model: str = "gpt-4o",
     refine: bool = False
 ) -> Dict[str, Any]:
@@ -138,11 +138,12 @@ def generate_assets_from_image(
         try:
             text_asset = add_meshy_asset(
                 description=name,
-                blender_path=blender_file,
                 location=f"{idx * 2},0,0",  # Spread objects along X axis
                 scale=1.0,
                 api_key=os.getenv("MESHY_API_KEY"),
                 refine=refine,
+                save_dir=output_dir,
+                blender_path=blender_file,
             )
             if text_asset.get("status") == "success":
                 print(f"  ✅ Text asset generated successfully")
@@ -159,12 +160,13 @@ def generate_assets_from_image(
             try:
                 image_asset = add_meshy_asset_from_image(
                     image_path=crop_out,
-                    blender_path=blender_file,
                     location=f"{idx * 2},2,0",  # Offset Y position for image assets
                     scale=1.0,
                     prompt=name,
                     api_key=os.getenv("MESHY_API_KEY"),
                     refine=refine,
+                    save_dir=output_dir,
+                    blender_path=blender_file,
                 )
                 if image_asset.get("status") == "success":
                     print(f"  ✅ Image asset generated successfully")
@@ -206,7 +208,7 @@ def generate_assets_from_image(
 def main():
     parser = argparse.ArgumentParser(description="Generate 3D assets from image objects")
     parser.add_argument("--image", required=True, help="Input reference image path")
-    parser.add_argument("--output-dir", default="output/test/demo/assets", help="Output directory")
+    parser.add_argument("--output-dir", default="data/blendergym_hard/level4/outdoor4/assets", help="Output directory")
     parser.add_argument("--blender-file", default="output/test/demo/old_blender_file.blend", help="Blender file to import assets into")
     parser.add_argument("--model", default="gpt-4o", help="VLM model")
     parser.add_argument("--refine", action="store_true", help="Refine Meshy assets")
