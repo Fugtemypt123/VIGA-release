@@ -20,7 +20,7 @@ import threading
 notice_assets = {
     'level4-1': ['clock', 'fireplace', 'lounge area', 'snowman', 'christmas_tree', 'box_inside', 'box_outside', 'tree_decoration_inside', 'tree_decoration_outside', 'bell'],
     'level4-2': [],
-    'level4-3': [],
+    'level4-3': ['Tree1', 'Tree2', 'Tree3', 'Tree4', 'Tree5', 'Tree6', 'Car1', 'Car2', 'Car3', 'Car4', 'Road1', 'Road2', 'Road3', 'Building1', 'Building2', 'Building3', 'Building4', 'Building5', 'Building6'],
 }
 
 def get_scene_info(task_name: str, blender_file_path: str) -> str:
@@ -35,6 +35,7 @@ def get_scene_info(task_name: str, blender_file_path: str) -> str:
     """
     try:
         import bpy
+        import mathutils
         
         # Clear existing scene
         bpy.ops.object.select_all(action='SELECT')
@@ -54,7 +55,22 @@ def get_scene_info(task_name: str, blender_file_path: str) -> str:
                 continue
             if task_name in notice_assets and obj_name not in notice_assets[task_name]:
                 continue
-            scene_info.append(f"- Name: {obj_name}; Location: {obj.location}")
+            
+            # Get object bounding box
+            bbox_corners = [obj.matrix_world @ mathutils.Vector(corner) for corner in obj.bound_box]
+            bbox_min = mathutils.Vector((
+                min(corner.x for corner in bbox_corners),
+                min(corner.y for corner in bbox_corners),
+                min(corner.z for corner in bbox_corners)
+            ))
+            bbox_max = mathutils.Vector((
+                max(corner.x for corner in bbox_corners),
+                max(corner.y for corner in bbox_corners),
+                max(corner.z for corner in bbox_corners)
+            ))
+            bbox_size = bbox_max - bbox_min
+            
+            scene_info.append(f"- Name: {obj_name}; Location: {obj.location}; BBox: min({bbox_min.x:.3f}, {bbox_min.y:.3f}, {bbox_min.z:.3f}), max({bbox_max.x:.3f}, {bbox_max.y:.3f}, {bbox_max.z:.3f}), size({bbox_size.x:.3f}, {bbox_size.y:.3f}, {bbox_size.z:.3f})")
             
         if len(scene_info) == 1:
             scene_info.append("All the information are provided in the code.")

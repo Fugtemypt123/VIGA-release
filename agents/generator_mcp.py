@@ -195,7 +195,6 @@ class GeneratorAgent:
                         messages=self.memory
                     )
                     generate_response = continue_response.choices[0].message.content
-                    self.memory.append({"role": "assistant", "content": generate_response})
                 else:
                     generate_response = message.content
             else:
@@ -204,6 +203,8 @@ class GeneratorAgent:
                     model=self.model, 
                     messages=self.memory
                 ).choices[0].message.content
+                
+            self.memory.append({"role": "assistant", "content": generate_response})
             
             # Parse the response to extract code if needed (only for modes that generate code)
             _, _, full_code = parse_generate_response(generate_response)

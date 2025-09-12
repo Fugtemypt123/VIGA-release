@@ -138,9 +138,22 @@ class Investigator3D:
         # except Exception as e:
         #     print(f"Warning: Failed to save blender file: {e}")
 
-        return out
+        # 获取当前相机位置信息
+        camera_position = {
+            "location": list(self.cam.matrix_world.translation),
+            "rotation": list(self.cam.rotation_euler),
+            "target_object": self.target.name if self.target else None,
+            "radius": self.radius,
+            "theta": self.theta,
+            "phi": self.phi
+        }
 
-    def focus_on_object(self, object_name: str) -> str:
+        return {
+            "image_path": out,
+            "camera_position": camera_position
+        }
+
+    def focus_on_object(self, object_name: str) -> dict:
         obj = bpy.data.objects.get(object_name)
         if not obj:
             raise ValueError(f"{object_name} not found")
@@ -161,14 +174,14 @@ class Investigator3D:
         self.phi = math.asin((self.cam.matrix_world.translation.z - obj.matrix_world.translation.z)/self.radius)
         return self._render()
 
-    def zoom(self, direction: str) -> str:
+    def zoom(self, direction: str) -> dict:
         if direction == 'in':
             self.radius = max(1, self.radius-3)
         elif direction == 'out':
             self.radius += 3
         return self._update_and_render()
 
-    def move_camera(self, direction: str) -> str:
+    def move_camera(self, direction: str) -> dict:
         step = self.radius
         theta_step = step/(self.radius*math.cos(self.phi))
         phi_step = step/self.radius
@@ -178,7 +191,7 @@ class Investigator3D:
         elif direction=='right': self.theta += theta_step
         return self._update_and_render()
 
-    def _update_and_render(self) -> str:
+    def _update_and_render(self) -> dict:
         t = self.target.matrix_world.translation
         x = self.radius*math.cos(self.phi)*math.cos(self.theta)
         y = self.radius*math.cos(self.phi)*math.sin(self.theta)
@@ -230,8 +243,12 @@ def focus(object_name: str) -> dict:
         if not obj:
             return {"status": "error", "error": f"Object '{object_name}' not found in scene"}
 
-        img = _investigator.focus_on_object(object_name)
-        return {"status": "success", "image": str(img)}
+        result = _investigator.focus_on_object(object_name)
+        return {
+            "status": "success", 
+            "image": result["image_path"],
+            "camera_position": result["camera_position"]
+        }
     except Exception as e:
         logging.error(f"Focus failed: {e}")
         return {"status": "error", "error": str(e)}
@@ -250,8 +267,12 @@ def zoom(direction: str) -> dict:
         if _investigator.target is None:
             return {"status": "error", "error": "No target object set. Call focus first."}
 
-        img = _investigator.zoom(direction)
-        return {"status": "success", "image": str(img)}
+        result = _investigator.zoom(direction)
+        return {
+            "status": "success", 
+            "image": result["image_path"],
+            "camera_position": result["camera_position"]
+        }
     except Exception as e:
         logging.error(f"Zoom failed: {e}")
         return {"status": "error", "error": str(e)}
@@ -270,8 +291,12 @@ def move(direction: str) -> dict:
         if _investigator.target is None:
             return {"status": "error", "error": "No target object set. Call focus first."}
 
-        img = _investigator.move_camera(direction)
-        return {"status": "success", "image": str(img)}
+        result = _investigator.move_camera(direction)
+        return {
+            "status": "success", 
+            "image": result["image_path"],
+            "camera_position": result["camera_position"]
+        }
     except Exception as e:
         logging.error(f"Move failed: {e}")
         return {"status": "error", "error": str(e)}
@@ -361,6 +386,8 @@ def test_tools():
                 print("✓ focus passed")
                 print(f"  - Focused on: {first_object}")
                 print(f"  - Image saved: {result.get('image', 'N/A')}")
+                camera_pos = result.get('camera_position', {})
+                print(f"  - Camera position: {camera_pos.get('location', 'N/A')}")
             else:
                 print("✗ focus failed")
         except Exception as e:
@@ -374,6 +401,8 @@ def test_tools():
             if result.get("status") == "success":
                 print("✓ zoom passed")
                 print(f"  - Image saved: {result.get('image', 'N/A')}")
+                camera_pos = result.get('camera_position', {})
+                print(f"  - Camera position: {camera_pos.get('location', 'N/A')}")
             else:
                 print("✗ zoom failed")
         except Exception as e:
@@ -387,6 +416,8 @@ def test_tools():
             if result.get("status") == "success":
                 print("✓ move passed")
                 print(f"  - Image saved: {result.get('image', 'N/A')}")
+                camera_pos = result.get('camera_position', {})
+                print(f"  - Camera position: {camera_pos.get('location', 'N/A')}")
             else:
                 print("✗ move failed")
         except Exception as e:
