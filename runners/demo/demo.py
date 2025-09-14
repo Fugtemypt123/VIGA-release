@@ -1,4 +1,11 @@
 import os
+import sys
+
+# Add the project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import json
 import logging
 import time
@@ -7,8 +14,16 @@ import asyncio
 import subprocess
 from openai import OpenAI
 from typing import List, Dict, Any, Optional
-from .init import initialize_3d_scene_from_image, load_scene_info, update_scene_info
-from .asset import AssetGenerator
+from runners.demo.init import initialize_3d_scene_from_image, load_scene_info, update_scene_info
+from runners.demo.asset import AssetGenerator
+from utils.blender.get_scene_info import get_scene_info
+
+
+notice_assets = {
+    'level4-1': ['clock', 'fireplace', 'lounge area', 'snowman', 'christmas_tree', 'box_inside', 'box_outside', 'tree_decoration_inside', 'tree_decoration_outside', 'bell', 'floor', 'left wall', 'right wall', 'CUADRO'],
+    'level4-2': [],
+    'level4-3': ['Tree1', 'Tree2', 'Tree3', 'Tree4', 'Tree5', 'Tree6', 'Car1', 'Car2', 'Car3', 'Car4', 'Road1', 'Road2', 'Road3', 'Building1', 'Building2', 'Building3', 'Building4', 'Building5', 'Building6'],
+}
 
 class SceneReconstructionDemo:
     """Scene Reconstruction Demo Class"""
@@ -422,6 +437,9 @@ print("Blender file saved successfully")
         Returns:
             dict: Test mode result
         """
+        print(blender_file_path)
+        print(get_scene_info('level4-1', blender_file_path, notice_assets))
+        raise NotImplementedError("Not implemented")
         try:
             print("=" * 60)
             print("🧪 Starting Test Mode Demo")
@@ -471,6 +489,7 @@ print("Blender file saved successfully")
                     print(f"❌ Failed to import: {object_name} - {import_result.get('error')}")
             
             # Step 2: Run main.py iteration
+            
             print(f"\n🔄 Step 2: Running main.py iteration...")
             iteration_result = asyncio.run(self.run_main_iteration(
                 blender_file_path=blender_file_path,
@@ -588,9 +607,9 @@ def test_demo():
     Test demo functionality
     """
     parser = argparse.ArgumentParser(description="Test demo functionality")
-    parser.add_argument("--test-mode", action="store_true", help="Enable test mode (start from existing Blender file)")
-    parser.add_argument("--blender-file", default=None, type=str, help="Path to existing Blender file (required for test mode)")
-    parser.add_argument("--asset-paths", default=None, type=str, help="Paths to asset files to import (required for test mode)")
+    parser.add_argument("--easy-mode", action="store_true", help="Enable test mode (start from existing Blender file)")
+    parser.add_argument("--blender-file", default='data/blendergym_hard/level4/christmas1/blender_file.blend', type=str, help="Path to existing Blender file (required for test mode)")
+    parser.add_argument("--asset-paths", default='data/blendergym_hard/level4/christmas1/assets', type=str, help="Paths to asset files to import (required for test mode)")
     parser.add_argument("--target-image-path", default="data/blendergym_hard/level4/christmas1/renders/goal/visprompt1.png", type=str, help="Target image path")
     parser.add_argument("--model", default="gpt-5", type=str, help="OpenAI model")
     parser.add_argument("--base-url", default=os.getenv("OPENAI_BASE_URL"), type=str, help="OpenAI base URL")
@@ -601,22 +620,22 @@ def test_demo():
     print("🧪 Testing Scene Reconstruction Demo...")
     
     # Check if test mode is enabled
-    if args.test_mode:
+    if args.easy_mode:
         print("🔧 Running in TEST MODE")
         
         # Validate test mode arguments
         if not args.blender_file:
-            print("❌ Error: --blender-file is required for test mode")
+            print("❌ Error: --blender-file is required for easy mode")
             return {"status": "error", "error": "--blender-file is required for test mode"}
         
         if not args.asset_paths:
-            print("❌ Error: --asset-paths is required for test mode")
-            return {"status": "error", "error": "--asset-paths is required for test mode"}
+            print("❌ Error: --asset-paths is required for easy mode")
+            return {"status": "error", "error": "--asset-paths is required for easy mode"}
         
         # Ensure output directory exists
         os.makedirs(args.output_dir, exist_ok=True)
         
-        # Run test mode demo
+        # Run easy mode demo
         try:
             result = run_test_mode_demo(
                 blender_file_path=args.blender_file,
@@ -627,31 +646,31 @@ def test_demo():
                 api_key=args.api_key,
                 output_dir=args.output_dir
             )
-            print(f"\n📊 Test Mode Result: {result.get('status', 'unknown')}")
+            print(f"\n📊 Easy Mode Result: {result.get('status', 'unknown')}")
             
             if result.get("status") in ["success", "partial"]:
-                print(f"✓ Test mode completed")
+                print(f"✓ Easy mode completed")
                 print(f"  - Objects imported: {len(result.get('imported_objects', []))}")
                 print(f"  - Main.py status: {result.get('iteration_result', {}).get('status', 'unknown')}")
             else:
-                print(f"❌ Test mode failed: {result.get('error', 'Unknown error')}")
+                print(f"❌ Easy mode failed: {result.get('error', 'Unknown error')}")
             
             return result
             
         except Exception as e:
-            print(f"❌ Test mode error: {e}")
+            print(f"❌ Easy mode error: {e}")
             return {"status": "error", "error": str(e)}
     
     else:
-        print("🔧 Running in NORMAL MODE")
+        print("🔧 Running in HARD MODE")
         
         # Ensure output directory exists
         os.makedirs(os.path.dirname(args.output_dir), exist_ok=True)
         
-        # Run normal demo
+        # Run hard demo
         try:
             result = run_demo(target_image_path=args.target_image_path, model=args.model, base_url=args.base_url, api_key=args.api_key, output_dir=args.output_dir)
-            print(f"\n📊 Demo Result: {result.get('status', 'unknown')}")
+            print(f"\n📊 Hard Mode Result: {result.get('status', 'unknown')}")
             
             if result.get("status") == "success":
                 print(f"✓ Demo completed successfully")
