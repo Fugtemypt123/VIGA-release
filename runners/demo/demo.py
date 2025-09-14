@@ -383,7 +383,7 @@ print("Blender file saved successfully")
         }
         try:
             print(f"[TestModeDemo] Starting main.py iteration for scene adjustment")
-            
+            task_description = 'The new object is x=' + object_name + '.\n\nThat means you should ONLY edit the code related to bpy.data.objects[' + object_name + '].\n\n' + get_scene_info(task_name, blender_file_path, notice_assets)
             # Prepare main.py command
             cmd = [
                 "python", "main.py",
@@ -393,11 +393,11 @@ print("Blender file saved successfully")
                 "--max-rounds", str(max_rounds),
                 "--blender-file", blender_file_path,
                 "--target-image-path", target_image_path,
-                "--target-description", get_scene_info(task_name, blender_file_path, notice_assets),
+                "--target-description", task_description,
                 "--output-dir", output_dir,
                 "--task-name", task_name,
                 "--init-code-path", output_dir + f"/scripts/{object_name}/start.py",
-                "--init-image-path", output_dir + f"/renders/{object_name}/render1.png",
+                "--init-image-path", output_dir + f"/renders/{object_name}",
                 "--blender-server-path", "servers/generator/blender.py",
                 "--blender-command", "utils/blender/infinigen/blender/blender",
                 "--blender-file", blender_file_path,
@@ -531,9 +531,7 @@ print("Blender file saved successfully")
                     "--", os.path.dirname(asset_paths) + '/start.py',  output_dir + f"/renders/{object_name}"
                 ]
                 subprocess.run(cmd, check=True, capture_output=False, timeout=3600)
-                
-                raise NotImplementedError("Not implemented")
-            
+
                 # Step 2: Run main.py iteration
                 print(f"\n🔄 Step 2: Running main.py iteration...")
                 iteration_result = asyncio.run(self.run_main_iteration(
@@ -661,7 +659,7 @@ def test_demo():
     parser.add_argument("--blender-file", default='data/blendergym_hard/level4/christmas1/blender_file.blend', type=str, help="Path to existing Blender file (required for test mode)")
     parser.add_argument("--asset-paths", default='data/blendergym_hard/level4/christmas1/assets', type=str, help="Paths to asset files to import (required for test mode)")
     parser.add_argument("--task-name", default="level4-1", type=str, help="Task name")
-    parser.add_argument("--target-image-path", default="data/blendergym_hard/level4/christmas1/renders/goal/visprompt1.png", type=str, help="Target image path")
+    parser.add_argument("--target-image-path", default="data/blendergym_hard/level4/christmas1/renders/goal", type=str, help="Target image path")
     parser.add_argument("--model", default="o4-mini", type=str, help="OpenAI model")
     parser.add_argument("--base-url", default=os.getenv("OPENAI_BASE_URL"), type=str, help="OpenAI base URL")
     parser.add_argument("--api-key", default=os.getenv("OPENAI_API_KEY"), type=str, help="OpenAI API key")

@@ -84,7 +84,7 @@ class PromptBuilder:
         # Add scene information if blender file path is provided
         if blender_file_path and os.path.exists(blender_file_path):
             scene_info = target_description
-            user_content.append({"type": "text", "text": f"Scene Information:\n{scene_info}"})
+            user_content.append({"type": "text", "text": scene_info})
         
         # Add initial images
         init_image_path = os.path.join(init_image_path, 'render1.png')
@@ -236,7 +236,7 @@ class PromptBuilder:
         # Add scene information if blender file path is provided
         if blender_file_path and os.path.exists(blender_file_path):
             scene_info = target_description
-            user_content.append({"type": "text", "text": f"Scene Information:\n{scene_info}"})
+            user_content.append({"type": "text", "text": scene_info})
         # Add target image/description
         if level == 'level1':
             target_image_path = os.path.join(target_image_path, 'style1.png')

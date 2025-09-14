@@ -25,7 +25,7 @@ def get_scene_info(task_name: str, blender_file_path: str, notice_assets: dict =
         print(bpy.context.scene.objects.keys())
         
         # List all objects in the scene
-        scene_info.append("Objects in scene:")
+        scene_info.append("Scene Information:")
         for obj in bpy.context.scene.objects:
             obj_name = obj.name
             if task_name in notice_assets and obj_name not in notice_assets[task_name]:
