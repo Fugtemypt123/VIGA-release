@@ -97,20 +97,11 @@ class ToolHandler:
     async def execute_script(self, code: str, round_num: int = None) -> Dict[str, Any]:
         """Execute code directly (Blender Python, HTML, etc.)."""
         try:
-            if self.server_type == "html":
-                # Execute HTML code
-                result = await self.tool_client.exec_script(
-                    server_type=self.server_type,
-                    code=code,
-                    round_num=round_num or 1,
-                )
-            else:
-                # Execute Blender Python code
-                result = await self.tool_client.exec_script(
-                    server_type=self.server_type,
-                    code=code,
-                    round_num=round_num or 1,
-                )
+            result = await self.tool_client.exec_script(
+                server_type=self.server_type,
+                code=code,
+                round_num=round_num or 1,
+            )
             return result
         except Exception as e:
             return {'text': f"Error executing script: {str(e)}", 'success': False}

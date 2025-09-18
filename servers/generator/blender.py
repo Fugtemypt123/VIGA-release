@@ -15,7 +15,6 @@ import requests
 import tempfile
 import zipfile
 import shutil
-import bpy
 import math
 import cv2
 import numpy as np
@@ -265,9 +264,11 @@ class AssetImporter:
     """3D资产导入器，支持多种格式"""
     def __init__(self, blender_path: str):
         self.blender_path = blender_path
-        bpy.ops.wm.open_mainfile(filepath=blender_path)
+
 
     def import_asset(self, asset_path: str, location: tuple = (0, 0, 1), scale: float = 1.0, name: str = "new_asset") -> str:
+        import bpy 
+        bpy.ops.wm.open_mainfile(filepath=self.blender_path)
         """导入3D资产到Blender场景"""
         try:
             # 确保文件存在
@@ -306,6 +307,16 @@ class AssetImporter:
                     
                 # 将对象名称设置为name
                 imported_objects[0].name = name
+                
+                # 保存Blender文件
+                bpy.ops.wm.save_mainfile(filepath=self.blender_path)
+                print(f"Blender file saved to: {self.blender_path}")
+                
+                # 清理备用文件
+                backup_file = self.blender_path + "1"
+                if os.path.exists(backup_file):
+                    os.remove(backup_file)
+                    print(f"Removed backup file: {backup_file}")
 
                 # 返回导入的对象名称
                 return imported_objects[0].name
@@ -340,6 +351,25 @@ class AssetImporter:
         except Exception as e:
             logging.error(f"Failed to extract ZIP asset: {e}")
             raise
+        
+def import_asset_from_local(asset_path: str, location: tuple = (0, 0, 1), scale: float = 1.0, name: str = "new_asset", save_dir: str = None) -> str:
+    """从本地导入3D资产到Blender场景"""
+    importer = _asset_importer
+    if asset_path.endswith(".zip"):
+        extract_subdir = os.path.join(save_dir, name)
+        os.makedirs(extract_subdir, exist_ok=True)
+        extracted = importer.extract_zip_asset(asset_path, extract_subdir)
+        import_path = extracted
+    else:
+        import_path = asset_path
+        
+    imported_object_name = importer.import_asset(import_path, location=location, scale=scale, name=name)
+            
+    return {
+        "status": "success",
+        "message": "Meshy Text-to-3D asset generated and imported",
+        "asset_name": name
+    }
 
 
 def add_meshy_asset(
@@ -404,50 +434,13 @@ def add_meshy_asset(
         local_path = os.path.join(save_dir, f"{object_name}{guessed_ext}")
         print(f"[Meshy] Downloading model to: {local_path}")
         meshy.download_model_url(file_url, local_path)
-
-        # 6) 若为 ZIP，解压出 3D 文件到保存目录下的同名子目录
-        if _asset_importer:
-            importer = _asset_importer
-            if local_path.endswith(".zip"):
-                extract_subdir = os.path.join(save_dir, object_name)
-                os.makedirs(extract_subdir, exist_ok=True)
-                extracted = importer.extract_zip_asset(local_path, extract_subdir)
-                import_path = extracted
-            else:
-                import_path = local_path
-
-            # 7) 导入 Blender
-            imported_object_name = importer.import_asset(import_path, location=asset_location, scale=scale, name=object_name)
-  
-            print(f"[Meshy] Imported object: {imported_object_name}")
-
-            # 8) 保存 Blender 文件
-            try:
-                blender_path = _asset_importer.blender_path
-                bpy.ops.wm.save_mainfile(filepath=blender_path)
-                print(f"Blender file saved to: {blender_path}")
-                
-                # 备份一份blender_path到save_dir
-                blender_path_backup = os.path.join(save_dir, f"{object_name}.blend")
-                shutil.copy(blender_path, blender_path_backup)
-                
-                # 清理备份文件以避免生成 .blend1 文件
-                backup_file = blender_path + "1"
-                if os.path.exists(backup_file):
-                    os.remove(backup_file)
-                    print(f"Removed backup file: {backup_file}")
-                    
-            except Exception as save_error:
-                print(f"Warning: Failed to save blender file: {save_error}")
-
+        
         return {
-            "status": "success",
-            "message": "Meshy Text-to-3D asset generated and imported",
-            "asset_name": object_name,
-            "object_name": imported_object_name,
-            "location": asset_location,
-            "scale": scale,
-            "saved_model_path": import_path
+            'status': 'success',
+            'message': 'Meshy Text-to-3D asset generated',
+            'object_name': object_name,
+            'local_path': local_path,
+            'save_dir': save_dir
         }
 
     except Exception as e:
@@ -530,49 +523,12 @@ def add_meshy_asset_from_image(
         print(f"[Meshy] Downloading Image-to-3D model to: {local_path}")
         meshy.download_model_url(file_url, local_path)
 
-        # 6) 若为 ZIP，解压出 3D 文件到保存目录下的同名子目录
-        if _asset_importer:
-            importer = _asset_importer
-            if local_path.endswith(".zip"):
-                extract_subdir = os.path.join(save_dir, base_name)
-                os.makedirs(extract_subdir, exist_ok=True)
-                extracted = importer.extract_zip_asset(local_path, extract_subdir)
-                import_path = extracted
-            else:
-                import_path = local_path
-
-            # 7) 导入 Blender
-            imported_object_name = importer.import_asset(import_path, location=asset_location, scale=scale, name=object_name)
-            print(f"[Meshy] Imported Image-to-3D object: {imported_object_name}")
-
-            # 8) 保存 Blender 文件
-            try:
-                blender_path = _asset_importer.blender_path
-                bpy.ops.wm.save_mainfile(filepath=blender_path)
-                print(f"Blender file saved to: {blender_path}")
-                
-                # 备份一份blender_path到save_dir
-                blender_path_backup = os.path.join(save_dir, f"{object_name}.blend")
-                shutil.copy(blender_path, blender_path_backup)
-                
-                # 清理备份文件以避免生成 .blend1 文件
-                backup_file = blender_path + "1"
-                if os.path.exists(backup_file):
-                    os.remove(backup_file)
-                    print(f"Removed backup file: {backup_file}")
-                    
-            except Exception as save_error:
-                print(f"Warning: Failed to save blender file: {save_error}")
-
         return {
-            "status": "success",
-            "message": "Meshy Image-to-3D asset generated and imported",
-            "asset_name": object_name,
-            "image_path": image_path,
-            "prompt": prompt,
-            "location": asset_location,
-            "scale": scale,
-            "saved_model_path": local_path
+            'status': 'success',
+            'message': 'Meshy Image-to-3D asset generated',
+            'object_name': object_name,
+            'local_path': local_path,
+            'save_dir': save_dir
         }
         
     except Exception as e:
@@ -586,18 +542,55 @@ def generate_and_import_3d_asset(
     reference_type: str,
     object_description: str = None,
 ) -> dict:
-    if reference_type == "text":
-        return add_meshy_asset(object_name=object_name, description=object_description)
-    elif reference_type == "image":
-        cropped_bbox = _image_cropper.crop_image_by_text(object_name=object_name)
-        # cropped_bbox = {'data': [[{'label': 'snowman', 'score': 1.0, 'bounding_box': [551.0, 711.0, 653.0, 830.0]}]]}
-        cropped_bbox = cropped_bbox['data'][0][0]['bounding_box']
-        cropped_image = PIL.Image.open(_image_cropper.target_image_path).crop(cropped_bbox)
-        save_dir = os.path.dirname(_asset_importer.blender_path) + '/assets'
-        save_path = os.path.join(save_dir, f"cropped_{object_name}.png")
-        cropped_image.save(save_path)
-        result = add_meshy_asset_from_image(image_path=save_path, object_name=object_name)
-        return result
+    assets_dir = 'data/blendergym_hard/level4/christmas1/assets'
+    save_dir = os.path.join(os.path.dirname(_asset_importer.blender_path), "assets")
+    generate_result = None
+    for asset_file in os.listdir(assets_dir):
+        if object_name.lower() in asset_file.lower() or asset_file.lower() in object_name.lower():
+            if asset_file.endswith('.glb') or asset_file.endswith('.obj'):
+                generate_result = {
+                    'status': 'success',
+                    'message': 'Meshy Text-to-3D asset generated',
+                    'object_name': object_name,
+                    'local_path': os.path.join(assets_dir, asset_file),
+                    'save_dir': save_dir
+                }
+                break
+        elif os.path.isdir(os.path.join(assets_dir, asset_file)):
+            for asset_file_ in os.listdir(os.path.join(assets_dir, asset_file)):
+                if object_name.lower() in asset_file_.lower() or asset_file_.lower() in object_name.lower():
+                    if asset_file_.endswith('.glb') or asset_file_.endswith('.obj'):
+                        generate_result = {
+                            'status': 'success',
+                            'message': 'Meshy Text-to-3D asset generated',
+                            'object_name': object_name,
+                            'local_path': os.path.join(assets_dir, asset_file, asset_file_),
+                            'save_dir': save_dir
+                        }
+                        break
+            if generate_result is not None:
+                break
+    if generate_result is None:
+        if reference_type == "text":
+            generate_result = add_meshy_asset(object_name=object_name, description=object_description)
+        elif reference_type == "image":
+            cropped_bbox = _image_cropper.crop_image_by_text(object_name=object_name)
+            # cropped_bbox = {'data': [[{'label': 'snowman', 'score': 1.0, 'bounding_box': [551.0, 711.0, 653.0, 830.0]}]]}
+            cropped_bbox = cropped_bbox['data'][0][0]['bounding_box']
+            cropped_image = PIL.Image.open(_image_cropper.target_image_path).crop(cropped_bbox)
+            save_dir = os.path.dirname(_asset_importer.blender_path) + '/assets'
+            save_path = os.path.join(save_dir, f"cropped_{object_name}.png")
+            cropped_image.save(save_path)
+            generate_result = add_meshy_asset_from_image(image_path=save_path, object_name=object_name)
+    
+    if generate_result.get('status') == 'success':
+        import_result = import_asset_from_local(generate_result.get('local_path'), location=(0, 0, 1), scale=1.0, name=object_name, save_dir=generate_result.get('save_dir'))
+        return import_result
+    else:
+        return {
+            'status': 'error',
+            'error': generate_result.get('error')
+        }
     
 @mcp.tool()
 def initialize_executor(blender_command: str,

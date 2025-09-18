@@ -131,12 +131,12 @@ class ExternalToolClient:
         try:
             result = await asyncio.wait_for(
                 session.client.call_tool(tool_name, tool_args),
-                timeout=60
+                timeout=120
             )
             content = json.loads(result.content[0].text) if result.content else {}
             return content
         except asyncio.TimeoutError:
-            raise RuntimeError(f"{server_type.capitalize()} script execution timeout after 60s")
+            raise RuntimeError(f"{server_type.capitalize()} script execution timeout after 120s")
         except Exception as e:
             raise RuntimeError(f"{server_type.capitalize()} script execution failed: {str(e)}")
     

@@ -6,9 +6,13 @@ import subprocess
 if __name__ == "__main__":
     time_stamp = time.strftime("%Y%m%d_%H%M%S")
     output_dir = f"output/demo/christmas1/{time_stamp}"
+    os.makedirs(output_dir, exist_ok=True)
     init_code_path = "data/blendergym_hard/level4/christmas1/start.py"
     copy_init_code_path = f"{output_dir}/start.py"
+    copy_init_code_path_0 = f'{output_dir}/scripts/0.py'
+    os.makedirs(f'{output_dir}/scripts', exist_ok=True)
     shutil.copy(init_code_path, copy_init_code_path)
+    shutil.copy(init_code_path, copy_init_code_path_0)
     init_image_path = "data/blendergym_hard/level4/christmas1/renders/start"
     copy_init_image_path = f"{output_dir}/renders/start"
     shutil.copytree(init_image_path, copy_init_image_path)
@@ -33,7 +37,7 @@ if __name__ == "__main__":
     api_key = os.getenv("OPENAI_API_KEY")
     openai_base_url = os.getenv("OPENAI_BASE_URL")
     max_rounds = 100
-    vision_model = "o4-mini"
+    vision_model = "gpt-5"
     cmd = f"python main.py --mode blendergym-hard --vision-model {vision_model} --api-key {api_key} --max-rounds {max_rounds} --init-code-path {copy_init_code_path} --init-image-path {copy_init_image_path} --target-image-path {copy_target_image_path} --output-dir {output_dir} --task-name {task_name} --generator-script {generator_script} --verifier-script {verifier_script} --blender-server-path {blender_server_path} --blender-command {blender_command} --blender-file {copy_blender_file} --blender-script {copy_blender_script} --save-blender-file --scene-server-path {scene_server_path} --meshy_api_key {meshy_api_key} --va_api_key {va_api_key}"
     print(cmd)
     subprocess.run(cmd, shell=True)

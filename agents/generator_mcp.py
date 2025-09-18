@@ -33,7 +33,8 @@ class GeneratorAgent:
                  output_dir: Optional[str] = None,
                  api_base_url: Optional[str] = None,
                  blender_file_path: Optional[str] = None,
-                 html_server_path: Optional[str] = None):
+                 html_server_path: Optional[str] = None,
+                 script_save: Optional[str] = None):
         """
         Initialize the Generator Agent.
         """
@@ -58,6 +59,7 @@ class GeneratorAgent:
         self.output_dir = output_dir
         self.init_code_path = init_code_path
         self.blender_file_path = blender_file_path
+        self.script_save = script_save
         # Decide which server to use
         if mode == "blendergym" or mode == "blendergym-hard":
             self.server_type = "blender"
@@ -128,8 +130,9 @@ class GeneratorAgent:
                 tools=self._get_tools()
             )
             message = response.choices[0].message
-            
             self.memory.append(message.model_dump())
+            
+            last_full_code = self.script_save + f"/{self.current_round}.py"
             
             if message.tool_calls:
                 for tool_call in message.tool_calls:
@@ -141,17 +144,18 @@ class GeneratorAgent:
                         "role": "tool",
                         "tool_call_id": tool_call.id,
                         "name": tool_call.function.name,
-                        "content": output_content
+                        "content": tool_response['text']
                     })
-                full_code = output_content
+                full_code = open(last_full_code).read()
+                full_code += output_content
                     
             else:
                 # Parse the response to extract code if needed (only for modes that generate code)
                 _, _, full_code = parse_generate_response(message.content)
                 
-            # If the full code is None, just copy the init code
-            if full_code is None:
-                full_code = open(self.init_code_path).read()
+                # If the full code is None, just copy the init code
+                if full_code is None:
+                    full_code = open(last_full_code).read()
             
             # Auto-execute code if it contains "Full Code" and we're in a mode that supports code execution
             execution_result = None
@@ -272,6 +276,7 @@ def main():
                 api_base_url=api_base_url,
                 blender_file_path=blender_file,
                 html_server_path=html_server_path,
+                script_save=script_save,
             )
             agent_holder['agent'] = agent
             
