@@ -361,9 +361,6 @@ def add_meshy_asset(
 
         # 初始化 Meshy API
         meshy = _meshy_api
-        
-        # 将save_path定义为_asset_importer.blender_path的父目录+'/assets'
-        save_path = os.path.join(os.path.dirname(_asset_importer.blender_path), "assets")
 
         # 1) 创建 preview 任务
         print(f"[Meshy] Creating preview task for: {description}")
@@ -592,8 +589,8 @@ def generate_and_import_3d_asset(
     if reference_type == "text":
         return add_meshy_asset(description=object_description)
     elif reference_type == "image":
-        # cropped_bbox = _image_cropper.crop_image_by_text(object_name=object_name)
-        cropped_bbox = {'data': [[{'label': 'snowman', 'score': 1.0, 'bounding_box': [551.0, 711.0, 653.0, 830.0]}]]}
+        cropped_bbox = _image_cropper.crop_image_by_text(object_name=object_name)
+        # cropped_bbox = {'data': [[{'label': 'snowman', 'score': 1.0, 'bounding_box': [551.0, 711.0, 653.0, 830.0]}]]}
         cropped_bbox = cropped_bbox['data'][0][0]['bounding_box']
         cropped_image = PIL.Image.open(_image_cropper.target_image_path).crop(cropped_bbox)
         save_dir = os.path.dirname(_asset_importer.blender_path) + '/assets'
@@ -685,26 +682,26 @@ def main():
             va_api_key=va_api_key,
             target_image_path=target_image_path,
         )
-        # print(f"[TEST] initialize_executor response: {init_resp}")
-        # if init_resp.get("status") != "success":
-        #     print("[TEST] initialize_executor failed. Abort.")
-        #     sys.exit(1)
+        print(f"[TEST] initialize_executor response: {init_resp}")
+        if init_resp.get("status") != "success":
+            print("[TEST] initialize_executor failed. Abort.")
+            sys.exit(1)
 
-        # print("[TEST] Calling generate_and_import_3d_asset (image reference)...")
-        # # 使用图片参考分支，避免 text 分支参数不匹配问题
-        # gen_resp = generate_and_import_3d_asset(
-        #     object_name="snowman",
-        #     reference_type="image",
-        #     object_description=None,
-        # )
-        # print(f"[TEST] generate_and_import_3d_asset response: {gen_resp}")
-        # sys.exit(0)
-        # 测试：向blender_file导入output/meshy_assets/snowman.glb
-        blender_file = "data/blendergym_hard/level4/christmas1/blender_file_empty.blend"
-        asset_file = "output/meshy_assets/snowman.glb"
-        _asset_importer.import_asset(asset_file, location=(0, 0, 0), scale=1.0, name="snowman")
-        bpy.ops.wm.save_mainfile(filepath=blender_file)
+        print("[TEST] Calling generate_and_import_3d_asset (image reference)...")
+        # 使用图片参考分支，避免 text 分支参数不匹配问题
+        gen_resp = generate_and_import_3d_asset(
+            object_name="snowman",
+            reference_type="image",
+            object_description=None,
+        )
+        print(f"[TEST] generate_and_import_3d_asset response: {gen_resp}")
         sys.exit(0)
+        # 测试：向blender_file导入output/meshy_assets/snowman.glb
+        # blender_file = "data/blendergym_hard/level4/christmas1/blender_file_empty.blend"
+        # asset_file = "output/meshy_assets/snowman.glb"
+        # _asset_importer.import_asset(asset_file, location=(0, 0, 0), scale=1.0, name="snowman")
+        # bpy.ops.wm.save_mainfile(filepath=blender_file)
+        # sys.exit(0)
     else:
         # 正常运行 MCP 服务
         mcp.run(transport="stdio")
