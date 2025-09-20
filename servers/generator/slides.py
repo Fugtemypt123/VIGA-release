@@ -73,13 +73,13 @@ class SlidesExecutor:
             return {"status": "failure", "output": str(e)}
 
 @mcp.tool()
-def initialize_executor(**kwargs) -> dict:
+def initialize_executor(args: dict) -> dict:
     """
     初始化 Slides 执行器，设置所有必要的参数。
     """
     global _executor
     try:
-        _executor = SlidesExecutor(kwargs.get("task_dir"), kwargs.get("output_dir"))
+        _executor = SlidesExecutor(args.get("task_dir"), args.get("output_dir"))
         return {"status": "success", "message": "Slides executor initialized successfully"}
     except Exception as e:
         return {"status": "error", "error": str(e)}

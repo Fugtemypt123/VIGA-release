@@ -593,7 +593,7 @@ def generate_and_import_3d_asset(
         }
     
 @mcp.tool()
-def initialize_executor(**kwargs) -> dict:
+def initialize_executor(args: dict) -> dict:
     """
     初始化 Blender 执行器，设置所有必要的参数。
     """
@@ -603,21 +603,21 @@ def initialize_executor(**kwargs) -> dict:
     global _image_cropper
     try:
         _executor = Executor(
-            blender_command=kwargs.get("blender_command"),
-            blender_file=kwargs.get("blender_file"),
-            blender_script=kwargs.get("blender_script"),
-            script_save=kwargs.get("script_save"),
-            render_save=kwargs.get("render_save"),
-            blender_save=kwargs.get("blender_save")
+            blender_command=args.get("blender_command"),
+            blender_file=args.get("blender_file"),
+            blender_script=args.get("blender_script"),
+            script_save=args.get("script_save"),
+            render_save=args.get("render_save"),
+            blender_save=args.get("blender_save")
         )
-        if "meshy_api_key" in kwargs:
-            _meshy_api = MeshyAPI(kwargs.get("meshy_api_key"))
-        if "va_api_key" in kwargs:
-            _image_cropper = ImageCropper(kwargs.get("va_api_key"), kwargs.get("target_image_path"))
-        if "blender_file" in kwargs:
-            _asset_importer = AssetImporter(kwargs.get("blender_file"))
-        if "target_image_path" in kwargs:
-            _image_cropper = ImageCropper(kwargs.get("va_api_key"), kwargs.get("target_image_path"))
+        if args.get("meshy_api_key"):
+            _meshy_api = MeshyAPI(args.get("meshy_api_key"))
+        if args.get("va_api_key"):
+            _image_cropper = ImageCropper(args.get("va_api_key"), args.get("target_image_path"))
+        if args.get("blender_file"):
+            _asset_importer = AssetImporter(args.get("blender_file"))
+        if args.get("va_api_key") and args.get("target_image_path"):
+            _image_cropper = ImageCropper(args.get("va_api_key"), args.get("target_image_path"))
         return {"status": "success", "message": "Executor initialized successfully"}
     except Exception as e:
         return {"status": "error", "error": str(e)}

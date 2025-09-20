@@ -7,7 +7,7 @@ import logging
 from openai import OpenAI
 from mcp.server.fastmcp import FastMCP
 from prompts import prompts_dict
-from agents.external_tool_client import ExternalToolClient
+from agents.tool_client import ExternalToolClient
 from agents.prompt_builder import PromptBuilder
 from agents.tool_manager import ToolManager
 from agents.tool_handler import ToolHandler

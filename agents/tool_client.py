@@ -102,7 +102,7 @@ class ExternalToolClient:
             raise RuntimeError(f"{server_type.capitalize()} server not connected")
         try:
             result = await asyncio.wait_for(
-                session.client.call_tool("initialize_executor", kwargs),
+                session.client.call_tool("initialize_executor", {'args': kwargs}),
                 timeout=30
             )
             content = json.loads(result.content[0].text) if result.content else {}

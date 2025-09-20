@@ -218,13 +218,13 @@ def get_scene_info(blender_path: str) -> dict:
         return {"status": "error", "error": str(e)}
 
 @mcp.tool()
-def initialize_investigator(**kwargs) -> dict:
+def initialize_investigator(args: dict) -> dict:
     """
     初始化 3D 场景调查工具。
     """
     global _investigator
     try:
-        _investigator = Investigator3D(kwargs.get("thoughtprocess_save"), str(kwargs.get("blender_path")))
+        _investigator = Investigator3D(args.get("thoughtprocess_save"), str(args.get("blender_path")))
         return {"status": "success", "message": "Investigator3D initialized successfully"}
     except Exception as e:
         return {"status": "error", "error": str(e)}

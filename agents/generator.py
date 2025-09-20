@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Any
 import logging
 import copy
 from mcp.server.fastmcp import FastMCP
-from agents.external_tool_client import ExternalToolClient
+from agents.tool_client import ExternalToolClient
 from agents.prompt_builder import PromptBuilder
 from agents.tool_manager import ToolManager
 from agents.tool_handler import ToolHandler
