@@ -262,7 +262,7 @@ def load_tasks_from_output(output_dir: str) -> List[Dict]:
                         if render1.exists() and render2.exists():
                             round_dirs.append(i)
                 
-                if len(round_dirs) >= 8:  # Need at least 8 rounds for tournament
+                if len(round_dirs) >= 2:  # Need at least 2 rounds for tournament
                     # Find corresponding target images
                     task_name = task_dir.name
                     target_renders_dir = Path(f"data/blendergym/{task_name}/renders/goal")
@@ -310,9 +310,9 @@ def run_tournament(task_config: Dict, args) -> Dict:
     # Get all available round directories
     available_rounds = task_config['round_dirs']
     
-    # Prepare images for tournament (8 rounds)
+    # Prepare images for tournament (use all available rounds)
     images = []
-    for round_num in available_rounds[:8]:  # Use first 8 rounds
+    for round_num in available_rounds:  # Use all available rounds
         round_dir = renders_dir / str(round_num)
         render1_path = round_dir / "render1.png"
         render2_path = round_dir / "render2.png"
@@ -324,19 +324,20 @@ def run_tournament(task_config: Dict, args) -> Dict:
                 'render2': str(render2_path)
             })
     
-    if len(images) < 8:
-        print(f"Warning: Only {len(images)} rounds available, need 8")
+    if len(images) < 2:
+        print(f"Warning: Only {len(images)} rounds available, need at least 2")
         return {"error": f"Insufficient rounds: {len(images)}"}
     
     # Target images
     target_render1 = str(target_renders_dir / "render1.png")
     target_render2 = str(target_renders_dir / "render2.png")
     
-    # Tournament: 8 -> 4 -> 2 -> 1
+    # Tournament: dynamic rounds with bye logic
     current_images = images.copy()
     
     tournament_results = {
         "task_name": task_name,
+        "total_participants": len(images),
         "rounds": []
     }
     
@@ -347,42 +348,35 @@ def run_tournament(task_config: Dict, args) -> Dict:
         round_results = {
             "round": round_num,
             "participants": len(current_images),
-            "comparisons": []
+            "comparisons": [],
+            "byes": []
         }
         
         # Pair up images for comparison
         next_round_images = []
+        
+        # Handle byes: if odd number of participants, the last one gets a bye
+        if len(current_images) % 2 == 1:
+            bye_image = current_images[-1]
+            next_round_images.append(bye_image)
+            round_results["byes"].append(bye_image['round'])
+            print(f"    Round {bye_image['round']} gets a bye")
+            current_images = current_images[:-1]  # Remove the bye image from current round
+        
+        # Pair up remaining images for comparison
         for i in range(0, len(current_images), 2):
             if i + 1 < len(current_images):
                 img1 = current_images[i]
                 img2 = current_images[i + 1]
                 
-                # Compare render1 vs render1
+                # Compare only render1 vs render1 to determine tournament winner
                 winner_render1 = vlm_compare_images(
                     img1['render1'], img2['render1'], target_render1,
                     args.api_key, args.openai_base_url, args.vision_model
                 )
                 
-                # Compare render2 vs render2  
-                winner_render2 = vlm_compare_images(
-                    img1['render2'], img2['render2'], target_render2,
-                    args.api_key, args.openai_base_url, args.vision_model
-                )
-                
-                # Overall winner (majority vote)
-                if winner_render1 == winner_render2:
-                    winner_idx = winner_render1 - 1  # Convert to 0-based index
-                else:
-                    # Tie-breaker: use CLIP similarity
-                    img1_sim1 = clip_similarity(Image.open(img1['render1']), Image.open(target_render1))
-                    img1_sim2 = clip_similarity(Image.open(img1['render2']), Image.open(target_render2))
-                    img1_avg_sim = (img1_sim1 + img1_sim2) / 2
-                    
-                    img2_sim1 = clip_similarity(Image.open(img2['render1']), Image.open(target_render1))
-                    img2_sim2 = clip_similarity(Image.open(img2['render2']), Image.open(target_render2))
-                    img2_avg_sim = (img2_sim1 + img2_sim2) / 2
-                    
-                    winner_idx = 0 if img1_avg_sim > img2_avg_sim else 1
+                # Winner is determined solely by render1 comparison
+                winner_idx = winner_render1 - 1  # Convert to 0-based index
                 
                 winner = current_images[i + winner_idx]
                 next_round_images.append(winner)
@@ -391,9 +385,7 @@ def run_tournament(task_config: Dict, args) -> Dict:
                     "img1_round": img1['round'],
                     "img2_round": img2['round'],
                     "winner_render1": winner_render1,
-                    "winner_render2": winner_render2,
-                    "final_winner": img1['round'] if winner_idx == 0 else img2['round'],
-                    "winner_clip_sim": img1_avg_sim if winner_idx == 0 else img2_avg_sim
+                    "final_winner": img1['round'] if winner_idx == 0 else img2['round']
                 })
         
         tournament_results["rounds"].append(round_results)
