@@ -555,7 +555,11 @@ def generate_and_import_3d_asset(
     save_dir = os.path.join(os.path.dirname(_asset_importer.blender_path), "assets")
     generate_result = None
     for asset_file in os.listdir(assets_dir):
-        if object_name.lower() in asset_file.lower() or asset_file.lower() in object_name.lower():
+        # 模糊匹配：将object_name和asset_file中的空格移除，转换为小写，判断是否互相包含
+        new_object_name = object_name.replace(" ", "")
+        new_asset_file = asset_file.replace(" ", "")
+        new_asset_file = new_asset_file.split(".")[0]
+        if new_object_name.lower() in new_asset_file.lower() or new_asset_file.lower() in new_object_name.lower():
             if asset_file.endswith('.glb') or asset_file.endswith('.obj'):
                 generate_result = {
                     'status': 'success',

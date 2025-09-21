@@ -123,7 +123,11 @@ class GeneratorAgent:
             )
             message = response.choices[0].message
             
-            last_full_code = self.config.get("script_save") + f"/{self.current_round}.py"
+            last_full_code = self.config.get("script_save") + f"/0.py"
+            for round in range(self.current_round, 0, -1):
+                last_full_code = self.config.get("script_save") + f"/{round}.py"
+                if os.path.exists(last_full_code):
+                    break
             
             if message.tool_calls:
                 # clean up the memory for a new object
