@@ -374,6 +374,12 @@ def run_tournament(task_config: Dict, args) -> Dict:
                     'render1': str(render1_path),
                     'render2': str(render2_path)
                 })
+            elif render1_path.exists():
+                images.append({
+                    'round': round_num,
+                    'render1': str(render1_path),
+                    'render2': str(render1_path)
+                })
     
     # Handle special cases: 0 rounds or 1 round
     if len(images) == 0:
@@ -399,6 +405,9 @@ def run_tournament(task_config: Dict, args) -> Dict:
         target_render1 = str(target_renders_dir / "render1.png")
         target_render2 = str(target_renders_dir / "render2.png")
         
+        if not os.path.exists(target_render2):
+            target_render2 = target_render1
+            
         # Load images for metric calculation
         winner_render1 = Image.open(single_image['render1'])
         winner_render2 = Image.open(single_image['render2'])
@@ -434,6 +443,9 @@ def run_tournament(task_config: Dict, args) -> Dict:
     # Target images
     target_render1 = str(target_renders_dir / "render1.png")
     target_render2 = str(target_renders_dir / "render2.png")
+    
+    if not os.path.exists(target_render2):
+        target_render2 = target_render1
     
     # Tournament: dynamic rounds with bye logic
     current_images = images.copy()
