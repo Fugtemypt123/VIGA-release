@@ -13,12 +13,10 @@ if __name__ == "__main__":
     os.makedirs(f'{output_dir}/scripts', exist_ok=True)
     shutil.copy(init_code_path, copy_init_code_path)
     shutil.copy(init_code_path, copy_init_code_path_0)
-    init_image_path = "data/blendergym_hard/level4/christmas1/renders/start"
-    copy_init_image_path = f"{output_dir}/renders/start"
-    shutil.copytree(init_image_path, copy_init_image_path)
-    target_image_path = "data/blendergym_hard/level4/christmas1/renders/goal"
-    copy_target_image_path = f"{output_dir}/renders/goal"
-    shutil.copytree(target_image_path, copy_target_image_path)
+    # not exist
+    init_image_path = "none"
+    # shutil.copytree(init_image_path, copy_init_image_path)
+    target_image_path = "data/blendergym_hard/level4/christmas1/renders/goal/visprompt1.png"
     task_name = "level4-1"
     generator_script = "agents/generator.py"
     verifier_script = "agents/verifier.py"
@@ -43,6 +41,6 @@ if __name__ == "__main__":
     openai_base_url = os.getenv("OPENAI_BASE_URL")
     max_rounds = 100
     vision_model = "gpt-5"
-    cmd = f"python main.py --mode blendergym-hard --vision-model {vision_model} --api-key {api_key} --max-rounds {max_rounds} --init-code-path {copy_init_code_path} --init-image-path {copy_init_image_path} --target-image-path {copy_target_image_path} --output-dir {output_dir} --task-name {task_name} --generator-script {generator_script} --verifier-script {verifier_script} --blender-server-path {blender_server_path} --blender-command {blender_command} --blender-file {copy_blender_file} --blender-script {copy_blender_script} --save-blender-file --scene-server-path {scene_server_path} --meshy_api_key {meshy_api_key} --va_api_key {va_api_key}"
+    cmd = f"python main.py --mode blendergym-hard --vision-model {vision_model} --api-key {api_key} --max-rounds {max_rounds} --init-code-path {copy_init_code_path} --init-image-path {init_image_path} --target-image-path {target_image_path} --output-dir {output_dir} --task-name {task_name} --generator-script {generator_script} --verifier-script {verifier_script} --blender-server-path {blender_server_path} --blender-command {blender_command} --blender-file {copy_blender_file} --blender-script {copy_blender_script} --save-blender-file --scene-server-path {scene_server_path} --meshy_api_key {meshy_api_key} --va_api_key {va_api_key}"
     print(cmd)
     subprocess.run(cmd, shell=True)

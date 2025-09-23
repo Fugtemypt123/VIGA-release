@@ -266,11 +266,10 @@ class PromptBuilder:
             user_content.append({"type": "image_url", "image_url": {"url": self._get_image_base64(init_image_path)}})
         else:
             # At least we need one initial image
-            raise ValueError(f"Initial image {init_image_path} does not exist!")
+            user_content.append({"type": "text", "text": "Initial image does not exist, you need to build the scene from scratch!"})
         
         # Add target images (for mode `blendergym`)
         if os.path.isdir(target_image_path):
-            target_image_path = os.path.join(target_image_path, 'style1.png')
             if level == 'level1':
                 target_image_path = os.path.join(target_image_path, 'style1.png')
             else:
