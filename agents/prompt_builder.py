@@ -254,20 +254,30 @@ class PromptBuilder:
         if target_description:
             scene_info = target_description
             user_content.append({"type": "text", "text": scene_info})
+            
+        if os.path.isdir(init_image_path):
+            init_image_path = os.path.join(init_image_path, 'render1.png')
+        else:
+            init_image_path = init_image_path
         
         # Add initial images
-        init_image_path = os.path.join(init_image_path, 'render1.png')
         if os.path.exists(init_image_path):
             user_content.append({"type": "text", "text": "Initial Image (View 1):"})
             user_content.append({"type": "image_url", "image_url": {"url": self._get_image_base64(init_image_path)}})
         else:
             # At least we need one initial image
             raise ValueError(f"Initial image {init_image_path} does not exist!")
+        
         # Add target images (for mode `blendergym`)
-        if level == 'level1':
+        if os.path.isdir(target_image_path):
             target_image_path = os.path.join(target_image_path, 'style1.png')
+            if level == 'level1':
+                target_image_path = os.path.join(target_image_path, 'style1.png')
+            else:
+                target_image_path = os.path.join(target_image_path, 'visprompt1.png')
         else:
-            target_image_path = os.path.join(target_image_path, 'visprompt1.png')
+            target_image_path = target_image_path
+        
         if os.path.exists(target_image_path):
             user_content.append({"type": "text", "text": "Target Image (View 1):"})
             user_content.append({"type": "image_url", "image_url": {"url": self._get_image_base64(target_image_path)}})
@@ -310,7 +320,11 @@ class PromptBuilder:
         user_content.append({"type": "text", "text": f"Code Analysis:\n{code_analysis}"})
         
         # Add initial images
-        init_image_path_1 = os.path.join(init_image_path, 'render1.png')
+        if os.path.isdir(init_image_path):
+            init_image_path_1 = os.path.join(init_image_path, 'render1.png')
+        else:
+            init_image_path_1 = init_image_path
+        
         if os.path.exists(init_image_path_1):
             user_content.append({"type": "text", "text": "Initial Image (View 1):"})
             user_content.append({"type": "image_url", "image_url": {"url": self._get_image_base64(init_image_path_1)}})
@@ -318,20 +332,32 @@ class PromptBuilder:
             # At least we need one initial image
             raise ValueError(f"Initial image {init_image_path_1} does not exist!")
         
-        init_image_path_2 = os.path.join(init_image_path, 'render2.png')
+        if os.path.isdir(init_image_path):
+            init_image_path_2 = os.path.join(init_image_path, 'render2.png')
+        else:
+            init_image_path_2 = init_image_path
+        
         if os.path.exists(init_image_path_2):
             user_content.append({"type": "text", "text": "Initial Image (View 2):"})
             user_content.append({"type": "image_url", "image_url": {"url": self._get_image_base64(init_image_path_2)}})
         
         # Add target images (for mode `blendergym`)
-        target_image_path_1 = os.path.join(target_image_path, 'render1.png')
+        if os.path.isdir(target_image_path):
+            target_image_path_1 = os.path.join(target_image_path, 'render1.png')
+        else:
+            target_image_path_1 = target_image_path
+        
         if os.path.exists(target_image_path_1):
             user_content.append({"type": "text", "text": "Target Image (View 1):"})
             user_content.append({"type": "image_url", "image_url": {"url": self._get_image_base64(target_image_path_1)}})
         else:
             raise ValueError(f"Target image {target_image_path_1} does not exist!")
         
-        target_image_path_2 = os.path.join(target_image_path, 'render2.png')
+        if os.path.isdir(target_image_path):
+            target_image_path_2 = os.path.join(target_image_path, 'render2.png')
+        else:
+            target_image_path_2 = target_image_path
+        
         if os.path.exists(target_image_path_2):
             user_content.append({"type": "text", "text": "Target Image (View 2):"})
             user_content.append({"type": "image_url", "image_url": {"url": self._get_image_base64(target_image_path_2)}})
@@ -406,11 +432,16 @@ class PromptBuilder:
         if target_description:
             scene_info = target_description
             user_content.append({"type": "text", "text": scene_info})
+        
         # Add target image/description
-        if level == 'level1':
-            target_image_path = os.path.join(target_image_path, 'style1.png')
+        if os.path.isdir(target_image_path):
+            if level == 'level1':
+                target_image_path = os.path.join(target_image_path, 'style1.png')
+            else:
+                target_image_path = os.path.join(target_image_path, 'visprompt1.png')
         else:
-            target_image_path = os.path.join(target_image_path, 'visprompt1.png')
+            target_image_path = target_image_path
+            
         if os.path.exists(target_image_path):
             user_content.extend([
                 {"type": "text", "text": "Target Image (View 1):"},
@@ -434,7 +465,11 @@ class PromptBuilder:
         full_prompt.append({"role": "system", "content": prompts_dict[mode]['system']['verifier']})
         user_content = []
         # Add target image/description
-        target_image_path_1 = os.path.join(target_image_path, 'render1.png')
+        if os.path.isdir(target_image_path):
+            target_image_path_1 = os.path.join(target_image_path, 'render1.png')
+        else:
+            target_image_path_1 = target_image_path
+            
         if os.path.exists(target_image_path_1):
             user_content.extend([
                 {"type": "text", "text": "Target Image (View 1):"},
@@ -442,7 +477,12 @@ class PromptBuilder:
             ])
         else:
             raise ValueError(f"Target image {target_image_path_1} does not exist!")
-        target_image_path_2 = os.path.join(target_image_path, 'render2.png')
+        
+        if os.path.isdir(target_image_path):
+            target_image_path_2 = os.path.join(target_image_path, 'render2.png')
+        else:
+            target_image_path_2 = target_image_path
+            
         if os.path.exists(target_image_path_2):
             user_content.extend([
                 {"type": "text", "text": "Target Image (View 2):"},

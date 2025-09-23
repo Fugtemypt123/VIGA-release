@@ -157,10 +157,6 @@ async def main():
             
             # Extract code from result
             code = gen_result.get("code") or gen_result.get("current_code") or gen_result.get("generated_code")
-            if not code:
-                print("No code generated")
-                break
-                
             print(f"Generated code (truncated):\n{code[:200]}...")
             
             # Check if automatic execution happened

@@ -24,9 +24,14 @@ if __name__ == "__main__":
     verifier_script = "agents/verifier.py"
     blender_server_path = "servers/generator/blender.py"
     blender_command = "utils/blender/infinigen/blender/blender"
-    blender_file = "data/blendergym_hard/level4/christmas1/blender_file.blend"
+    # Create a fresh empty .blend file as the initial editable state for each run
     copy_blender_file = f"{output_dir}/blender_file.blend"
-    shutil.copy(blender_file, copy_blender_file)
+    create_empty_blend_cmd = (
+        f"{blender_command} --background --factory-startup "
+        f"--python-expr \"import bpy; bpy.ops.wm.read_factory_settings(use_empty=True); bpy.ops.wm.save_mainfile(filepath=\\\"{copy_blender_file}\\\")\""
+    )
+    print(create_empty_blend_cmd)
+    subprocess.run(create_empty_blend_cmd, shell=True, check=True)
     blender_script = "data/blendergym_hard/level4/christmas1/pipeline_render_script.py"
     copy_blender_script = f"{output_dir}/pipeline_render_script.py"
     shutil.copy(blender_script, copy_blender_script)
