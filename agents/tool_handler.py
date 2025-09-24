@@ -16,11 +16,11 @@ class ToolHandler:
         function_args = json.loads(tool_call.function.arguments)
         
         try:
-            if function_name == "generate_and_import_3d_asset":
+            if function_name == "generate_and_download_3d_asset":
                 if self.server_type != "blender":
                     return {'text': "Error: 3D asset generation is only available for Blender mode", 'success': False}
                 
-                result = await self.tool_client.call_tool("blender", "generate_and_import_3d_asset", {
+                result = await self.tool_client.call_tool("blender", "generate_and_download_3d_asset", {
                     "object_name": function_args.get("object_name", ""),
                     "reference_type": function_args.get("reference_type", ""),
                     "object_description": function_args.get("object_description", "")
@@ -30,13 +30,13 @@ class ToolHandler:
                     object_name = function_args.get('object_name', '')
                     # output_content = f"# import a 3D asset: {object_name}\n# To edit this asset, please use `bpy.data.objects['{object_name}']`\n# To copy this asset (if you think you'll need more than one of it in the target image), please use `new_object = bpy.data.objects['{object_name}'].copy()\n# To delete this object (if you think the quality of this asset is really bad), please use `bpy.data.objects.remove(bpy.data.objects['{object_name}'])`\n"
                     return {
-                        'text': f"Successfully generated and imported 3D asset: {object_name}. {result.get('message', '')}",
+                        'text': f"Successfully generated and downloaded 3D asset: {object_name}. {result.get('message', '')}",
                         'success': True,
                         # 'output_content': output_content
                     }
                 else:
                     return {
-                        'text': f"Failed to generate and import 3D asset: {result.get('error', 'Unknown error')}",
+                        'text': f"Failed to generate and download 3D asset: {result.get('error', 'Unknown error')}",
                         'success': False,
                         # 'output_content': None
                     }

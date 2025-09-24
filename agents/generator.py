@@ -128,6 +128,7 @@ class GeneratorAgent:
             if message.tool_calls:
                 # clean up the memory for a new object (not yet)
                 # self.memory = copy.deepcopy(self.system_prompt)
+                full_code = None
                 self.memory.append(message.model_dump())
                 # handle tool calls
                 for i, tool_call in enumerate(message.tool_calls):
