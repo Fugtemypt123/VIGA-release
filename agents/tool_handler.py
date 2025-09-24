@@ -28,17 +28,17 @@ class ToolHandler:
                 
                 if result.get("status") == "success":
                     object_name = function_args.get('object_name', '')
-                    output_content = f"# import a 3D asset: {object_name}\n# To edit this asset, please use `bpy.data.objects['{object_name}']`\n# To copy this asset (if you think you'll need more than one of it in the target image), please use `new_object = bpy.data.objects['{object_name}'].copy()\n# To delete this object (if you think the quality of this asset is really bad), please use `bpy.data.objects.remove(bpy.data.objects['{object_name}'])`\n"
+                    # output_content = f"# import a 3D asset: {object_name}\n# To edit this asset, please use `bpy.data.objects['{object_name}']`\n# To copy this asset (if you think you'll need more than one of it in the target image), please use `new_object = bpy.data.objects['{object_name}'].copy()\n# To delete this object (if you think the quality of this asset is really bad), please use `bpy.data.objects.remove(bpy.data.objects['{object_name}'])`\n"
                     return {
                         'text': f"Successfully generated and imported 3D asset: {object_name}. {result.get('message', '')}",
                         'success': True,
-                        'output_content': output_content
+                        # 'output_content': output_content
                     }
                 else:
                     return {
                         'text': f"Failed to generate and import 3D asset: {result.get('error', 'Unknown error')}",
                         'success': False,
-                        'output_content': None
+                        # 'output_content': None
                     }
 
             elif function_name == "investigate_3d":

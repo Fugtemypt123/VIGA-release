@@ -119,11 +119,11 @@ class GeneratorAgent:
             response = self.client.chat.completions.create(**chat_args)
             message = response.choices[0].message
             
-            last_full_code = self.config.get("script_save") + f"/0.py"
-            for round in range(self.current_round, 0, -1):
-                last_full_code = self.config.get("script_save") + f"/{round}.py"
-                if os.path.exists(last_full_code):
-                    break
+            # last_full_code = self.config.get("script_save") + f"/0.py"
+            # for round in range(self.current_round, 0, -1):
+            #     last_full_code = self.config.get("script_save") + f"/{round}.py"
+            #     if os.path.exists(last_full_code):
+            #         break
             
             if message.tool_calls:
                 # clean up the memory for a new object (not yet)
@@ -146,37 +146,42 @@ class GeneratorAgent:
                         "name": tool_call.function.name,
                         "content": tool_response['text']
                     })
-                    full_code = open(last_full_code).read()
-                    # Add output content if available from tool response
-                    if tool_response.get('output_content'):
-                        full_code += tool_response['output_content']
+                    return_results = tool_response['text']
+                    # full_code = open(last_full_code).read()
+                    # # Add output content if available from tool response
+                    # if tool_response.get('output_content'):
+                    #     full_code += tool_response['output_content']
                     
             else:
                 self.memory.append(message.model_dump())
                 # Parse the response to extract code if needed (only for modes that generate code)
                 _, _, full_code = parse_generate_response(message.content)
+                return_results = message.content
                 
                 # If the full code is None, just copy the init code
-                if full_code is None:
-                    full_code = open(last_full_code).read()
+                # if full_code is None:
+                #     full_code = open(last_full_code).read()
             
             # Auto-execute code if it contains "Full Code" and we're in a mode that supports code execution
             execution_result = None
-            try:
-                self.current_round += 1
-                execution_result = await self.tool_handler.execute_script(
-                    code=full_code,
-                    round_num=self.current_round,
-                )
-                logging.info(f"Auto-executed code for round {self.current_round}")
-            except Exception as e:
-                logging.error(f"Failed to auto-execute code: {e}")
-                execution_result = {"status": "error", "error": str(e)}
+            if message.tool_calls: 
+                execution_result = {"status": "success", "result": {"status": "success", "output": return_results}}
+            else:
+                try:
+                    self.current_round += 1
+                    execution_result = await self.tool_handler.execute_script(
+                        code=full_code,
+                        round_num=self.current_round,
+                    )
+                    logging.info(f"Auto-executed code for round {self.current_round}")
+                except Exception as e:
+                    logging.error(f"Failed to auto-execute code: {e}")
+                    execution_result = {"status": "error", "error": str(e)}
             
             return {
                 "status": "success",
                 "code": full_code,
-                "response": message.content,
+                "response": return_results,
                 "round": self.current_round,
                 "execution_result": execution_result
             }

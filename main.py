@@ -181,23 +181,27 @@ async def main():
             await generator.add_feedback(result["output"])
             
             print("Step 2: Verifier analyzing scene...")
-            verify_result = await verifier.call(
-                code=gen_result["code"],
-                render_path=result["output"],
-                round_num=round_num,
-            )
-            
-            print(f"Verifier result: {verify_result.get('status')}")
-            if verify_result.get("status") == "end":
-                print("Verifier: OK! Task complete.")
-                break
-            elif verify_result.get("status") == "continue":
-                feedback = verify_result["output"]
-                print(f"Verifier feedback: {feedback}")
-                await generator.add_feedback(feedback)
+            if gen_result.get("code"):
+                verify_result = await verifier.call(
+                    code=gen_result["code"],
+                    render_path=result["output"],
+                    round_num=round_num,
+                )
+                
+                print(f"Verifier result: {verify_result.get('status')}")
+                if verify_result.get("status") == "end":
+                    print("Verifier: OK! Task complete.")
+                    break
+                elif verify_result.get("status") == "continue":
+                    feedback = verify_result["output"]
+                    print(f"Verifier feedback: {feedback}")
+                    await generator.add_feedback(feedback)
+                else:
+                    print(f"Verifier error: {verify_result.get('error')}")
+                    break
             else:
-                print(f"Verifier error: {verify_result.get('error')}")
-                break
+                # If no code execution, then we do not need to verify
+                await generator.add_feedback("No code execution, the state is the same as before.")
             
             print("Step 3: Saving thought processes...")
             await generator.save_thought_process()

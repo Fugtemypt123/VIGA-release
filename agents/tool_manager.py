@@ -19,8 +19,8 @@ class ToolManager:
                 meshy_tool = {
                     "type": "function",
                     "function": {
-                        "name": "generate_and_import_3d_asset",
-                        "description": "Generate and import a 3D asset into the Blender scene using Meshy Text-to-3D API. This tool can create objects based on text descriptions and automatically import them into the current scene. The default coordinates for import are (0,0,0). You can adjust these coordinates in subsequent code.",
+                        "name": "generate_and_download_3d_asset",
+                        "description": "Generate and download a 3D asset using Meshy Text-to-3D API. This tool can create objects based on text descriptions and download them to the local directory. You can import them to the Blender scene in subsequent code.",
                         "parameters": {
                             "type": "object",
                             "properties": {

@@ -1,5 +1,4 @@
 # blender_executor_server.py
-from optparse import Option
 import os
 import subprocess
 import base64
@@ -28,8 +27,6 @@ mcp = FastMCP("blender-executor")
 # Global executor instance
 _executor = None
 
-# Global asset importer instance
-_asset_importer = None
 
 # Global meshy API instance
 _meshy_api = None
@@ -269,135 +266,15 @@ class ImageCropper:
         return response.json()
 
 
-class AssetImporter:
-    """3D资产导入器，支持多种格式"""
-    def __init__(self, blender_path: str):
-        self.blender_path = blender_path
 
 
-    def import_asset(self, asset_path: str, location: tuple = (0, 0, 1), scale: float = 1.0, name: str = "new_asset") -> str:
-        import bpy 
-        bpy.ops.wm.open_mainfile(filepath=self.blender_path)
-        """导入3D资产到Blender场景"""
-        try:
-            # 确保文件存在
-            if not os.path.exists(asset_path):
-                raise FileNotFoundError(f"Asset file not found: {asset_path}")
-
-            # 根据文件扩展名选择导入方法
-            ext = os.path.splitext(asset_path)[1].lower()
-
-            if ext in ['.fbx', '.obj', '.gltf', '.glb', '.dae', '.3ds', '.blend']:
-                # 使用Blender的导入操作符
-                if ext == '.fbx':
-                    bpy.ops.import_scene.fbx(filepath=asset_path)
-                elif ext == '.obj':
-                    bpy.ops.import_scene.obj(filepath=asset_path)
-                elif ext in ['.gltf', '.glb']:
-                    bpy.ops.import_scene.gltf(filepath=asset_path)
-                elif ext == '.dae':
-                    bpy.ops.wm.collada_import(filepath=asset_path)
-                elif ext == '.3ds':
-                    bpy.ops.import_scene.autodesk_3ds(filepath=asset_path)
-                elif ext == '.blend':
-                    # 附注：append 需要 directory + filename（指向 .blend 内部路径）
-                    # 这里保留占位，以防未来确实需要 .blend 的 append
-                    bpy.ops.wm.append(filepath=asset_path)
-
-                # 获取导入的对象
-                imported_objects = [obj for obj in bpy.context.selected_objects]
-                if not imported_objects:
-                    raise RuntimeError("No objects were imported")
-
-                # 设置位置和缩放
-                for obj in imported_objects:
-                    obj.location = location
-                    obj.scale = (scale, scale, scale)
-                    
-                # 将对象名称设置为name
-                imported_objects[0].name = name
-                
-                # 保存Blender文件
-                bpy.ops.wm.save_mainfile(filepath=self.blender_path)
-                print(f"Blender file saved to: {self.blender_path}")
-                
-                # 清理备用文件
-                backup_file = self.blender_path + "1"
-                if os.path.exists(backup_file):
-                    os.remove(backup_file)
-                    print(f"Removed backup file: {backup_file}")
-
-                # 返回导入的对象名称
-                return imported_objects[0].name
-            else:
-                raise ValueError(f"Unsupported file format: {ext}")
-
-        except Exception as e:
-            logging.error(f"Failed to import asset: {e}")
-            raise
-
-    def extract_zip_asset(self, zip_path: str, extract_dir: str) -> str:
-        """从ZIP文件中提取3D资产"""
-        try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                # 查找3D文件
-                asset_files = []
-                for file_info in zip_ref.filelist:
-                    filename = file_info.filename
-                    ext = os.path.splitext(filename)[1].lower()
-                    if ext in ['.fbx', '.obj', '.gltf', '.glb', '.dae', '.3ds', '.blend']:
-                        asset_files.append(filename)
-
-                if not asset_files:
-                    raise ValueError("No supported 3D files found in ZIP")
-
-                # 提取第一个找到的3D文件
-                asset_file = asset_files[0]
-                zip_ref.extract(asset_file, extract_dir)
-
-                return os.path.join(extract_dir, asset_file)
-
-        except Exception as e:
-            logging.error(f"Failed to extract ZIP asset: {e}")
-            raise
-        
-def import_asset_from_local(asset_path: str, location: tuple = (0, 0, 1), scale: float = 1.0, name: str = "new_asset", save_dir: str = None) -> str:
-    """从本地导入3D资产到Blender场景"""
-    importer = _asset_importer
-    if asset_path.endswith(".zip"):
-        extract_subdir = os.path.join(save_dir, name)
-        os.makedirs(extract_subdir, exist_ok=True)
-        extracted = importer.extract_zip_asset(asset_path, extract_subdir)
-        import_path = extracted
-    else:
-        import_path = asset_path
-        
-    imported_object_name = importer.import_asset(import_path, location=location, scale=scale, name=name)
-            
-    return {
-        "status": "success",
-        "message": "Meshy Text-to-3D asset generated and imported",
-        "asset_name": name
-    }
-
-
-def add_meshy_asset(
+def download_meshy_asset(
     object_name: str,
     description: str,
-    location: str = "0,0,1",
-    scale: float = 1.0,
+    save_dir: str = "assets",
     refine: bool = True,
 ) -> dict:
     try:
-        # 解析位置参数
-        try:
-            loc_parts = [float(x.strip()) for x in location.split(",")]
-            if len(loc_parts) != 3:
-                return {"status": "error", "error": "Location must be in format 'x,y,z'"}
-            asset_location = tuple(loc_parts)
-        except Exception:
-            return {"status": "error", "error": "Invalid location format. Use 'x,y,z'"}
-
         # 初始化 Meshy API
         meshy = _meshy_api
 
@@ -431,9 +308,6 @@ def add_meshy_asset(
         if not file_url:
             return {"status": "error", "error": "No downloadable model_urls found"}
         
-        # save_dir是_asset_importer.blender_path的父目录+'/assets'
-        save_dir = os.path.join(os.path.dirname(_asset_importer.blender_path), "assets")
-
         # 5) 下载模型到本地持久目录
         os.makedirs(save_dir, exist_ok=True)
         # 处理无扩展名直链：默认 .glb
@@ -446,49 +320,36 @@ def add_meshy_asset(
         
         return {
             'status': 'success',
-            'message': 'Meshy Text-to-3D asset generated',
+            'message': f'Meshy Text-to-3D asset downloaded to {local_path}',
             'object_name': object_name,
             'local_path': local_path,
             'save_dir': save_dir
         }
 
     except Exception as e:
-        logging.error(f"Failed to add Meshy asset: {e}")
+        logging.error(f"Failed to download Meshy asset: {e}")
         return {"status": "error", "error": str(e)}
 
 
-def add_meshy_asset_from_image(
+def download_meshy_asset_from_image(
     object_name: str,
     image_path: str,
-    location: str = "0,0,1",
-    scale: float = 1.0,
+    save_dir: str = "assets",
     prompt: str = None,
 ) -> dict:
     """
-    使用 Meshy Image-to-3D 根据输入图片生成资产并导入到当前场景（生成→轮询→下载→导入）
+    使用 Meshy Image-to-3D 根据输入图片生成资产并下载到本地（生成→轮询→下载）
 
     Args:
+        object_name: 对象名称
         image_path: 输入图片路径
-        blender_path: Blender 文件路径
-        location: 资产位置 "x,y,z"
-        scale: 缩放比例
+        save_dir: 保存目录
         prompt: 可选的文本提示，用于指导生成
-        api_key: Meshy API 密钥（可选，默认读 MESHY_API_KEY）
-        refine: 是否在 preview 后进行 refine（含贴图）
     """
     try:
         # 检查图片文件是否存在
         if not os.path.exists(image_path):
             return {"status": "error", "error": f"Image file not found: {image_path}"}
-        
-        # 解析位置参数
-        try:
-            loc_parts = [float(x.strip()) for x in location.split(",")]
-            if len(loc_parts) != 3:
-                return {"status": "error", "error": "Location must be in format 'x,y,z'"}
-            asset_location = tuple(loc_parts)
-        except Exception:
-            return {"status": "error", "error": "Invalid location format. Use 'x,y,z'"}
 
         # 初始化 Meshy API
         meshy = _meshy_api
@@ -517,93 +378,50 @@ def add_meshy_asset_from_image(
         if not file_url:
             return {"status": "error", "error": "No downloadable model_urls found"}
 
-        # save_dir是_asset_importer.blender_path的父目录+'/assets'
-        save_dir = os.path.join(os.path.dirname(_asset_importer.blender_path), "assets")
-
         # 4) 下载模型到本地持久目录
         os.makedirs(save_dir, exist_ok=True)
         # 处理无扩展名直链：默认 .glb
         guessed_ext = os.path.splitext(file_url.split("?")[0])[1].lower()
         if guessed_ext not in [".glb", ".gltf", ".fbx", ".obj", ".zip"]:
             guessed_ext = ".glb"
-        safe_source = re.sub(r"[^a-zA-Z0-9_-]+", "_", os.path.splitext(os.path.basename(image_path))[0])[:60] or "image"
-        base_name = object_name
-        local_path = os.path.join(save_dir, f"{base_name}{guessed_ext}")
+        local_path = os.path.join(save_dir, f"{object_name}{guessed_ext}")
         print(f"[Meshy] Downloading Image-to-3D model to: {local_path}")
         meshy.download_model_url(file_url, local_path)
 
         return {
             'status': 'success',
-            'message': 'Meshy Image-to-3D asset generated',
+            'message': f'Meshy Image-to-3D asset downloaded to {local_path}',
             'object_name': object_name,
             'local_path': local_path,
             'save_dir': save_dir
         }
         
     except Exception as e:
-        logging.error(f"Failed to add Meshy asset from image: {e}")
+        logging.error(f"Failed to download Meshy asset from image: {e}")
         return {"status": "error", "error": str(e)}
 
 
 @mcp.tool()
-def generate_and_import_3d_asset(
+def generate_and_download_3d_asset(
     object_name: str,
     reference_type: str,
     object_description: str = None,
+    save_dir: str = "assets",
 ) -> dict:
-    assets_dir = 'data/blendergym_hard/level4/christmas1/assets'
-    save_dir = os.path.join(os.path.dirname(_asset_importer.blender_path), "assets")
     generate_result = None
-    for asset_file in os.listdir(assets_dir):
-        # 模糊匹配：将object_name和asset_file中的空格移除，转换为小写，判断是否互相包含
-        new_object_name = object_name.replace(" ", "")
-        new_asset_file = asset_file.replace(" ", "")
-        new_asset_file = new_asset_file.split(".")[0]
-        if new_object_name.lower() in new_asset_file.lower() or new_asset_file.lower() in new_object_name.lower():
-            if asset_file.endswith('.glb') or asset_file.endswith('.obj'):
-                generate_result = {
-                    'status': 'success',
-                    'message': 'Meshy Text-to-3D asset generated',
-                    'object_name': object_name,
-                    'local_path': os.path.join(assets_dir, asset_file),
-                    'save_dir': save_dir
-                }
-                break
-        elif os.path.isdir(os.path.join(assets_dir, asset_file)):
-            for asset_file_ in os.listdir(os.path.join(assets_dir, asset_file)):
-                if object_name.lower() in asset_file_.lower() or asset_file_.lower() in object_name.lower():
-                    if asset_file_.endswith('.glb') or asset_file_.endswith('.obj'):
-                        generate_result = {
-                            'status': 'success',
-                            'message': 'Meshy Text-to-3D asset generated',
-                            'object_name': object_name,
-                            'local_path': os.path.join(assets_dir, asset_file, asset_file_),
-                            'save_dir': save_dir
-                        }
-                        break
-            if generate_result is not None:
-                break
     if generate_result is None:
         if reference_type == "text":
-            generate_result = add_meshy_asset(object_name=object_name, description=object_description)
+            generate_result = download_meshy_asset(object_name=object_name, description=object_description, save_dir=save_dir)
         elif reference_type == "image":
             cropped_bbox = _image_cropper.crop_image_by_text(object_name=object_name)
-            # cropped_bbox = {'data': [[{'label': 'snowman', 'score': 1.0, 'bounding_box': [551.0, 711.0, 653.0, 830.0]}]]}
             cropped_bbox = cropped_bbox['data'][0][0]['bounding_box']
             cropped_image = PIL.Image.open(_image_cropper.target_image_path).crop(cropped_bbox)
-            save_dir = os.path.dirname(_asset_importer.blender_path) + '/assets'
             save_path = os.path.join(save_dir, f"cropped_{object_name}.png")
+            os.makedirs(save_dir, exist_ok=True)
             cropped_image.save(save_path)
-            generate_result = add_meshy_asset_from_image(image_path=save_path, object_name=object_name)
+            generate_result = download_meshy_asset_from_image(image_path=save_path, object_name=object_name, save_dir=save_dir)
     
-    if generate_result.get('status') == 'success':
-        import_result = import_asset_from_local(generate_result.get('local_path'), location=(0, 0, 1), scale=1.0, name=object_name, save_dir=generate_result.get('save_dir'))
-        return import_result
-    else:
-        return {
-            'status': 'error',
-            'error': generate_result.get('error')
-        }
+    return generate_result
     
 @mcp.tool()
 def initialize_executor(args: dict) -> dict:
@@ -625,7 +443,6 @@ def initialize_executor(args: dict) -> dict:
     """
     global _executor
     global _meshy_api
-    global _asset_importer
     global _image_cropper
     try:
         _executor = Executor(
@@ -639,10 +456,6 @@ def initialize_executor(args: dict) -> dict:
         )
         if args.get("meshy_api_key"):
             _meshy_api = MeshyAPI(args.get("meshy_api_key"))
-        if args.get("va_api_key"):
-            _image_cropper = ImageCropper(args.get("va_api_key"), args.get("target_image_path"))
-        if args.get("blender_file"):
-            _asset_importer = AssetImporter(args.get("blender_file"))
         if args.get("va_api_key") and args.get("target_image_path"):
             _image_cropper = ImageCropper(args.get("va_api_key"), args.get("target_image_path"))
         return {"status": "success", "message": "Executor initialized successfully"}
@@ -704,24 +517,52 @@ def main():
             print("[TEST] initialize_executor failed. Abort.")
             sys.exit(1)
 
-        print("[TEST] Calling generate_and_import_3d_asset (image reference)...")
-        # 使用图片参考分支，避免 text 分支参数不匹配问题
-        gen_resp = generate_and_import_3d_asset(
+        print("[TEST] Calling generate_and_download_3d_asset (text reference)...")
+        # 使用文本参考分支
+        gen_resp = generate_and_download_3d_asset(
             object_name="snowman",
             reference_type="text",
             object_description="A white snowman with a black hat and a red scarf.",
+            save_dir="output/test/christmas1/assets"
         )
-        print(f"[TEST] generate_and_import_3d_asset response: {gen_resp}")
+        print(f"[TEST] generate_and_download_3d_asset response: {gen_resp}")
         sys.exit(0)
-        # 测试：向blender_file导入output/meshy_assets/snowman.glb
-        # blender_file = "data/blendergym_hard/level4/christmas1/blender_file_empty.blend"
-        # asset_file = "output/meshy_assets/snowman.glb"
-        # _asset_importer.import_asset(asset_file, location=(0, 0, 0), scale=1.0, name="snowman")
-        # bpy.ops.wm.save_mainfile(filepath=blender_file)
-        # sys.exit(0)
     else:
         # 正常运行 MCP 服务
         mcp.run(transport="stdio")
 
 if __name__ == "__main__":
     main()
+
+
+# # 首先检查本地assets目录是否有匹配的文件
+# if os.path.exists(assets_dir):
+#     for asset_file in os.listdir(assets_dir):
+#         # 模糊匹配：将object_name和asset_file中的空格移除，转换为小写，判断是否互相包含
+#         new_object_name = object_name.replace(" ", "")
+#         new_asset_file = asset_file.replace(" ", "")
+#         new_asset_file = new_asset_file.split(".")[0]
+#         if new_object_name.lower() in new_asset_file.lower() or new_asset_file.lower() in new_object_name.lower():
+#             if asset_file.endswith('.glb') or asset_file.endswith('.obj'):
+#                 generate_result = {
+#                     'status': 'success',
+#                     'message': 'Local asset found',
+#                     'object_name': object_name,
+#                     'local_path': os.path.join(assets_dir, asset_file),
+#                     'save_dir': save_dir
+#                 }
+#                 break
+#         elif os.path.isdir(os.path.join(assets_dir, asset_file)):
+#             for asset_file_ in os.listdir(os.path.join(assets_dir, asset_file)):
+#                 if object_name.lower() in asset_file_.lower() or asset_file_.lower() in object_name.lower():
+#                     if asset_file_.endswith('.glb') or asset_file_.endswith('.obj'):
+#                         generate_result = {
+#                             'status': 'success',
+#                             'message': 'Local asset found',
+#                             'object_name': object_name,
+#                             'local_path': os.path.join(assets_dir, asset_file, asset_file_),
+#                             'save_dir': save_dir
+#                         }
+#                         break
+#             if generate_result is not None:
+#                 break
