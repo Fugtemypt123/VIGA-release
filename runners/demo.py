@@ -5,7 +5,7 @@ import subprocess
 
 if __name__ == "__main__":
     time_stamp = time.strftime("%Y%m%d_%H%M%S")
-    output_dir = f"output/demo/christmas1/{time_stamp}"
+    output_dir = f"output/demo/blendergym_hard/{time_stamp}"
     os.makedirs(output_dir, exist_ok=True)
     init_code_path = "data/blendergym_hard/level4/christmas1/start.py"
     copy_init_code_path = f"{output_dir}/start.py"
