@@ -158,8 +158,8 @@ async def main():
             if gen_result['execution_result']['status'] == "failure" or gen_result['execution_result']['result']['status'] == "failure":
                 continue
             
-            print("Step 2: Verifier analyzing scene...")
             if gen_result.get("code"):
+                print("Step 2: Verifier analyzing scene...")
                 verify_result = await verifier.call(
                     code=gen_result["code"],
                     render_path=gen_result["render_path"],
