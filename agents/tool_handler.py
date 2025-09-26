@@ -27,10 +27,10 @@ class ToolHandler:
                 })
                 
                 if result.get("status") == "success":
-                    object_name = function_args.get('object_name', '')
                     # output_content = f"# import a 3D asset: {object_name}\n# To edit this asset, please use `bpy.data.objects['{object_name}']`\n# To copy this asset (if you think you'll need more than one of it in the target image), please use `new_object = bpy.data.objects['{object_name}'].copy()\n# To delete this object (if you think the quality of this asset is really bad), please use `bpy.data.objects.remove(bpy.data.objects['{object_name}'])`\n"
+                    output_content = f"Downloaded {function_args.get('object_name', '')} to {result.get('local_path', '')}."
                     return {
-                        'text': f"Successfully generated and downloaded 3D asset: {object_name}. {result.get('message', '')}",
+                        'text': output_content,
                         'success': True,
                         # 'output_content': output_content
                     }

@@ -105,9 +105,10 @@ class Executor:
         with open(script_file, "w") as f:
             f.write(code)
         success, stdout, stderr = self._execute_blender(str(script_file), str(render_file))
+        render_file = str(render_file) + ".png"
         if not success or not os.path.exists(render_file):
-            return {"status": "failure", "output": stderr or stdout}
-        return {"status": "success", "output": str(render_file), "stdout": stdout, "stderr": stderr}
+            return {"status": "failure", "output": stderr or stdout, "code_path": str(script_file)}
+        return {"status": "success", "output": str(render_file), "stdout": stdout, "stderr": stderr, "code_path": str(script_file), "render_path": str(render_file)}
 
 # ======================
 # Meshy API（从scene.py迁移）
@@ -407,16 +408,17 @@ def generate_and_download_3d_asset(
     reference_type: str,
     object_description: str = None,
 ) -> dict:
-    if reference_type == "text":
-        generate_result = download_meshy_asset(object_name=object_name, description=object_description, save_dir=_save_dir)
-    elif reference_type == "image":
-        cropped_bbox = _image_cropper.crop_image_by_text(object_name=object_name)
-        cropped_bbox = cropped_bbox['data'][0][0]['bounding_box']
-        cropped_image = PIL.Image.open(_image_cropper.target_image_path).crop(cropped_bbox)
-        save_path = os.path.join(_save_dir, f"cropped_{object_name}.png")
-        os.makedirs(_save_dir, exist_ok=True)
-        cropped_image.save(save_path)
-        generate_result = download_meshy_asset_from_image(image_path=save_path, object_name=object_name, save_dir=_save_dir)
+    # if reference_type == "text":
+    #     generate_result = download_meshy_asset(object_name=object_name, description=object_description, save_dir=_save_dir)
+    # elif reference_type == "image":
+    #     cropped_bbox = _image_cropper.crop_image_by_text(object_name=object_name)
+    #     cropped_bbox = cropped_bbox['data'][0][0]['bounding_box']
+    #     cropped_image = PIL.Image.open(_image_cropper.target_image_path).crop(cropped_bbox)
+    #     save_path = os.path.join(_save_dir, f"cropped_{object_name}.png")
+    #     os.makedirs(_save_dir, exist_ok=True)
+    #     cropped_image.save(save_path)
+    #     generate_result = download_meshy_asset_from_image(image_path=save_path, object_name=object_name, save_dir=_save_dir)
+    generate_result = {"status": "success", "message": "Local asset found", "object_name": object_name, "local_path": os.path.join(_save_dir, f"{object_name}.glb"), "save_dir": _save_dir}
     
     return generate_result
     

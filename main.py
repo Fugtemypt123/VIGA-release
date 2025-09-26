@@ -32,6 +32,7 @@ async def main():
     parser.add_argument("--output-dir", default="output", help="Output directory")
     parser.add_argument("--task-name", default="blendshape", help="Task name for hints extraction")
     parser.add_argument("--gpu-devices", default=os.getenv("CUDA_VISIBLE_DEVICES"), help="GPU devices for Blender")
+    parser.add_argument("--allow-memory", action="store_true", help="Allow memory for generator")
     
     # Agent server paths 
     parser.add_argument("--generator-script", default="agents/generator_mcp.py", help="Generator MCP script path")
@@ -100,6 +101,7 @@ async def main():
             "target_description": target_description,
             "api_base_url": args.openai_base_url,
             "thought_save": args.output_dir + "/generator_thoughts.json",
+            "allow_memory": args.allow_memory,
             # Blender executor parameters
             "blender_server_path": args.blender_server_path,
             "blender_command": args.blender_command,
@@ -144,69 +146,36 @@ async def main():
         for round_num in range(args.max_rounds):
             print(f"\n=== Round {round_num+1} ===")
             
-            print("Step 1: Generator generating code...")
-            gen_result = await generator.call(no_memory=False)
-            if gen_result.get("status") == "max_rounds_reached":
-                print("Max rounds reached. Stopping.")
+            gen_result = await generator.call()
+            print("Generator result: ", gen_result)
+            await generator.save_thought_process()
+            
+            # check failed generation
+            if gen_result.get("status") == "max_rounds_reached" or gen_result.get("status") == "error" or not gen_result.get("execution_result"):
                 break
-            if gen_result.get("status") == "error":
-                print(f"Generator error: {gen_result['error']}")
-                break
             
-            print("gen_result: ", gen_result)
-            
-            # Check if automatic execution happened
-            if gen_result.get("execution_result"):
-                exec_result = gen_result["execution_result"]
-                if exec_result.get("status") == "success":
-                    print("✅ Automatic execution completed!")
-                    result = exec_result.get("result", {})
-                    if result.get("status") == "success":
-                        print("   - Generation successful")
-                    else:
-                        print(f"   - Generation failed: {result.get('output', 'Unknown error')}")
-                        await generator.add_feedback(f"Execution error: {result.get('output')}")
-                        continue
-                else:
-                    print(f"   - Execution failed: {exec_result.get('error', 'Unknown error')}")
-                    await generator.add_feedback(f"Execution error: {exec_result.get('error')}")
-                    continue
-            else:
-                # Manual execution (when automatic execution is not available)
-                # print("Step 2: Executing code...")
-                # print("   - Execution handled by generator agent internally")
-                raise ValueError("Unknown error in automatic execution")
-            
-            # Add render results to generator as feedback
-            await generator.add_feedback(result["output"])
+            # check unsuccessful generation
+            if gen_result['execution_result']['status'] == "failure" or gen_result['execution_result']['result']['status'] == "failure":
+                continue
             
             print("Step 2: Verifier analyzing scene...")
             if gen_result.get("code"):
                 verify_result = await verifier.call(
                     code=gen_result["code"],
-                    render_path=result["output"],
+                    render_path=gen_result["render_path"],
                     round_num=round_num,
                 )
-                
                 print(f"Verifier result: {verify_result.get('status')}")
-                if verify_result.get("status") == "end":
-                    print("Verifier: OK! Task complete.")
-                    break
-                elif verify_result.get("status") == "continue":
+                await verifier.save_thought_process()
+                
+                if verify_result.get("status") == "continue":
                     feedback = verify_result["output"]
-                    print(f"Verifier feedback: {feedback}")
                     await generator.add_feedback(feedback)
                 else:
-                    print(f"Verifier error: {verify_result.get('error')}")
                     break
             else:
                 # If no code execution, then we do not need to verify
                 await generator.add_feedback("No code execution, the state is the same as before.")
-            
-            print("Step 3: Saving thought processes...")
-            await generator.save_thought_process()
-            await verifier.save_thought_process()
-            await asyncio.sleep(1)
             
     except Exception as e:
         print(f"Error in main loop: {e}")

@@ -67,8 +67,12 @@ class GeneratorAgent:
         self.tool_handler = ToolHandler(self.tool_client, self.server_type)
         
         # Initialize memory using generic prompt builder
-        self.system_prompt = self.prompt_builder.build_generator_prompt(self.config)
-        self.memory = copy.deepcopy(self.system_prompt)
+        self.memory = self.prompt_builder.build_generator_prompt(self.config)
+        self.last_image_path = self.config.get("init_image_path")
+        self.last_code_path = self.config.get("init_code_path")
+        self.last_feedback = None
+        self.assets = []
+        # self.memory = copy.deepcopy(self.system_prompt)
     
     async def _ensure_server_connected(self):
         if not self._server_connected and self.server_type and self.server_path:
@@ -88,7 +92,7 @@ class GeneratorAgent:
         """Handle tool calls from the generator agent."""
         return await self.tool_handler.handle_generator_tool_call(tool_call)
 
-    async def call(self, no_memory: bool = False) -> Dict[str, Any]:
+    async def call(self) -> Dict[str, Any]:
         """
         Generate code based on current memory and optional feedback.
         
@@ -98,16 +102,24 @@ class GeneratorAgent:
         Returns:
             Dict containing the generated code and metadata
         """
-        if no_memory:
-            self.memory = copy.deepcopy(self.system_prompt)
+        if self.config.get("allow_memory") == False:
+            new_config = copy.deepcopy(self.config)
+            new_config["init_image_path"] = self.last_image_path
+            new_config["init_code_path"] = self.last_code_path
+            chat_memory = self.prompt_builder.build_generator_prompt(new_config)
+            if self.last_feedback:
+                chat_memory.append({"role": "user", "content": "The initial code cannot be executed due to the following error: " + self.last_feedback})
+            chat_memory.extend(self.assets)
+        else:
+            chat_memory = copy.deepcopy(self.memory)
             
         if self.mode == "blendergym-hard" and self.level == "level4":
-            self.memory.append({"role": "user", "content": get_scene_info(self.task_name, self.config.get("blender_file"))})
+            chat_memory.append({"role": "user", "content": get_scene_info(self.task_name, self.config.get("blender_file"))})
         
         try:
             chat_args = {
                 "model": self.model,
-                "messages": self.memory,
+                "messages": chat_memory,
             }
             if self._get_tools():
                 chat_args['tools'] = self._get_tools()
@@ -148,6 +160,7 @@ class GeneratorAgent:
                         "content": tool_response['text']
                     })
                     return_results = tool_response['text']
+                    self.assets.append({"role": "user", "content": tool_response['text']})
                     # full_code = open(last_full_code).read()
                     # # Add output content if available from tool response
                     # if tool_response.get('output_content'):
@@ -174,6 +187,13 @@ class GeneratorAgent:
                         code=full_code,
                         round_num=self.current_round,
                     )
+                    self.last_code_path = execution_result['result']['code_path']
+                    if execution_result['result']['status'] == "failure":
+                        self.last_image_path = "none"
+                        self.add_feedback(execution_result['result']['output'])
+                    else:
+                        self.last_image_path = execution_result['result']['render_path']
+                        self.memory.append({"role": "user", "content": [{"type": "text", "text": "Generated image:"}, {"type": "image_url", "image_url": {"url": self.last_image_path}}]})
                     logging.info(f"Auto-executed code for round {self.current_round}")
                 except Exception as e:
                     logging.error(f"Failed to auto-execute code: {e}")
@@ -182,6 +202,7 @@ class GeneratorAgent:
             return {
                 "status": "success",
                 "code": full_code,
+                "render_path": self.last_image_path,
                 "response": return_results,
                 "round": self.current_round,
                 "execution_result": execution_result
@@ -201,15 +222,19 @@ class GeneratorAgent:
         Args:
             feedback: Feedback from verifier or executor
         """
-        if os.path.isdir(feedback):
-            feedback = get_image_base64(os.path.join(feedback, 'render1.png'))
-            self.memory.append({"role": "user", "content": [{"type": "text", "text": "Generated image:"}, {"type": "image_url", "image_url": {"url": feedback}}]})
-        elif os.path.isfile(feedback):
-            feedback = get_image_base64(feedback)
-            self.memory.append({"role": "user", "content": [{"type": "text", "text": "Generated image:"}, {"type": "image_url", "image_url": {"url": feedback}}]})
-        else:
-            feedback = [{"type": "text", "text": feedback}]
-            self.memory.append({"role": "user", "content": feedback})
+        # if os.path.isdir(feedback):
+        #     self.last_feedback = None
+        #     self.last_image_path = os.path.join(feedback, 'render1.png')
+        #     feedback = get_image_base64(os.path.join(feedback, 'render1.png'))
+        #     self.memory.append({"role": "user", "content": [{"type": "text", "text": "Generated image:"}, {"type": "image_url", "image_url": {"url": feedback}}]})
+        # elif os.path.isfile(feedback):
+        #     self.last_feedback = None
+        #     self.last_image_path = feedback
+        #     feedback = get_image_base64(feedback)
+        #     self.memory.append({"role": "user", "content": [{"type": "text", "text": "Generated image:"}, {"itype": "image_url", "image_url": {"url": feedback}}]})
+        # else:
+        self.last_feedback = feedback
+        self.memory.append({"role": "user", "content": feedback})
     
     def save_thought_process(self) -> None:
         """Save the current thought process to file."""
@@ -304,14 +329,14 @@ def main():
             return {"status": "error", "error": str(e)}
     
     @mcp.tool()
-    async def call(no_memory: bool = False) -> dict:
+    async def call() -> dict:
         """
         Generate code using the initialized Generator Agent.
         """
         try:
             if 'agent' not in agent_holder:
                 return {"status": "error", "error": "Generator Agent not initialized. Call initialize_generator first."}
-            result = await agent_holder['agent'].call(no_memory=no_memory)
+            result = await agent_holder['agent'].call()
             return result
         except Exception as e:
             return {"status": "error", "error": str(e)}
