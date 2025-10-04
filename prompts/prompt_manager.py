@@ -4,7 +4,6 @@ Centralizes all prompt loading and management logic.
 """
 import os
 from typing import Dict, List, Optional, Any
-from . import prompts_dict
 
 
 class PromptManager:
@@ -14,10 +13,19 @@ class PromptManager:
     """
     
     def __init__(self):
-        self.prompts = prompts_dict
+        # Initialize prompts as None, will be set later
+        self.prompts = None
+    
+    def _ensure_prompts_loaded(self):
+        """Ensure prompts are loaded, avoiding circular import."""
+        if self.prompts is None:
+            # Import prompts_dict here to avoid circular import
+            from . import prompts_dict
+            self.prompts = prompts_dict
     
     def get_system_prompt(self, mode: str, agent_type: str, level: Optional[str] = None) -> str:
         """Get system prompt for specified mode, agent type, and optional level."""
+        self._ensure_prompts_loaded()
         if mode not in self.prompts:
             raise ValueError(f"Mode {mode} not supported")
         
@@ -40,6 +48,7 @@ class PromptManager:
     
     def get_format_prompt(self, mode: str, agent_type: str, level: Optional[str] = None) -> str:
         """Get format prompt for specified mode, agent type, and optional level."""
+        self._ensure_prompts_loaded()
         if mode not in self.prompts:
             raise ValueError(f"Mode {mode} not supported")
         
@@ -62,6 +71,7 @@ class PromptManager:
     
     def get_hints(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None) -> Optional[str]:
         """Get hints for specified mode, agent type, task name, and optional level."""
+        self._ensure_prompts_loaded()
         if mode not in self.prompts:
             return None
         
@@ -97,6 +107,7 @@ class PromptManager:
     
     def get_api_library(self, mode: str) -> Optional[str]:
         """Get API library documentation for specified mode."""
+        self._ensure_prompts_loaded()
         if mode not in self.prompts:
             return None
         
@@ -104,6 +115,7 @@ class PromptManager:
     
     def get_tool_example(self, mode: str) -> Optional[str]:
         """Get tool usage examples for specified mode."""
+        self._ensure_prompts_loaded()
         if mode not in self.prompts:
             return None
         
@@ -121,14 +133,17 @@ class PromptManager:
     
     def is_mode_supported(self, mode: str) -> bool:
         """Check if a mode is supported."""
+        self._ensure_prompts_loaded()
         return mode in self.prompts
     
     def get_supported_modes(self) -> List[str]:
         """Get list of all supported modes."""
+        self._ensure_prompts_loaded()
         return list(self.prompts.keys())
     
     def get_supported_agent_types(self, mode: str) -> List[str]:
         """Get list of supported agent types for a given mode."""
+        self._ensure_prompts_loaded()
         if mode not in self.prompts:
             return []
         

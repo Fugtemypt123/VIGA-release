@@ -2,6 +2,7 @@ from .autopresent import *
 from .blendergym import *
 from .blendergym_hard import *
 from .design2code import *
+from .static_scene import *
 from .prompt_manager import PromptManager, prompt_manager
 
 # Legacy prompts_dict for backward compatibility
@@ -57,6 +58,21 @@ prompts_dict = {
             'verifier': design2code_verifier_format
         },
         'hints': design2code_hints
+    },
+    'static_scene': {
+        'system': {
+            'generator': static_scene_generator_system,
+            'verifier': static_scene_verifier_system
+        },
+        'format': {
+            'generator': static_scene_generator_format,
+            'verifier': static_scene_verifier_format
+        },
+        'hints': {
+            'generator': static_scene_generator_hints,
+            'verifier': static_scene_verifier_hints
+        },
+        'tool_example': verifier_tool_hints
     },
 }
 
