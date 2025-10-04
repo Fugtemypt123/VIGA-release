@@ -51,42 +51,6 @@ def get_image_base64(image_path: str) -> str:
     base64enc_image = base64.b64encode(img_byte_array.read()).decode('utf-8')
     return f"data:image/{mime_subtype};base64,{base64enc_image}"
 
-def parse_generate_response(response: str) -> tuple:
-    """
-    Parse the generate response.
-    Returns: (thought, edit, full_code)
-    """
-    try:
-        full = response.split("Full Code")[1].strip()
-    except:
-        full = response.strip()
-    
-    # Remove the ```python and ``` from the full code
-    if "```python" in full:
-        full = full.split("```python")[1].split("```")[0].strip()
-    elif "```html" in full:
-        full = full.split("```html")[1].split("```")[0].strip()
-    elif "```" in full:
-        full = full.split("```")[0].strip()
-    else:
-        full = None
-    
-    return None, None, full
-
-def get_blendergym_hard_level(task_name: str) -> str:
-    """Extract the level from blendergym-hard task name."""
-    # Task name format is expected to be like "task-level1", "task-level2", etc.
-    if "level1" in task_name.lower():
-        return "level1"
-    elif "level2" in task_name.lower():
-        return "level2"
-    elif "level3" in task_name.lower():
-        return "level3"
-    elif "level4" in task_name.lower():
-        return "level4"
-    else:
-        # Default to level1 if no level is specified
-        return "level1"
 
 def save_thought_process(memory: List[Dict], thought_save: str, current_round: int = None) -> None:
     """Save the current thought process to file."""

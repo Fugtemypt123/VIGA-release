@@ -45,33 +45,33 @@ class ToolManager:
                 } 
                 return [meshy_tool]
         elif mode in ["blendergym", "autopresent", "design2code"]:
-            # Add execute_script tool for code execution modes
-            exec_script_tool = {
+            # Add execute_and_evaluate tool for code execution modes
+            exec_evaluate_tool = {
                 "type": "function",
                 "function": {
-                    "name": "execute_script",
-                    "description": "Execute code with thought process, code edition, and full code. Use this tool to execute your code modifications.",
+                    "name": "execute_and_evaluate",
+                    "description": "Execute code modifications and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "thought": {
                                 "type": "string",
-                                "description": "Analyze the current state and provide a clear plan for the required changes."
+                                "description": "Analyze the current state and provide a clear plan for the required changes. Consider scene representation consistency and infinigen optimization opportunities."
                             },
                             "code_edition": {
                                 "type": "string", 
-                                "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]"
+                                "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on scene consistency and use infinigen functions when appropriate."
                             },
                             "full_code": {
                                 "type": "string",
-                                "description": "Merge your code changes into the full code with proper formatting."
+                                "description": "Merge your code changes into the full code with proper formatting. Ensure consistent scene representation."
                             }
                         },
                         "required": ["thought", "code_edition", "full_code"]
                     }
                 }
             }
-            return [exec_script_tool]
+            return [exec_evaluate_tool]
         else:
             return []
     
@@ -87,21 +87,38 @@ class ToolManager:
                 }
             }]
         elif mode == "blendergym-hard":
-            return [{
-                "type": "function",
-                "function": {
-                    "name": "investigate_3d",
-                    "description": "A tool for detailed 3D scene investigation with the following operations: focus, zoom, move." + verifier_tool_hints,
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "operation": {"type": "string", "enum": ["focus", "zoom", "move"], "description": "The operation to perform on the 3D scene."},
-                            "object_name": {"type": "string", "description": "The name of the object to focus on (only for focus operation)."},
-                            "direction": {"type": "string", "enum": ["in", "out", "up", "down", "left", "right"], "description": "The direction to move the camera (only for zoom and move operation)."}
-                        },
-                        "required": ["operation"]
+            return [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "set_camera_starting_position",
+                        "description": "Set camera to fixed starting positions (-z, -x, -y directions or bbox above) for consistent 3D scene investigation. Use this to start from predictable camera positions instead of random ones.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "direction": {"type": "string", "enum": ["z", "x", "y", "bbox"], "description": "Starting camera direction: 'z' (from above), 'x' (from side), 'y' (from front), 'bbox' (above bounding box)"},
+                                "round_num": {"type": "integer", "description": "Current round number for file organization"}
+                            },
+                            "required": ["direction"]
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "investigate_3d",
+                        "description": "A tool for detailed 3D scene investigation with the following operations: focus, zoom, move." + verifier_tool_hints,
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "operation": {"type": "string", "enum": ["focus", "zoom", "move"], "description": "The operation to perform on the 3D scene."},
+                                "object_name": {"type": "string", "description": "The name of the object to focus on (only for focus operation)."},
+                                "direction": {"type": "string", "enum": ["in", "out", "up", "down", "left", "right"], "description": "The direction to move the camera (only for zoom and move operation)."}
+                            },
+                            "required": ["operation"]
+                        }
                     }
                 }
-            }]
+            ]
         else:
             return []

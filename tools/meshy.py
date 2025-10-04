@@ -132,6 +132,102 @@ class MeshyAPI:
                 raise TimeoutError(f"Meshy Image-to-3D task {task_id} polling timeout")
             time.sleep(interval_sec)
 
+    def create_rigging_task(self, model_url: str, target_formats: list = None, topology: str = "triangle", target_polycount: int = 30000) -> str:
+        """
+        创建自动绑定任务
+        
+        Args:
+            model_url: 需要绑定的3D模型的URL
+            target_formats: 目标格式列表，默认 ["glb"]
+            topology: 拓扑结构，默认 "triangle"
+            target_polycount: 目标多边形数量，默认 30000
+            
+        Returns: task_id (str)
+        """
+        url = f"{self.base_url}/openapi/v1/rigging"
+        payload = {
+            "model_url": model_url,
+            "target_formats": target_formats or ["glb"],
+            "topology": topology,
+            "target_polycount": target_polycount
+        }
+        resp = requests.post(url, headers=self.headers, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("result") or data.get("id")
+
+    def poll_rigging_task(self, task_id: str, interval_sec: float = 5.0, timeout_sec: int = 1800) -> dict:
+        """
+        轮询绑定任务直到结束
+        
+        Args:
+            task_id: 任务ID
+            interval_sec: 轮询间隔（秒）
+            timeout_sec: 超时时间（秒）
+            
+        Returns: 任务 JSON（包含 status / result 等）
+        """
+        url = f"{self.base_url}/openapi/v1/rigging/{task_id}"
+        deadline = time.time() + timeout_sec
+        while True:
+            r = requests.get(url, headers=self.headers)
+            r.raise_for_status()
+            js = r.json()
+            status = js.get("status")
+            if status in ("SUCCEEDED", "FAILED", "CANCELED"):
+                return js
+            if time.time() > deadline:
+                raise TimeoutError(f"Meshy rigging task {task_id} polling timeout")
+            time.sleep(interval_sec)
+
+    def create_animation_task(self, rig_task_id: str, action_id: int = 92, post_process: dict = None) -> str:
+        """
+        创建动画任务
+        
+        Args:
+            rig_task_id: 成功完成的绑定任务的ID
+            action_id: 要应用的动画动作的标识符，默认 92
+            post_process: 动画文件的后处理参数
+            
+        Returns: task_id (str)
+        """
+        url = f"{self.base_url}/openapi/v1/animations"
+        payload = {
+            "rig_task_id": rig_task_id,
+            "action_id": action_id
+        }
+        if post_process:
+            payload["post_process"] = post_process
+            
+        resp = requests.post(url, headers=self.headers, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("result") or data.get("id")
+
+    def poll_animation_task(self, task_id: str, interval_sec: float = 5.0, timeout_sec: int = 1800) -> dict:
+        """
+        轮询动画任务直到结束
+        
+        Args:
+            task_id: 任务ID
+            interval_sec: 轮询间隔（秒）
+            timeout_sec: 超时时间（秒）
+            
+        Returns: 任务 JSON（包含 status / result 等）
+        """
+        url = f"{self.base_url}/openapi/v1/animations/{task_id}"
+        deadline = time.time() + timeout_sec
+        while True:
+            r = requests.get(url, headers=self.headers)
+            r.raise_for_status()
+            js = r.json()
+            status = js.get("status")
+            if status in ("SUCCEEDED", "FAILED", "CANCELED"):
+                return js
+            if time.time() > deadline:
+                raise TimeoutError(f"Meshy animation task {task_id} polling timeout")
+            time.sleep(interval_sec)
+
 
 class ImageCropper:
     """图片截取工具，支持基于文本描述的智能截取（Grounding DINO + SAM / YOLO / OpenAI 兜底）"""
@@ -303,4 +399,204 @@ def download_meshy_asset_from_image(
         
     except Exception as e:
         logging.error(f"Failed to download Meshy asset from image: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+def create_rigged_character(
+    model_url: str,
+    save_dir: str = "assets",
+    target_formats: list = None,
+    topology: str = "triangle",
+    target_polycount: int = 30000,
+    meshy_api: MeshyAPI = None,
+) -> dict:
+    """
+    创建带有绑定的角色模型
+    
+    Args:
+        model_url: 3D模型的URL
+        save_dir: 保存目录
+        target_formats: 目标格式列表
+        topology: 拓扑结构
+        target_polycount: 目标多边形数量
+        meshy_api: MeshyAPI 实例
+        
+    Returns:
+        dict: 包含绑定结果的字典
+    """
+    try:
+        # 初始化 Meshy API
+        if meshy_api is None:
+            meshy_api = MeshyAPI()
+
+        # 1) 创建绑定任务
+        print(f"[Meshy] Creating rigging task for: {model_url}")
+        rig_task_id = meshy_api.create_rigging_task(
+            model_url=model_url,
+            target_formats=target_formats,
+            topology=topology,
+            target_polycount=target_polycount
+        )
+
+        # 2) 轮询绑定任务
+        rig_task = meshy_api.poll_rigging_task(rig_task_id, interval_sec=5, timeout_sec=1800)
+        if rig_task.get("status") != "SUCCEEDED":
+            return {"status": "error", "error": f"Rigging failed: {rig_task.get('status')}"}
+
+        # 3) 从结果中获取绑定的模型下载链接
+        result = rig_task.get("result", {})
+        rigged_model_url = result.get("rigged_character_fbx_url")
+        if not rigged_model_url:
+            return {"status": "error", "error": "No rigged model URL found in result"}
+
+        # 4) 下载绑定的模型到本地
+        os.makedirs(save_dir, exist_ok=True)
+        local_path = os.path.join(save_dir, f"rigged_character_{rig_task_id}.fbx")
+        print(f"[Meshy] Downloading rigged model to: {local_path}")
+        meshy_api.download_model_url(rigged_model_url, local_path)
+
+        return {
+            'status': 'success',
+            'message': f'Rigged character downloaded to {local_path}',
+            'rig_task_id': rig_task_id,
+            'local_path': local_path,
+            'save_dir': save_dir,
+            'rigged_model_url': rigged_model_url
+        }
+
+    except Exception as e:
+        logging.error(f"Failed to create rigged character: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+def create_animated_character(
+    rig_task_id: str,
+    action_id: int = 92,
+    save_dir: str = "assets",
+    post_process: dict = None,
+    meshy_api: MeshyAPI = None,
+) -> dict:
+    """
+    为绑定的角色创建动画
+    
+    Args:
+        rig_task_id: 绑定任务的ID
+        action_id: 动画动作ID
+        save_dir: 保存目录
+        post_process: 后处理参数
+        meshy_api: MeshyAPI 实例
+        
+    Returns:
+        dict: 包含动画结果的字典
+    """
+    try:
+        # 初始化 Meshy API
+        if meshy_api is None:
+            meshy_api = MeshyAPI()
+
+        # 1) 创建动画任务
+        print(f"[Meshy] Creating animation task for rig_task_id: {rig_task_id}")
+        anim_task_id = meshy_api.create_animation_task(
+            rig_task_id=rig_task_id,
+            action_id=action_id,
+            post_process=post_process
+        )
+
+        # 2) 轮询动画任务
+        anim_task = meshy_api.poll_animation_task(anim_task_id, interval_sec=5, timeout_sec=1800)
+        if anim_task.get("status") != "SUCCEEDED":
+            return {"status": "error", "error": f"Animation failed: {anim_task.get('status')}"}
+
+        # 3) 从结果中获取动画文件下载链接
+        result = anim_task.get("result", {})
+        animated_model_url = result.get("animated_model_url")
+        if not animated_model_url:
+            return {"status": "error", "error": "No animated model URL found in result"}
+
+        # 4) 下载动画模型到本地
+        os.makedirs(save_dir, exist_ok=True)
+        local_path = os.path.join(save_dir, f"animated_character_{anim_task_id}.glb")
+        print(f"[Meshy] Downloading animated model to: {local_path}")
+        meshy_api.download_model_url(animated_model_url, local_path)
+
+        return {
+            'status': 'success',
+            'message': f'Animated character downloaded to {local_path}',
+            'anim_task_id': anim_task_id,
+            'rig_task_id': rig_task_id,
+            'local_path': local_path,
+            'save_dir': save_dir,
+            'animated_model_url': animated_model_url
+        }
+
+    except Exception as e:
+        logging.error(f"Failed to create animated character: {e}")
+        return {"status": "error", "error": str(e)}
+
+
+def create_rigged_and_animated_character(
+    model_url: str,
+    action_id: int = 92,
+    save_dir: str = "assets",
+    target_formats: list = None,
+    topology: str = "triangle",
+    target_polycount: int = 30000,
+    post_process: dict = None,
+    meshy_api: MeshyAPI = None,
+) -> dict:
+    """
+    完整的流程：创建绑定角色并添加动画
+    
+    Args:
+        model_url: 3D模型的URL
+        action_id: 动画动作ID
+        save_dir: 保存目录
+        target_formats: 目标格式列表
+        topology: 拓扑结构
+        target_polycount: 目标多边形数量
+        post_process: 后处理参数
+        meshy_api: MeshyAPI 实例
+        
+    Returns:
+        dict: 包含完整结果的字典
+    """
+    try:
+        # 1) 首先创建绑定角色
+        rigging_result = create_rigged_character(
+            model_url=model_url,
+            save_dir=save_dir,
+            target_formats=target_formats,
+            topology=topology,
+            target_polycount=target_polycount,
+            meshy_api=meshy_api
+        )
+        
+        if rigging_result.get("status") != "success":
+            return rigging_result
+
+        # 2) 然后创建动画
+        rig_task_id = rigging_result["rig_task_id"]
+        animation_result = create_animated_character(
+            rig_task_id=rig_task_id,
+            action_id=action_id,
+            save_dir=save_dir,
+            post_process=post_process,
+            meshy_api=meshy_api
+        )
+
+        if animation_result.get("status") != "success":
+            return animation_result
+
+        return {
+            'status': 'success',
+            'message': 'Rigged and animated character created successfully',
+            'rig_task_id': rig_task_id,
+            'anim_task_id': animation_result["anim_task_id"],
+            'rigged_model_path': rigging_result["local_path"],
+            'animated_model_path': animation_result["local_path"],
+            'save_dir': save_dir
+        }
+
+    except Exception as e:
+        logging.error(f"Failed to create rigged and animated character: {e}")
         return {"status": "error", "error": str(e)}

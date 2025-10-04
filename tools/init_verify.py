@@ -131,6 +131,46 @@ class ImageDifferentiationTool:
         )
         return response.choices[0].message.content
 
+    def generate_initialization_suggestions(self, target_path: str, current_path: str) -> str:
+        """根据目标图片和当前图片的对比，生成初始化建议"""
+        target_img = Image.open(target_path).convert("RGB")
+        current_img = Image.open(current_path).convert("RGB")
+        
+        # 确保两个图像尺寸一致
+        if target_img.size != current_img.size:
+            current_img = current_img.resize(target_img.size)
+        
+        # 计算差异
+        diff = ImageChops.difference(target_img, current_img)
+        target_high, current_high = self._highlight_differences(target_img, current_img, diff)
+        
+        # 确定图像类型
+        if target_path.endswith('png'):
+            image_type = 'png'
+        else:
+            image_type = 'jpeg'
+        
+        # 转换为base64
+        b64s = [self.pil_to_base64(im) for im in [target_img, current_img, target_high, current_high]]
+        
+        messages = [
+            {"role": "system", "content": "You are an expert in 3D scene initialization and verification. You will receive a target image (what we want to achieve) and a current image (what we currently have), along with highlighted differences. Provide specific initialization suggestions to help achieve the target scene from the current state."},
+            {"role": "user", "content": [
+                {"type": "text", "text": "Please analyze the target image (what we want to achieve) and the current image (what we currently have), along with the highlighted differences. Provide specific initialization suggestions including:\n1. Camera adjustments needed (position, angle, focal length)\n2. Lighting modifications required\n3. Material and texture changes\n4. Object placement and scaling adjustments\n5. Rendering parameter modifications\n6. Specific steps to transform the current scene to match the target\nFocus on the highlighted differences and provide actionable technical recommendations."},
+                {"type": "image_url", "image_url": {"url": f"data:image/{image_type};base64,{b64s[0]}"}},
+                {"type": "image_url", "image_url": {"url": f"data:image/{image_type};base64,{b64s[1]}"}},
+                {"type": "image_url", "image_url": {"url": f"data:image/{image_type};base64,{b64s[2]}"}},
+                {"type": "image_url", "image_url": {"url": f"data:image/{image_type};base64,{b64s[3]}"}},
+            ]}
+        ]
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=1024
+        )
+        return response.choices[0].message.content
+
 @mcp.tool()
 def initialize_investigator(args: dict) -> dict:
     """
@@ -173,6 +213,23 @@ def compare_images(path1: str, path2: str) -> dict:
         return {"status": "success", "description": result}
     except Exception as e:
         logging.error(f"Comparison failed: {e}")
+        return {"status": "error", "error": str(e)}
+
+@mcp.tool()
+def generate_initialization_suggestions(target_path: str, current_path: str) -> dict:
+    """
+    根据目标图片和当前图片的对比，生成初始化建议。
+    需要先调用 initialize_investigator 进行初始化。
+    """
+    global _image_tool
+    if _image_tool is None:
+        return {"status": "error", "error": "ImageDifferentiationTool not initialized. Call initialize_investigator first."}
+    
+    try:
+        result = _image_tool.generate_initialization_suggestions(target_path, current_path)
+        return {"status": "success", "suggestions": result}
+    except Exception as e:
+        logging.error(f"Initialization suggestions generation failed: {e}")
         return {"status": "error", "error": str(e)}
 
 def main():
@@ -257,6 +314,39 @@ result = img
             
     except Exception as e:
         print(f"✗ compare_images failed with exception: {e}")
+    
+    # 测试 4: 生成初始化建议（对比目标图片和当前图片）
+    print("\n4. Testing generate_initialization_suggestions...")
+    try:
+        # 创建目标图像和当前图像
+        target_img = Image.new('RGB', (100, 100), color='red')
+        current_img = Image.new('RGB', (100, 100), color='blue')
+        
+        target_path = "/tmp/target_test.png"
+        current_path = "/tmp/current_test.png"
+        
+        target_img.save(target_path)
+        current_img.save(current_path)
+        
+        # 只有在有有效 API key 时才测试初始化建议生成
+        if os.getenv("OPENAI_API_KEY"):
+            result = generate_initialization_suggestions(target_path, current_path)
+            print(f"Result: {result}")
+            if result.get("status") == "success":
+                print("✓ generate_initialization_suggestions passed")
+            else:
+                print("✗ generate_initialization_suggestions failed")
+        else:
+            print("⚠ Skipping generate_initialization_suggestions test (no OPENAI_API_KEY)")
+        
+        # 清理测试文件
+        if os.path.exists(target_path):
+            os.remove(target_path)
+        if os.path.exists(current_path):
+            os.remove(current_path)
+            
+    except Exception as e:
+        print(f"✗ generate_initialization_suggestions failed with exception: {e}")
     
     print("\n" + "=" * 50)
     print("Test completed!")

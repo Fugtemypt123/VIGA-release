@@ -10,7 +10,8 @@ from agents.tool_client import ExternalToolClient
 from agents.prompt_builder import PromptBuilder
 from agents.tool_manager import ToolManager
 from agents.tool_handler import ToolHandler
-from agents.utils import parse_generate_response, get_blendergym_hard_level, save_thought_process, get_scene_info, get_image_base64
+from agents.config_manager import ConfigManager
+from agents.utils import save_thought_process, get_scene_info, get_image_base64
 
 class GeneratorAgent:
     """
@@ -24,61 +25,69 @@ class GeneratorAgent:
         """
         self.config = kwargs
         
-        # Extract commonly used parameters
-        self.mode = self.config.get("mode")
-        self.model = self.config.get("vision_model")
-        self.api_key = self.config.get("api_key")
-        self.task_name = self.config.get("task_name")
-        self.max_rounds = self.config.get("max_rounds", 10)
-        self.current_round = 0
+        # Initialize configuration manager
+        self.config_manager = ConfigManager(kwargs)
         
-        # Handle blendergym-hard level detection
-        if self.mode == "blendergym-hard":
-            self.level = get_blendergym_hard_level(self.task_name)
-        else:
-            self.level = None
+        # Validate configuration
+        is_valid, error_message = self.config_manager.validate_configuration()
+        if not is_valid:
+            raise ValueError(f"Invalid configuration: {error_message}")
+        
+        # Extract commonly used parameters from config manager
+        self.mode = self.config_manager.mode
+        self.model = self.config_manager.vision_model
+        self.api_key = self.config_manager.api_key
+        self.task_name = self.config_manager.task_name
+        self.max_rounds = self.config_manager.max_rounds
+        self.current_round = 0
+        self.level = self.config_manager.level
         
         # Initialize OpenAI client
-        api_base_url = self.config.get("api_base_url")
         client_kwargs = {"api_key": self.api_key}
-        if api_base_url or os.getenv("OPENAI_BASE_URL"):
-            client_kwargs["base_url"] = api_base_url or os.getenv("OPENAI_BASE_URL")
+        if self.config_manager.api_base_url or os.getenv("OPENAI_BASE_URL"):
+            client_kwargs["base_url"] = self.config_manager.api_base_url or os.getenv("OPENAI_BASE_URL")
         self.client = OpenAI(**client_kwargs)
         
         # Initialize components
         self.tool_client = ExternalToolClient()
         self._server_connected = False
         
-        # Determine server type and path
-        if self.mode == "blendergym" or self.mode == "blendergym-hard":
-            self.server_type = "blender"
-            self.server_path = self.config.get("blender_server_path")
-        elif self.mode == "autopresent":
-            self.server_type = "slides"
-            self.server_path = self.config.get("slides_server_path")
-        elif self.mode == "design2code":
-            self.server_type = "html"
-            self.server_path = self.config.get("html_server_path")
-        else:
-            raise NotImplementedError("Mode not implemented")
+        # Determine server type and path using config manager
+        self.server_type, self.server_path = self.config_manager.get_server_type_and_path()
         
         # Initialize prompt builder and tool handler
         self.prompt_builder = PromptBuilder(self.client, self.model)
         self.tool_handler = ToolHandler(self.tool_client, self.server_type)
         
         # Initialize memory using generic prompt builder
-        self.system_prompt = self.prompt_builder.build_generator_prompt(self.config)
+        self.system_prompt = self.prompt_builder.build_generator_prompt(kwargs)
         self.memory = copy.deepcopy(self.system_prompt)
+        self.conversation_history = []  # Store last 6 chats for sliding window
     
     async def _ensure_server_connected(self):
         if not self._server_connected and self.server_type and self.server_path:
             await self.tool_client.connect_server(self.server_type, self.server_path, self.api_key)
             self._server_connected = True
     
-    async def setup_executor(self, **kwargs):
+    async def _setup_executor_internal(self, **kwargs):
+        """Internal method to setup executor - merged into call_tool"""
         await self._ensure_server_connected()
         result = await self.tool_client.call_tool(self.server_type, "initialize_executor", **kwargs)
         return result
+    
+    def _build_sliding_window_memory(self, current_chat_content=None):
+        """Build sliding window memory: system_prompt + [last 6 chats] + current chat"""
+        memory = copy.deepcopy(self.system_prompt)
+        
+        # Add last 6 conversation exchanges
+        for chat in self.conversation_history[-6:]:
+            memory.append(chat)
+        
+        # Add current chat if provided
+        if current_chat_content:
+            memory.append(current_chat_content)
+            
+        return memory
     
     def _get_tools(self) -> List[Dict]:
         """Get available tools for the generator agent."""
@@ -91,90 +100,116 @@ class GeneratorAgent:
     async def call(self, no_memory: bool = False) -> Dict[str, Any]:
         """
         Generate code based on current memory and optional feedback.
+        Now enforces tool calling and returns verifier flag.
         
         Args:
-            feedback: Optional feedback from verifier or executor
+            no_memory: If True, reset memory to system prompt only
             
         Returns:
-            Dict containing the generated code and metadata
+            Dict containing the generated code, metadata, and verifier flag
         """
+        # Setup executor if not connected (merged setup_executor into call_tool)
+        if not self._server_connected and self.server_type and self.server_path:
+            await self._setup_executor_internal(**self.config)
+        
+        # Build sliding window memory
         if no_memory:
-            self.memory = copy.deepcopy(self.system_prompt)
-            
-        if self.mode == "blendergym-hard" and self.level == "level4":
-            self.memory.append({"role": "user", "content": get_scene_info(self.task_name, self.config.get("blender_file"))})
+            self.conversation_history = []
+        
+        # Add scene info for level4 if needed
+        scene_info_content = None
+        if self.config_manager.should_add_scene_info():
+            scene_config = self.config_manager.get_scene_info_config()
+            scene_info_content = {"role": "user", "content": get_scene_info(scene_config["task_name"], scene_config["blender_file"])}
+        
+        # Build memory with sliding window
+        memory = self._build_sliding_window_memory(scene_info_content)
         
         try:
-            chat_args = {
-                "model": self.model,
-                "messages": self.memory,
-            }
-            if self._get_tools():
-                chat_args['tools'] = self._get_tools()
-                if 'gpt' in self.model:
-                    chat_args['parallel_tool_calls'] = False
-                if self.model != 'Qwen2-VL-7B-Instruct':
-                    chat_args['tool_choice'] = "auto"
+            max_attempts = 3
+            for attempt in range(max_attempts):
+                chat_args = {
+                    "model": self.model,
+                    "messages": memory,
+                }
+                
+                tools = self._get_tools()
+                if tools:
+                    chat_args['tools'] = tools
+                    if 'gpt' in self.model:
+                        chat_args['parallel_tool_calls'] = False
+                    if self.model != 'Qwen2-VL-7B-Instruct':
+                        chat_args['tool_choice'] = "auto"
 
-            response = self.client.chat.completions.create(**chat_args)
-            message = response.choices[0].message
-            
-            # last_full_code = self.config.get("script_save") + f"/0.py"
-            # for round in range(self.current_round, 0, -1):
-            #     last_full_code = self.config.get("script_save") + f"/{round}.py"
-            #     if os.path.exists(last_full_code):
-            #         break
-            
-            if message.tool_calls:
-                # clean up the memory for a new object (not yet)
-                # self.memory = copy.deepcopy(self.system_prompt)
-                full_code = None
-                self.memory.append(message.model_dump())
-                # handle tool calls
-                for i, tool_call in enumerate(message.tool_calls):
-                    if i > 0:
-                        self.memory.append({
+                response = self.client.chat.completions.create(**chat_args)
+                message = response.choices[0].message
+                
+                # Store assistant message in conversation history
+                self.conversation_history.append(message.model_dump())
+                
+                if message.tool_calls:
+                    # Tool was called - this is what we want
+                    tool_called = True
+                    full_code = None
+                    execution_result = None
+                    call_verifier = False
+                    
+                    # Handle tool calls (only first one)
+                    for i, tool_call in enumerate(message.tool_calls):
+                        if i > 0:
+                            self.conversation_history.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "name": tool_call.function.name,
+                                "content": "You can only call a tool once per conversation round."
+                            })
+                            continue
+                            
+                        tool_response = await self._handle_tool_call(tool_call)
+                        
+                        # Store tool response in conversation history
+                        self.conversation_history.append({
                             "role": "tool",
                             "tool_call_id": tool_call.id,
                             "name": tool_call.function.name,
-                            "content": "You can only call a tool once per conversation round."
+                            "content": tool_response['text']
+                        })
+                        
+                        # Check if this was an execute_and_evaluate tool call
+                        if tool_call.function.name == "execute_and_evaluate":
+                            call_verifier = True
+                            execution_result = tool_response.get('execution_result')
+                            full_code = tool_response.get('full_code')
+                        else:
+                            execution_result = {"status": "success", "result": {"status": "success", "output": tool_response['text']}}
+                        
+                        break
+                    
+                    return {
+                        "status": "success",
+                        "code": full_code,
+                        "response": tool_response['text'],
+                        "round": self.current_round,
+                        "execution_result": execution_result,
+                        "call_verifier": call_verifier
+                    }
+                else:
+                    # No tool called - this violates the requirement
+                    if attempt < max_attempts - 1:
+                        # Add feedback to encourage tool calling
+                        self.conversation_history.append({
+                            "role": "user",
+                            "content": "You must call a tool in each interaction. Please use one of the available tools to proceed with your task."
                         })
                         continue
-                    tool_response = await self._handle_tool_call(tool_call)
-                    self.memory.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "name": tool_call.function.name,
-                        "content": tool_response['text']
-                    })
-                    return_results = tool_response['text']
-                    # full_code = open(last_full_code).read()
-                    # # Add output content if available from tool response
-                    # if tool_response.get('output_content'):
-                    #     full_code += tool_response['output_content']
-                    
-            else:
-                self.memory.append(message.model_dump())
-                # Parse the response to extract code if needed (only for modes that generate code)
-                _, _, full_code = parse_generate_response(message.content)
-                return_results = message.content
-                
-                # If the full code is None, just copy the init code
-                # if full_code is None:
-                #     full_code = open(last_full_code).read()
-            
-            # No auto-execution - exec_script is now handled as a tool
-            execution_result = None
-            if message.tool_calls: 
-                execution_result = {"status": "success", "result": {"status": "success", "output": return_results}}
-            
-            return {
-                "status": "success",
-                "code": full_code,
-                "response": return_results,
-                "round": self.current_round,
-                "execution_result": execution_result
-            }
+                    else:
+                        # Final attempt failed - return error
+                        return {
+                            "status": "error",
+                            "error": "No tool was called after multiple attempts. Tool calling is mandatory.",
+                            "round": self.current_round
+                        }
+                        
         except Exception as e:
             logging.error(f"Code generation failed: {e}")
             return {
@@ -185,32 +220,32 @@ class GeneratorAgent:
     
     def add_feedback(self, feedback: str) -> None:
         """
-        Add feedback to the agent's memory.
+        Add feedback to the agent's conversation history.
         
         Args:
             feedback: Feedback from verifier or executor
         """
         if os.path.isdir(feedback):
-            feedback = get_image_base64(os.path.join(feedback, 'render1.png'))
-            self.memory.append({"role": "user", "content": [{"type": "text", "text": "Generated image:"}, {"type": "image_url", "image_url": {"url": feedback}}]})
+            feedback_content = get_image_base64(os.path.join(feedback, 'render1.png'))
+            self.conversation_history.append({"role": "user", "content": [{"type": "text", "text": "Generated image:"}, {"type": "image_url", "image_url": {"url": feedback_content}}]})
         elif os.path.isfile(feedback):
-            feedback = get_image_base64(feedback)
-            self.memory.append({"role": "user", "content": [{"type": "text", "text": "Generated image:"}, {"type": "image_url", "image_url": {"url": feedback}}]})
+            feedback_content = get_image_base64(feedback)
+            self.conversation_history.append({"role": "user", "content": [{"type": "text", "text": "Generated image:"}, {"type": "image_url", "image_url": {"url": feedback_content}}]})
         else:
-            feedback = [{"type": "text", "text": feedback}]
-            self.memory.append({"role": "user", "content": feedback})
+            self.conversation_history.append({"role": "user", "content": [{"type": "text", "text": feedback}]})
     
     def save_thought_process(self) -> None:
         """Save the current thought process to file."""
-        save_thought_process(self.memory, self.config.get("thought_save"))
+        current_memory = self._build_sliding_window_memory()
+        save_thought_process(current_memory, self.config.get("thought_save"))
     
     def get_memory(self) -> List[Dict]:
         """Get the current memory/conversation history."""
-        return self.memory
+        return self._build_sliding_window_memory()
     
     def reset_memory(self) -> None:
         """Reset the agent's memory."""
-        self.memory = []
+        self.conversation_history = []
         self.current_round = 0
     
     async def cleanup(self) -> None:
@@ -234,61 +269,13 @@ def main():
             agent_holder['agent'] = agent
             setup_results = []
             
-            # Setup executor based on mode
-            if args.get("mode") == "blendergym" or args.get("mode") == "blendergym-hard":
-                try:
-                    setup_result = await agent.setup_executor(**args)
-                    setup_results.append(("Blender", setup_result))
-                except Exception as e:
-                    setup_results.append(("Blender", {"status": "error", "error": str(e)}))
+            # Executor setup is now handled internally in call_tool
+            # No need for explicit setup here
             
-            elif args.get("mode") == "autopresent":
-                try:
-                    # Add task_dir from init_code_path
-                    setup_kwargs = args.copy()
-                    setup_kwargs["task_dir"] = os.path.dirname(args.get("init_code_path"))
-                    setup_result = await agent.setup_executor(**setup_kwargs)
-                    setup_results.append(("Slides", setup_result))
-                except Exception as e:
-                    setup_results.append(("Slides", {"status": "error", "error": str(e)}))
-            
-            elif args.get("mode") == "design2code":
-                try:
-                    setup_result = await agent.setup_executor(**args)
-                    setup_results.append(("HTML", setup_result))
-                except Exception as e:
-                    setup_results.append(("HTML", {"status": "error", "error": str(e)}))
-            
-            else:
-                raise NotImplementedError("Mode not implemented")
-            
-            # Determine overall status
-            if not setup_results:
-                return {
-                    "status": "success",
-                    "message": "Generator Agent initialized successfully (no executor configured)"
-                }
-            
-            successful_setups = [name for name, result in setup_results if result.get("status") == "success"]
-            failed_setups = [name for name, result in setup_results if result.get("status") != "success"]
-            
-            if successful_setups and not failed_setups:
-                return {
-                    "status": "success",
-                    "message": f"Generator Agent and {', '.join(successful_setups)} executor(s) initialized successfully"
-                }
-            elif successful_setups and failed_setups:
-                return {
-                    "status": "partial_success",
-                    "message": f"Generator Agent initialized successfully. {', '.join(successful_setups)} executor(s) setup successful, {', '.join(failed_setups)} executor(s) setup failed",
-                    "failed_setups": failed_setups
-                }
-            else:
-                return {
-                    "status": "partial_success",
-                    "message": "Generator Agent initialized successfully, but all executor setups failed",
-                    "failed_setups": failed_setups
-                }
+            return {
+                "status": "success",
+                "message": "Generator Agent initialized successfully. Executor will be setup automatically when needed."
+            }
         except Exception as e:
             return {"status": "error", "error": str(e)}
     

@@ -2,7 +2,9 @@ from .autopresent import *
 from .blendergym import *
 from .blendergym_hard import *
 from .design2code import *
+from .prompt_manager import PromptManager, prompt_manager
 
+# Legacy prompts_dict for backward compatibility
 prompts_dict = {
     'blendergym': {
         'hints': {
@@ -57,3 +59,6 @@ prompts_dict = {
         'hints': design2code_hints
     },
 }
+
+# Export the new prompt manager as the primary interface
+__all__ = ['prompt_manager', 'PromptManager', 'prompts_dict']

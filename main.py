@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 from contextlib import AsyncExitStack
 from utils.clients import GeneratorAgentClient, VerifierAgentClient
+from agents.config_manager import ConfigManager
 
 # ========== Main Dual-Agent Loop ==========
 
@@ -87,8 +88,8 @@ async def main():
         await generator.connect()
         await verifier.connect()
 
-        # Create generator session - pass all args as kwargs
-        generator_params = {
+        # Create configuration from args
+        config_dict = {
             "mode": args.mode,
             "vision_model": args.vision_model,
             "api_key": args.api_key,
@@ -100,44 +101,31 @@ async def main():
             "target_description": target_description,
             "api_base_url": args.openai_base_url,
             "thought_save": args.output_dir + "/generator_thoughts.json",
-            # Blender executor parameters
+            "output_dir": args.output_dir,
+            # Server paths
             "blender_server_path": args.blender_server_path,
+            "slides_server_path": args.slides_server_path,
+            "html_server_path": args.html_server_path,
+            "image_server_path": args.image_server_path,
+            "scene_server_path": args.scene_server_path,
+            # Blender-specific parameters
             "blender_command": args.blender_command,
             "blender_file": args.blender_file,
             "blender_script": args.blender_script,
-            "render_save": args.output_dir + "/renders",
-            "script_save": args.output_dir + "/scripts",
-            "blender_save": args.output_dir + "/blender_file.blend" if args.save_blender_file else None,
+            "save_blender_file": args.save_blender_file,
             "meshy_api_key": args.meshy_api_key,
             "va_api_key": args.va_api_key,
             "gpu_devices": args.gpu_devices,
-            # Slides executor parameters
-            "slides_server_path": args.slides_server_path,
-            "output_dir": args.output_dir,
-            # HTML executor parameters
-            "html_server_path": args.html_server_path,
         }
+        
+        # Create config manager and get setup configurations
+        config_manager = ConfigManager(config_dict)
+        
+        # Get generator and verifier setup configurations
+        generator_params = config_manager.get_executor_setup_config()
+        verifier_params = config_manager.get_verifier_setup_config()
         
         await generator.create_session(**generator_params)
-        
-        # Create verifier session - pass all args as kwargs
-        verifier_params = {
-            "mode": args.mode,
-            "vision_model": args.vision_model,
-            "api_key": args.api_key,
-            "max_rounds": args.max_rounds,
-            "task_name": args.task_name,
-            "target_image_path": args.target_image_path,
-            "target_description": target_description,
-            "thought_save": args.output_dir + "/verifier_thoughts",
-            "api_base_url": args.openai_base_url,
-            # Tool server paths
-            "image_server_path": args.image_server_path,
-            "scene_server_path": args.scene_server_path,
-            "blender_file": args.output_dir + "/blender_file.blend" if args.save_blender_file else None,
-            "web_server_path": None,  # Not used in current implementation
-        }
-        
         await verifier.create_session(**verifier_params)
 
         # Main loop
@@ -172,16 +160,18 @@ async def main():
                     await generator.add_feedback(f"Execution error: {exec_result.get('error')}")
                     continue
             else:
-                # Manual execution (when automatic execution is not available)
-                # print("Step 2: Executing code...")
-                # print("   - Execution handled by generator agent internally")
-                raise ValueError("Unknown error in automatic execution")
+                # No execution result - this should not happen with new tool calling enforcement
+                await generator.add_feedback("No execution result available. Please ensure you're calling the execute_and_evaluate tool.")
+                continue
             
             # Add render results to generator as feedback
             await generator.add_feedback(result["output"])
             
-            print("Step 2: Verifier analyzing scene...")
-            if gen_result.get("code"):
+            # Check if verifier should be called based on generator's flag
+            call_verifier = gen_result.get("call_verifier", False)
+            
+            if call_verifier and gen_result.get("code"):
+                print("Step 2: Verifier analyzing scene...")
                 verify_result = await verifier.call(
                     code=gen_result["code"],
                     render_path=result["output"],
@@ -200,8 +190,11 @@ async def main():
                     print(f"Verifier error: {verify_result.get('error')}")
                     break
             else:
-                # If no code execution, then we do not need to verify
-                await generator.add_feedback("No code execution, the state is the same as before.")
+                # Verifier not called or no code - add generic feedback
+                if not call_verifier:
+                    await generator.add_feedback("Code executed successfully. Continue with your modifications.")
+                else:
+                    await generator.add_feedback("No code execution, the state is the same as before.")
             
             print("Step 3: Saving thought processes...")
             await generator.save_thought_process()

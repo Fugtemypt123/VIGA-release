@@ -94,7 +94,7 @@ class ToolHandler:
                         'success': False
                     }
             
-            elif function_name == "execute_script":
+            elif function_name == "execute_and_evaluate":
                 thought = function_args.get("thought", "")
                 code_edition = function_args.get("code_edition", "")
                 full_code = function_args.get("full_code", "")
@@ -138,7 +138,13 @@ class ToolHandler:
         function_args = json.loads(tool_call.function.arguments)
         
         try:
-            if function_name == "investigate_3d":
+            if function_name == "set_camera_starting_position":
+                output = await self.tool_client.call_tool("scene", "set_camera_starting_position", {
+                    "direction": function_args.get("direction", "z"),
+                    "round_num": round_num
+                })
+                return {'text': f"Camera set to {function_args.get('direction', 'z')} starting position", 'image': output.get('image'), 'camera_position': output.get('camera_position')}
+            elif function_name == "investigate_3d":
                 op = function_args['operation']
                 if op == 'focus':
                     output = await self.tool_client.call_tool("scene", "focus", {
