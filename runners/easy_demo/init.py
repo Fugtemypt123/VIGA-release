@@ -7,6 +7,10 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Import API keys from runners directory
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api_keys import OPENAI_API_KEY
+
 import bpy
 import json
 import time
@@ -126,7 +130,7 @@ def update_scene_info(scene_info_path: str, updates: dict) -> dict:
         return {"status": "error", "error": str(e)}
 
 if __name__ == "__main__":
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    client = OpenAI(api_key=OPENAI_API_KEY)
     task_name = 'level4-2'
     map_task = {
         'level4-1': 'christmas1',

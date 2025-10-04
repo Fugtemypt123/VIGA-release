@@ -13,6 +13,10 @@ import base64
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Import API keys from runners directory
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api_keys import OPENAI_API_KEY
 from PIL import Image
 import numpy as np
 import torch
@@ -618,7 +622,7 @@ def main():
     # VLM parameters
     parser.add_argument("--vision-model", default="gpt-4o", help="OpenAI vision model to use")
     parser.add_argument("--openai-base-url", default=os.getenv("OPENAI_BASE_URL"), help="OpenAI-compatible API base URL")
-    parser.add_argument("--api-key", default=os.getenv("OPENAI_API_KEY"), help="OpenAI API key")
+    parser.add_argument("--api-key", default=OPENAI_API_KEY, help="OpenAI API key")
     
     # Execution parameters
     parser.add_argument("--max-workers", type=int, default=4, help="Maximum number of parallel workers")

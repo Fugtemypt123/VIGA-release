@@ -6,6 +6,11 @@ from .meshy import add_meshy_asset, add_meshy_asset_from_image
 from openai import OpenAI
 from PIL import Image
 
+# Import API keys from runners directory
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api_keys import VA_API_KEY
+
 def crop_image(image_path: str, object_name: str) -> str:
     """
     Crop image
@@ -21,7 +26,7 @@ def crop_image(image_path: str, object_name: str) -> str:
         "model": "agentic"
      }
     headers = {
-        "Authorization": "Basic " + os.getenv("VA_API_KEY")
+        "Authorization": "Basic " + VA_API_KEY
     }
     response = requests.post(url, files=files, data=data, headers=headers)
     return response.json()

@@ -13,6 +13,10 @@ import asyncio
 import signal
 from pathlib import Path
 from typing import List, Dict, Optional
+
+# Import API keys from runners directory
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api_keys import OPENAI_API_KEY
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
@@ -295,7 +299,7 @@ def main():
     parser.add_argument("--max-rounds", type=int, default=10, help="Maximum number of interaction rounds")
     parser.add_argument("--vision-model", default="gpt-4o", help="OpenAI vision model to use")
     parser.add_argument("--openai-base-url", default=os.getenv("OPENAI_BASE_URL"), help="OpenAI-compatible API base URL")
-    parser.add_argument("--api-key", default=os.getenv("OPENAI_API_KEY"), help="OpenAI API key")
+    parser.add_argument("--api-key", default=OPENAI_API_KEY, help="OpenAI API key")
     
     # Blender parameters
     parser.add_argument("--blender-server-path", default="servers/generator/blender.py", help="Path to Blender MCP server script")

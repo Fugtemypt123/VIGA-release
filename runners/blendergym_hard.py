@@ -6,6 +6,7 @@ Loads BlenderGym dataset and runs the dual-agent system for 3D scene generation.
 import os
 import sys
 import shutil
+from api_keys import OPENAI_API_KEY
 
 # Add the project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -319,7 +320,7 @@ def main():
     parser.add_argument("--max-rounds", type=int, default=10, help="Maximum number of interaction rounds")
     parser.add_argument("--vision-model", default="gpt-4o", help="OpenAI vision model to use")
     parser.add_argument("--openai-base-url", default=os.getenv("OPENAI_BASE_URL"), help="OpenAI-compatible API base URL")
-    parser.add_argument("--api-key", default=os.getenv("OPENAI_API_KEY"), help="OpenAI API key")
+    parser.add_argument("--api-key", default=OPENAI_API_KEY, help="OpenAI API key")
     
     # Blender parameters
     parser.add_argument("--blender-server-path", default="servers/generator/blender.py", help="Path to Blender MCP server script")

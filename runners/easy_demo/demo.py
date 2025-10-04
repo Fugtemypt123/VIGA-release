@@ -7,6 +7,10 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Import API keys from runners directory
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api_keys import OPENAI_API_KEY, MESHY_API_KEY, VA_API_KEY
+
 import json
 import logging
 import time
@@ -30,7 +34,7 @@ class SceneReconstructionDemo:
             api_key: Meshy API key (optional, defaults to environment variable)
         """
         self.openai_api_key = api_key
-        self.meshy_api_key = os.getenv("MESHY_API_KEY")
+        self.meshy_api_key = MESHY_API_KEY
         self.model = model
         if not self.openai_api_key:
             raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY environment variable or pass api_key parameter.")
@@ -711,7 +715,7 @@ def test_demo():
     parser.add_argument("--max-rounds", default=20, type=int, help="Max rounds")
     parser.add_argument("--model", default="o4-mini", type=str, help="OpenAI model")
     parser.add_argument("--base-url", default=os.getenv("OPENAI_BASE_URL"), type=str, help="OpenAI base URL")
-    parser.add_argument("--api-key", default=os.getenv("OPENAI_API_KEY"), type=str, help="OpenAI API key")
+    parser.add_argument("--api-key", default=OPENAI_API_KEY, type=str, help="OpenAI API key")
     parser.add_argument("--output-dir", default="output/demo", type=str, help="Output directory")
     args = parser.parse_args()
     

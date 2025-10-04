@@ -17,6 +17,11 @@ import numpy as np
 from typing import Optional, Tuple
 from pathlib import Path
 
+# Import API keys from runners directory
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api_keys import MESHY_API_KEY
+
 # 尝试导入Blender
 try:
     import bpy
@@ -33,7 +38,7 @@ except ImportError:
 class MeshyAPI:
     """Meshy API 客户端：Text-to-3D 生成 + 轮询 + 下载"""
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.getenv("MESHY_API_KEY")
+        self.api_key = api_key or MESHY_API_KEY
         if not self.api_key:
             raise ValueError("Meshy API key is required. Set MESHY_API_KEY environment variable or pass api_key parameter.")
         self.base_url = "https://api.meshy.ai"

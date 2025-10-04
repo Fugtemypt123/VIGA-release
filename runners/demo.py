@@ -4,6 +4,7 @@ import time
 import subprocess
 import argparse
 import torch
+from api_keys import OPENAI_API_KEY, MESHY_API_KEY, VA_API_KEY
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test demo functionality")
@@ -43,9 +44,9 @@ if __name__ == "__main__":
     shutil.copy(blender_script, copy_blender_script)
     save_blender_file = True
     scene_server_path = "servers/verifier/scene.py"
-    meshy_api_key = os.getenv("MESHY_API_KEY")
-    va_api_key = os.getenv("VA_API_KEY")
-    api_key = os.getenv("OPENAI_API_KEY")
+    meshy_api_key = MESHY_API_KEY
+    va_api_key = VA_API_KEY
+    api_key = OPENAI_API_KEY
     openai_base_url = os.getenv("OPENAI_BASE_URL")
     max_rounds = 30
     vision_model = "gpt-5"
