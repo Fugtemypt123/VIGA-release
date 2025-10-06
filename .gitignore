@@ -7,4 +7,3 @@ output
 *.zip
 *.pt
 web
-api_keys.py

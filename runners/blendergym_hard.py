@@ -6,7 +6,7 @@ Loads BlenderGym dataset and runs the dual-agent system for 3D scene generation.
 import os
 import sys
 import shutil
-from api_keys import OPENAI_API_KEY
+from _api_keys import OPENAI_API_KEY
 
 # Add the project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

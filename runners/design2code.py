@@ -16,7 +16,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from api_keys import OPENAI_API_KEY
+from _api_keys import OPENAI_API_KEY
 
 
 def _collect_test_pairs(dataset_dir: str) -> List[Tuple[str, str, str]]:

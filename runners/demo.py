@@ -4,7 +4,7 @@ import time
 import subprocess
 import argparse
 import torch
-from api_keys import OPENAI_API_KEY, MESHY_API_KEY, VA_API_KEY
+from _api_keys import OPENAI_API_KEY, MESHY_API_KEY, VA_API_KEY
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test demo functionality")

@@ -14,9 +14,8 @@ import signal
 from pathlib import Path
 from typing import List, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from api_keys import OPENAI_API_KEY
+from _api_keys import OPENAI_API_KEY
 import threading
-import torch
 
 
 def load_static_scene_dataset(base_path: str, task_name: str, test_id: Optional[str] = None) -> List[Dict]:
