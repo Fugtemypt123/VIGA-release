@@ -123,7 +123,7 @@ class GeneratorAgentClient:
             if '"status": "success"' in content or '"status":"success"' in content:
                 self.initialized = True
                 return "success"
-        raise RuntimeError(f"Failed to create session: {result.content}")
+        raise RuntimeError(f"Failed to create generator session: {result.content}")
 
     async def call(self, no_memory: bool = False):
         """Generate code, optionally with feedback."""
@@ -265,7 +265,7 @@ class VerifierAgentClient:
                     return "success"
             except json.JSONDecodeError:
                 pass
-        raise RuntimeError(f"Failed to create session: {result.content}")
+        raise RuntimeError(f"Failed to create verifier session: {result.content}")
 
     async def call(self, code: str, render_path: str, round_num: int):
         """Verify the scene with given parameters."""

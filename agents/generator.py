@@ -29,7 +29,7 @@ class GeneratorAgent:
         self.config_manager = ConfigManager(kwargs)
         
         # Validate configuration
-        is_valid, error_message = self.config_manager.validate_configuration()
+        is_valid, error_message = self.config_manager.validate_generator_configuration()
         if not is_valid:
             raise ValueError(f"Invalid configuration: {error_message}")
         
@@ -53,7 +53,7 @@ class GeneratorAgent:
         self._server_connected = False
         
         # Determine server type and path using config manager
-        self.server_type, self.server_path = self.config_manager.get_server_type_and_path()
+        self.server_type, self.server_path = self.config_manager.get_generator_server_type_and_path()
         
         # Initialize prompt builder and tool handler
         self.prompt_builder = PromptBuilder(self.client, self.model)
@@ -132,7 +132,6 @@ class GeneratorAgent:
                     "model": self.model,
                     "messages": memory,
                 }
-                
                 tools = self._get_tools()
                 if tools:
                     chat_args['tools'] = tools

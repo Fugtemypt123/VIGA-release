@@ -83,7 +83,7 @@ class ConfigManager:
             return self.task_name.split('-')[0]
         return None
     
-    def get_server_type_and_path(self) -> tuple[Optional[str], Optional[str]]:
+    def get_generator_server_type_and_path(self) -> tuple[Optional[str], Optional[str]]:
         """Get server type and path based on mode."""
         if self.is_blender_mode:
             return "blender", self.blender_server_path
@@ -180,10 +180,11 @@ class ConfigManager:
             }
         return {}
     
-    def get_executor_setup_config(self) -> Dict[str, Any]:
+    def get_generator_setup_config(self) -> Dict[str, Any]:
         """Get configuration for executor setup."""
         setup_config = {
             "mode": self.mode,
+            "vision_model": self.vision_model,
             "api_key": self.api_key,
             "task_name": self.task_name,
             "max_rounds": self.max_rounds,
@@ -249,7 +250,7 @@ class ConfigManager:
         
         return verifier_config
     
-    def validate_configuration(self) -> tuple[bool, Optional[str]]:
+    def validate_generator_configuration(self) -> tuple[bool, Optional[str]]:
         """Validate the configuration and return (is_valid, error_message)."""
         # Check required fields
         if not self.mode:
@@ -270,6 +271,23 @@ class ConfigManager:
         
         if self.is_html_mode and not self.html_server_path:
             return False, "HTML server path is required for design2code mode"
+        
+        if self.has_verifier_tools and not self.image_server_path and not self.scene_server_path:
+            return False, "Verifier server path is required"
+        
+        return True, None
+    
+    def validate_verifier_configuration(self) -> tuple[bool, Optional[str]]:
+        """Validate the configuration and return (is_valid, error_message)."""
+        # Check required fields
+        if not self.mode:
+            return False, "Mode is required"
+        
+        if not self.api_key:
+            return False, "API key is required"
+        
+        if not self.vision_model:
+            return False, "Vision model is required"
         
         if self.has_verifier_tools and not self.image_server_path and not self.scene_server_path:
             return False, "Verifier server path is required"

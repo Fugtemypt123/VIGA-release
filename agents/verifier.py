@@ -22,7 +22,7 @@ class VerifierAgent:
         self.config_manager = ConfigManager(kwargs)
         
         # Validate configuration
-        is_valid, error_message = self.config_manager.validate_configuration()
+        is_valid, error_message = self.config_manager.validate_verifier_configuration()
         if not is_valid:
             raise ValueError(f"Invalid configuration: {error_message}")
         
@@ -85,7 +85,7 @@ class VerifierAgent:
         memory = copy.deepcopy(self.system_prompt)
         
         # Add last 6 conversation exchanges
-        for chat in self.conversation_history[-6:]:
+        for chat in self.conversation_history[-12:]:
             memory.append(chat)
         
         # Add current chat if provided

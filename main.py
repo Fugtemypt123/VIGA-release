@@ -51,13 +51,13 @@ async def main():
     # Slides execution parameters (for generator)
     parser.add_argument("--slides-server-path", default="servers/generator/slides.py", help="Path to Slides MCP server script")
     
-    # Tool server paths (for verifier)
-    parser.add_argument("--image-server-path", default="servers/verifier/image.py", help="Path to image processing MCP server script")
-    parser.add_argument("--scene-server-path", default="servers/verifier/scene.py", help="Path to scene investigation MCP server script")
-    
     # HTML execution parameters (for generator)
     parser.add_argument("--html-server-path", default="servers/generator/html.py", help="Path to HTML execution MCP server script")
     parser.add_argument("--browser-command", default="google-chrome", help="Browser command for HTML screenshots")
+    
+    # Tool server paths (for verifier)
+    parser.add_argument("--image-server-path", default="servers/verifier/image.py", help="Path to image processing MCP server script")
+    parser.add_argument("--scene-server-path", default="servers/verifier/scene.py", help="Path to scene investigation MCP server script")
     
     args = parser.parse_args()
 
@@ -124,7 +124,7 @@ async def main():
         config_manager = ConfigManager(config_dict)
         
         # Get generator and verifier setup configurations
-        generator_params = config_manager.get_executor_setup_config()
+        generator_params = config_manager.get_generator_setup_config()
         verifier_params = config_manager.get_verifier_setup_config()
         
         await generator.create_session(**generator_params)
