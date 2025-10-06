@@ -233,7 +233,6 @@ class ConfigManager:
         # Add mode-specific configurations
         if self.is_blender_mode:
             blender_config = {
-                "blender_server_path": None,
                 "blender_command": self.config.get("blender_command"),
                 "blender_file": self.blender_file,
                 "blender_script": self.config.get("blender_script"),
@@ -267,10 +266,7 @@ class ConfigManager:
             "target_description": self.target_description,
             "thought_save": self.thought_save,
             "api_base_url": self.api_base_url,
-            "image_server_path": None,
-            "scene_server_path": None,
             "blender_file": self.blender_file,
-            "web_server_path": None,  # Not used in current implementation
             # Tool servers map for multi-server connection
             "tool_servers": self.get_verifier_tool_servers(),
         }

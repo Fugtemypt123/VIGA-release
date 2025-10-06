@@ -5,9 +5,8 @@ from typing import Dict, Any
 class ToolHandler:
     """Helper class for handling tool calls in generator and verifier agents."""
     
-    def __init__(self, tool_client, server_type: str):
+    def __init__(self, tool_client):
         self.tool_client = tool_client
-        self.server_type = server_type
         self.blender_file_path = None
     
     async def handle_generator_tool_call(self, tool_call) -> Dict[str, Any]:
@@ -17,10 +16,7 @@ class ToolHandler:
         
         try:
             if function_name == "generate_and_download_3d_asset":
-                if self.server_type != "blender":
-                    return {'text': "Error: 3D asset generation is only available for Blender mode", 'success': False}
-                
-                result = await self.tool_client.call_tool("blender", "generate_and_download_3d_asset", {
+                result = await self.tool_client.call_tool("generate_and_download_3d_asset", {
                     "object_name": function_args.get("object_name", ""),
                     "reference_type": function_args.get("reference_type", ""),
                     "object_description": function_args.get("object_description", "")
@@ -42,9 +38,7 @@ class ToolHandler:
                     }
 
             elif function_name == "rag_query":
-                # Assume RAG server is registered as 'web' MCP server
                 result = await self.tool_client.call_tool(
-                    server_type="web",
                     tool_name="rag_query_tool",
                     tool_args={
                         "instruction": function_args.get("instruction", ""),
@@ -58,7 +52,6 @@ class ToolHandler:
 
             elif function_name == "initialize_generator":
                 result = await self.tool_client.call_tool(
-                    server_type="image",
                     tool_name="initialize_generator",
                     tool_args={
                         "args": {
@@ -72,7 +65,6 @@ class ToolHandler:
 
             elif function_name == "exec_pil_code":
                 result = await self.tool_client.call_tool(
-                    server_type="image",
                     tool_name="exec_pil_code",
                     tool_args={"code": function_args.get("code", "")}
                 )
@@ -80,7 +72,6 @@ class ToolHandler:
 
             elif function_name == "generate_scene_description":
                 result = await self.tool_client.call_tool(
-                    server_type="image",
                     tool_name="generate_scene_description",
                     tool_args={"image_path": function_args.get("image_path", "")}
                 )
@@ -90,14 +81,12 @@ class ToolHandler:
                 # Single-image (init_generate) or dual-image (init_verify)
                 if "image_path" in function_args:
                     result = await self.tool_client.call_tool(
-                        server_type="image",
                         tool_name="generate_initialization_suggestions",
                         tool_args={"image_path": function_args.get("image_path", "")}
                     )
                     return {'text': result.get('suggestions', ''), 'success': result.get('status') == 'success'}
                 else:
                     result = await self.tool_client.call_tool(
-                        server_type="image",
                         tool_name="generate_initialization_suggestions",
                         tool_args={
                             "target_path": function_args.get("target_path", ""),
@@ -107,12 +96,9 @@ class ToolHandler:
                     return {'text': result.get('suggestions', ''), 'success': result.get('status') == 'success'}
 
             elif function_name == "investigate_3d":
-                if self.server_type != "blender":
-                    return {'text': "Error: 3D investigation is only available for Blender mode", 'success': False}
-                
                 op = function_args.get('operation')
                 if op == 'focus':
-                    result = await self.tool_client.call_tool("blender", "focus", {
+                    result = await self.tool_client.call_tool("focus", {
                         "object_name": function_args.get("object_name", "")
                     })
                     if result.get("status") == "success":
@@ -126,7 +112,7 @@ class ToolHandler:
                             'success': False
                         }
                 elif op == 'zoom':
-                    result = await self.tool_client.call_tool("blender", "zoom", {
+                    result = await self.tool_client.call_tool("zoom", {
                         "direction": function_args.get("direction", "")
                     })
                     if result.get("status") == "success":
@@ -140,7 +126,7 @@ class ToolHandler:
                             'success': False
                         }
                 elif op == 'move':
-                    result = await self.tool_client.call_tool("blender", "move", {
+                    result = await self.tool_client.call_tool("move", {
                         "direction": function_args.get("direction", "")
                     })
                     if result.get("status") == "success":
@@ -166,10 +152,11 @@ class ToolHandler:
                 
                 try:
                     result = await self.tool_client.call_tool(
-                        server_type=self.server_type,
                         tool_name="exec_script",
-                        code=full_code,
-                        round_num=1  # Default round number for tool calls
+                        tool_args={
+                            "code": full_code,
+                            "round_num": 1
+                        }
                     )
                     
                     # Format the response to include all three components
@@ -204,7 +191,7 @@ class ToolHandler:
         
         try:
             if function_name == "set_camera_starting_position":
-                output = await self.tool_client.call_tool("scene", "set_camera_starting_position", {
+                output = await self.tool_client.call_tool("set_camera_starting_position", {
                     "direction": function_args.get("direction", "z"),
                     "round_num": round_num
                 })
@@ -212,19 +199,19 @@ class ToolHandler:
             elif function_name == "investigate_3d":
                 op = function_args['operation']
                 if op == 'focus':
-                    output = await self.tool_client.call_tool("scene", "focus", {
+                    output = await self.tool_client.call_tool("focus", {
                         "object_name": function_args.get("object_name", ""),
                         "round_num": round_num
                     })
                     return {'text': f"Focused camera on object: {function_args.get('object_name', '')}", 'image': output.get('image'), 'camera_position': output.get('camera_position')}
                 elif op == 'zoom':
-                    output = await self.tool_client.call_tool("scene", "zoom", {
+                    output = await self.tool_client.call_tool("zoom", {
                         "direction": function_args.get("direction", ""),
                         "round_num": round_num
                     })
                     return {'text': f"Zoomed {function_args.get('direction', '')}", 'image': output.get('image'), 'camera_position': output.get('camera_position')}
                 elif op == 'move':
-                    output = await self.tool_client.call_tool("scene", "move", {
+                    output = await self.tool_client.call_tool("move", {
                         "direction": function_args.get("direction", ""),
                         "round_num": round_num
                     })
@@ -232,13 +219,13 @@ class ToolHandler:
                 else:
                     return {'text': f"Unknown operation: {op}", 'image': None, 'camera_position': None}
             elif function_name == "compare_images":
-                output = await self.tool_client.call_tool("image", "compare_images", {
+                output = await self.tool_client.call_tool("compare_images", {
                     "path1": current_image_path,
                     "path2": target_image_path
                 })
                 return {'text': output.get('description', ''), 'image': None, 'camera_position': None}
             elif function_name == "compare_designs":
-                output = await self.tool_client.call_tool("web", "compare_designs", {
+                output = await self.tool_client.call_tool("compare_designs", {
                     "generated_path": current_image_path,
                     "target_path": target_image_path
                 })

@@ -60,12 +60,18 @@ class VerifierAgent:
         self.tool_client = ExternalToolClient()
         self._server_connected = False
         
-        # Determine server type and path using config manager
-        self.server_type, self.server_path = self.config_manager.get_verifier_server_type_and_path()
+        # Determine tool servers and pick a primary server type for verification tools
+        self.tool_servers = self.config_manager.get_verifier_tool_servers()
+        if "scene" in self.tool_servers:
+            self.server_type = "scene"
+        elif "image" in self.tool_servers:
+            self.server_type = "image"
+        else:
+            self.server_type = next(iter(self.tool_servers.keys()), None)
         
         # Initialize prompt builder and tool handler
         self.prompt_builder = PromptBuilder(self.client, self.vision_model)
-        self.tool_handler = ToolHandler(self.tool_client, self.server_type)
+        self.tool_handler = ToolHandler(self.tool_client)
         
         # Initialize system prompt using generic prompt builder
         self.system_prompt = self.prompt_builder.build_verifier_prompt(kwargs)
@@ -78,14 +84,13 @@ class VerifierAgent:
         
     async def _ensure_server_connected(self):
         if not self._server_connected:
-            await self.tool_client.connect_server(self.server_type, self.server_path, self.api_key)
+            await self.tool_client.connect_servers(self.tool_servers, api_key=self.api_key)
             self._server_connected = True
             
     async def setup_investigator(self, **kwargs):
         await self._ensure_server_connected()
-        # ExternalToolClient is now a thin forwarder; call the tool directly
+        # ExternalToolClient routes by tool name; call the tool directly
         result = await self.tool_client.call_tool(
-            server_type=self.server_type,
             tool_name="initialize_investigator",
             tool_args={"args": kwargs}
         )

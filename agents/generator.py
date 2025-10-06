@@ -52,12 +52,21 @@ class GeneratorAgent:
         self.tool_client = ExternalToolClient()
         self._server_connected = False
         
-        # Determine server type and path using config manager
-        self.server_type, self.server_path = self.config_manager.get_generator_server_type_and_path()
+        # Determine tool servers and pick a primary server type for execution tools
+        self.tool_servers = self.config_manager.get_generator_tool_servers()
+        if "blender" in self.tool_servers:
+            self.server_type = "blender"
+        elif "html" in self.tool_servers:
+            self.server_type = "html"
+        elif "slides" in self.tool_servers:
+            self.server_type = "slides"
+        else:
+            # Fallback to any provided server key
+            self.server_type = next(iter(self.tool_servers.keys()), None)
         
         # Initialize prompt builder and tool handler
         self.prompt_builder = PromptBuilder(self.client, self.model)
-        self.tool_handler = ToolHandler(self.tool_client, self.server_type)
+        self.tool_handler = ToolHandler(self.tool_client)
         
         # Initialize memory using generic prompt builder
         self.system_prompt = self.prompt_builder.build_generator_prompt(kwargs)
@@ -65,14 +74,14 @@ class GeneratorAgent:
         self.conversation_history = []  # Store last 6 chats for sliding window
 
     async def _ensure_server_connected(self):
-        if not self._server_connected and self.server_type and self.server_path:
-            await self.tool_client.connect_server(self.server_type, self.server_path, self.api_key)
+        if not self._server_connected:
+            await self.tool_client.connect_servers(self.tool_servers, api_key=self.api_key)
             self._server_connected = True
     
     async def _setup_executor_internal(self, **kwargs):
         """Internal method to setup executor - merged into call_tool"""
         await self._ensure_server_connected()
-        result = await self.tool_client.call_tool(self.server_type, "initialize_executor", **kwargs)
+        result = await self.tool_client.call_tool("initialize_executor", tool_args={"args": kwargs})
         return result
     
     def _build_sliding_window_memory(self, current_chat_content=None):
@@ -109,7 +118,7 @@ class GeneratorAgent:
             Dict containing the generated code, metadata, and verifier flag
         """
         # Setup executor if not connected (merged setup_executor into call_tool)
-        if not self._server_connected and self.server_type and self.server_path:
+        if not self._server_connected and self.server_type:
             await self._setup_executor_internal(**self.config)
         
         # Build sliding window memory

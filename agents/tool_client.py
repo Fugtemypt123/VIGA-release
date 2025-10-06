@@ -12,6 +12,7 @@ class ExternalToolClient:
     def __init__(self):
         self.mcp_sessions = {}  # server_type -> McpSession
         self.connection_timeout = 30  # 30 seconds timeout
+        self.tool_to_server: Dict[str, str] = {}
     
     async def connect_server(self, server_type: str, server_path: str, api_key: str = None):
         """Connect to the specified MCP server with timeout in a background task.
@@ -74,6 +75,10 @@ class ExternalToolClient:
                 )
                 tools = response.tools
                 print(f"Connected to {server_type.capitalize()} server with tools: {[tool.name for tool in tools]}")
+                # Record tool -> server mapping
+                for tool in tools:
+                    if tool and getattr(tool, "name", None):
+                        self.tool_to_server[tool.name] = server_type
                 
                 # Wait for the stop event
                 await stop_event.wait()
@@ -108,13 +113,15 @@ class ExternalToolClient:
             for stype, spath in tool_servers.items()
         ])
     
-    async def call_tool(self, server_type: str, tool_name: str, tool_args: dict = None, timeout: int = 3600, **kwargs) -> Any:
-        """Call a specific tool on the external server with timeout.
-        This client is a thin forwarder; tool_name and tool_args must be fully specified by caller.
-        """
+    async def call_tool(self, tool_name: str, tool_args: dict = None, timeout: int = 3600, **kwargs) -> Any:
+        """Call a specific tool by name with timeout. Server is inferred from known mappings."""
+        server_type = self.tool_to_server.get(tool_name)
+        if not server_type:
+            available = ", ".join(sorted(self.tool_to_server.keys()))
+            raise RuntimeError(f"No server mapping for tool '{tool_name}'. Known tools: [{available}]")
         session = self.mcp_sessions.get(server_type)
         if not session:
-            raise RuntimeError(f"{server_type.capitalize()} server not connected")
+            raise RuntimeError(f"Server '{server_type}' for tool '{tool_name}' not connected")
         
         try:
             result = await asyncio.wait_for(
@@ -124,9 +131,9 @@ class ExternalToolClient:
             content = json.loads(result.content[0].text) if result.content else {}
             return content
         except asyncio.TimeoutError:
-            raise RuntimeError(f"{server_type.capitalize()} tool call timeout after {timeout}s")
+            raise RuntimeError(f"Tool '{tool_name}' call timeout after {timeout}s")
         except Exception as e:
-            raise RuntimeError(f"{server_type.capitalize()} tool call failed: {str(e)}")
+            raise RuntimeError(f"Tool '{tool_name}' call failed: {str(e)}")
     
     async def cleanup(self):
         """Clean up connections by closing all MCP sessions."""
