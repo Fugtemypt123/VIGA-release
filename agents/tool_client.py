@@ -98,53 +98,21 @@ class ExternalToolClient:
     
     async def call_tool(self, server_type: str, tool_name: str, tool_args: dict = None, timeout: int = 3600, **kwargs) -> Any:
         """Call a specific tool on the external server with timeout.
-        
-        Supports three special tool names:
-        - 'initialize_executor': Initialize the executor
-        - 'initialize_investigator': Initialize the investigator  
-        - 'exec_script': Execute script (supports blender, slides, html server types)
+        This client is a thin forwarder; tool_name and tool_args must be fully specified by caller.
         """
         session = self.mcp_sessions.get(server_type)
         if not session:
             raise RuntimeError(f"{server_type.capitalize()} server not connected")
         
-        # Handle special tool names that were previously separate methods
-        if tool_name == "initialize_executor":
-            actual_tool_name = "initialize_executor"
-            actual_tool_args = {'args': kwargs}
-            actual_timeout = 30
-        elif tool_name == "initialize_investigator":
-            actual_tool_name = "initialize_investigator"
-            actual_tool_args = {'args': kwargs}
-            actual_timeout = 30
-        elif tool_name == "exec_script":
-            if server_type == "blender":
-                actual_tool_name = "exec_script"
-                actual_tool_args = {"code": kwargs.get("code"), "round": kwargs.get("round_num")}
-            elif server_type == "slides":
-                actual_tool_name = "exec_pptx"
-                actual_tool_args = {"code": kwargs.get("code"), "round": kwargs.get("round_num"), "code_save": kwargs.get("code_save")}
-            elif server_type == "html":
-                actual_tool_name = "exec_html"
-                actual_tool_args = {"code": kwargs.get("code"), "round": kwargs.get("round_num")}
-            else:
-                raise ValueError(f"Unknown server_type for exec_script: {server_type}")
-            actual_timeout = 120
-        else:
-            # Regular tool call
-            actual_tool_name = tool_name
-            actual_tool_args = tool_args or {}
-            actual_timeout = timeout
-        
         try:
             result = await asyncio.wait_for(
-                session.client.call_tool(actual_tool_name, actual_tool_args),
-                timeout=actual_timeout
+                session.client.call_tool(tool_name, tool_args or {}),
+                timeout=timeout
             )
             content = json.loads(result.content[0].text) if result.content else {}
             return content
         except asyncio.TimeoutError:
-            raise RuntimeError(f"{server_type.capitalize()} tool call timeout after {actual_timeout}s")
+            raise RuntimeError(f"{server_type.capitalize()} tool call timeout after {timeout}s")
         except Exception as e:
             raise RuntimeError(f"{server_type.capitalize()} tool call failed: {str(e)}")
     

@@ -1,50 +1,17 @@
 from typing import Dict, List
 
-verifier_tool_hints = """About how to use the tool: Our investigator_3d tool provides three operations: 
-(1) focus on an object: Let your camera focus on a key object, suitable for situations where a certain object of interest is known. Always call (1) to obtain a key object before calling (2)(3).
-(2) zoom in/out: Zoom the camera in/out. Generally speaking, zooming in is suitable for observing a small part (such as the object you want to move in a small corner of the scene), while zooming out is suitable for observing the whole picture (such as observing the relative position of the object in the scene); 
-(3) move: Rotate the camera up/down/left/right. Please note: This rotation is performed on a sphere with a fixed radius of the distance from the current camera to the target object. If you want to adjust the distance from the current camera to the target object, please do not use this operation."""
-
 class ToolManager:
     """Helper class for managing tool definitions and configurations."""
     
     @staticmethod
     def get_generator_tools(mode: str, task_name: str) -> List[Dict]:
-        """Get available tools for the generator agent based on mode and task."""
-        if mode == "blendergym-hard":
-            # For blendergym-hard mode, determine tools based on level
-            level = task_name.split('-')[0]
-            if level == "level4":
-                # Define tool definitions
-                meshy_tool = {
-                    "type": "function",
-                    "function": {
-                        "name": "generate_and_download_3d_asset",
-                        "description": "Generate and download a 3D asset using Meshy Text-to-3D API. This tool can create objects based on text descriptions and download them to the local directory. You can import them to the Blender scene in subsequent code.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "object_name": {
-                                    "type": "string",
-                                    "description": "The name of the object you want to generate. This is usually a brief description of two words or less. For example, 'Christmas tree', 'snowman', etc."
-                                },
-                                "reference_type": {
-                                    "type": "string",
-                                    "enum": ["text", "image"],
-                                    "description": "You can choose to generate using text or images. If you use text, you need to provide a detailed description of the generated object. If you use an image, I will automatically crop the object in the image based on the object name."
-                                },
-                                "object_description": {
-                                    "type": "string", 
-                                    "description": "A detailed description of the object you want to generate. Include specific information such as color, shape, etc. The clearer the better. For example: 'a wooden tea table with four legs', 'a snowman with a black hat and a red scarf'. Only needed when you use text as reference."
-                                }
-                                
-                            },
-                            "required": ["object_name", "reference_type"]
-                        }
-                    }
-                } 
-                return [meshy_tool]
-        elif mode in ["blendergym", "autopresent", "design2code"]:
+        """Get available tools for the generator agent based on mode and task.
+        Policy:
+        - All modes: include init_generate, execute_and_evaluate, rag_query
+        - Only static_scene and dynamic_scene: additionally include generate_and_download_3d_asset (Meshy)
+        - No other tools included
+        """
+        if mode in ["blendergym", "autopresent", "design2code", "static_scene", "dynamic_scene", "blendergym-hard"]:
             # Add execute_and_evaluate tool for code execution modes
             exec_evaluate_tool = {
                 "type": "function",
@@ -71,32 +38,162 @@ class ToolManager:
                     }
                 }
             }
-            return [exec_evaluate_tool]
+            tools: List[Dict] = [exec_evaluate_tool]
+
+            # RAG tool (query Blender/Infinigen knowledge and examples)
+            rag_tool = {
+                "type": "function",
+                "function": {
+                    "name": "rag_query",
+                    "description": "Query Blender/Infinigen RAG to fetch related APIs/snippets and optional enhanced examples.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "instruction": {"type": "string", "description": "Instruction, e.g., '物理规律地放置一个立方体'"},
+                            "use_enhanced": {"type": "boolean", "description": "Use OpenAI-enhanced generation if available", "default": False}
+                        },
+                        "required": ["instruction"]
+                    }
+                }
+            }
+            tools.append(rag_tool)
+
+            # init_generate tools (image-based initialization helpers)
+            init_generate_tool = {
+                "type": "function",
+                "function": {
+                    "name": "initialize_generator",
+                    "description": "Initialize image generation helper with API key and base url.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "vision_model": {"type": "string", "description": "OpenAI-compatible model name"},
+                            "api_key": {"type": "string", "description": "OpenAI API key"},
+                            "api_base_url": {"type": "string", "description": "OpenAI-compatible base URL (optional)"}
+                        }
+                    }
+                }
+            }
+            tools.append(init_generate_tool)
+
+            exec_pil_tool = {
+                "type": "function",
+                "function": {
+                    "name": "exec_pil_code",
+                    "description": "Execute PIL Python code and return base64 image or result.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "string", "description": "Python code using PIL; set `result` in code"}
+                        },
+                        "required": ["code"]
+                    }
+                }
+            }
+            tools.append(exec_pil_tool)
+
+            gen_scene_desc_tool = {
+                "type": "function",
+                "function": {
+                    "name": "generate_scene_description",
+                    "description": "Generate a detailed scene description from an image.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "image_path": {"type": "string", "description": "Path to an image file"}
+                        },
+                        "required": ["image_path"]
+                    }
+                }
+            }
+            tools.append(gen_scene_desc_tool)
+
+            gen_init_suggest_tool = {
+                "type": "function",
+                "function": {
+                    "name": "generate_initialization_suggestions",
+                    "description": "Generate initialization suggestions from an image.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "image_path": {"type": "string", "description": "Path to an image file"}
+                        },
+                        "required": ["image_path"]
+                    }
+                }
+            }
+            tools.append(gen_init_suggest_tool)
+
+            # Meshy tool ONLY for static_scene and dynamic_scene
+            if mode in ["static_scene", "dynamic_scene"]:
+                meshy_tool = {
+                    "type": "function",
+                    "function": {
+                        "name": "generate_and_download_3d_asset",
+                        "description": "Generate and download a 3D asset using Meshy Text-to-3D API or load from local assets dir if available.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "object_name": {"type": "string", "description": "Asset/object name, e.g., 'table', 'chair'"},
+                                "reference_type": {"type": "string", "enum": ["text", "image"], "description": "Reference type for generation"},
+                                "object_description": {"type": "string", "description": "Detailed description when using text reference"}
+                            },
+                            "required": ["object_name", "reference_type"]
+                        }
+                    }
+                }
+                tools.append(meshy_tool)
+
+            return tools
         else:
             return []
     
     @staticmethod
     def get_verifier_tools(mode: str, task_name: str) -> List[Dict]:
-        """Get available tools for the verifier agent based on mode."""
-        if mode == "blendergym":
-            return [{
+        """Get available tools for the verifier agent based on mode.
+        Policy:
+        - All modes: include init_verify tools (compare_images, generate_initialization_suggestions with target/current)
+        - Only blendergym-hard, static_scene, dynamic_scene: additionally include investigator tools
+        - No other tools included
+        """
+        # Base init_verify tools for ALL modes
+        tools: List[Dict] = [
+            {
                 "type": "function",
                 "function": {
                     "name": "compare_images",
-                    "description": "A tool for comparing current images and the target images, and identifying their visual differences. This tool will automatically select suitable images for comparison, please always call this tool first."
+                    "description": "Compare current and target images and describe visual differences."
                 }
-            }]
-        elif mode == "blendergym-hard":
-            return [
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "generate_initialization_suggestions",
+                    "description": "Suggest how to initialize/fix scene based on target/current images.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "target_path": {"type": "string", "description": "Path to target image"},
+                            "current_path": {"type": "string", "description": "Path to current image"}
+                        },
+                        "required": ["target_path", "current_path"]
+                    }
+                }
+            }
+        ]
+
+        # Investigator tools only for specified modes
+        if mode in ["blendergym-hard", "static_scene", "dynamic_scene"]:
+            tools.extend([
                 {
                     "type": "function",
                     "function": {
                         "name": "set_camera_starting_position",
-                        "description": "Set camera to fixed starting positions (-z, -x, -y directions or bbox above) for consistent 3D scene investigation. Use this to start from predictable camera positions instead of random ones.",
+                        "description": "Set camera to fixed starting positions (-z, -x, -y directions or bbox above) for consistent 3D scene investigation.",
                         "parameters": {
                             "type": "object",
                             "properties": {
-                                "direction": {"type": "string", "enum": ["z", "x", "y", "bbox"], "description": "Starting camera direction: 'z' (from above), 'x' (from side), 'y' (from front), 'bbox' (above bounding box)"},
+                                "direction": {"type": "string", "enum": ["z", "x", "y", "bbox"], "description": "Starting camera direction"},
                                 "round_num": {"type": "integer", "description": "Current round number for file organization"}
                             },
                             "required": ["direction"]
@@ -107,18 +204,18 @@ class ToolManager:
                     "type": "function",
                     "function": {
                         "name": "investigate_3d",
-                        "description": "A tool for detailed 3D scene investigation with the following operations: focus, zoom, move." + verifier_tool_hints,
+                        "description": "3D scene investigation: focus, zoom, move operations.",
                         "parameters": {
                             "type": "object",
                             "properties": {
-                                "operation": {"type": "string", "enum": ["focus", "zoom", "move"], "description": "The operation to perform on the 3D scene."},
-                                "object_name": {"type": "string", "description": "The name of the object to focus on (only for focus operation)."},
-                                "direction": {"type": "string", "enum": ["in", "out", "up", "down", "left", "right"], "description": "The direction to move the camera (only for zoom and move operation)."}
+                                "operation": {"type": "string", "enum": ["focus", "zoom", "move"], "description": "Operation type"},
+                                "object_name": {"type": "string", "description": "Object to focus (for focus)"},
+                                "direction": {"type": "string", "enum": ["in", "out", "up", "down", "left", "right"], "description": "Direction for zoom/move"}
                             },
                             "required": ["operation"]
                         }
                     }
                 }
-            ]
-        else:
-            return []
+            ])
+
+        return tools

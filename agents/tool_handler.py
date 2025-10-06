@@ -41,6 +41,71 @@ class ToolHandler:
                         # 'output_content': None
                     }
 
+            elif function_name == "rag_query":
+                # Assume RAG server is registered as 'web' MCP server
+                result = await self.tool_client.call_tool(
+                    server_type="web",
+                    tool_name="rag_query_tool",
+                    tool_args={
+                        "instruction": function_args.get("instruction", ""),
+                        "use_enhanced": function_args.get("use_enhanced", False)
+                    }
+                )
+                return {
+                    'text': result.get('code_example') or json.dumps(result, ensure_ascii=False),
+                    'success': result.get('status') == 'success'
+                }
+
+            elif function_name == "initialize_generator":
+                result = await self.tool_client.call_tool(
+                    server_type="image",
+                    tool_name="initialize_generator",
+                    tool_args={
+                        "args": {
+                            "vision_model": function_args.get("vision_model"),
+                            "api_key": function_args.get("api_key"),
+                            "api_base_url": function_args.get("api_base_url")
+                        }
+                    }
+                )
+                return {'text': result.get('message', ''), 'success': result.get('status') == 'success'}
+
+            elif function_name == "exec_pil_code":
+                result = await self.tool_client.call_tool(
+                    server_type="image",
+                    tool_name="exec_pil_code",
+                    tool_args={"code": function_args.get("code", "")}
+                )
+                return {'text': json.dumps(result, ensure_ascii=False), 'success': result.get('status') == 'success'}
+
+            elif function_name == "generate_scene_description":
+                result = await self.tool_client.call_tool(
+                    server_type="image",
+                    tool_name="generate_scene_description",
+                    tool_args={"image_path": function_args.get("image_path", "")}
+                )
+                return {'text': result.get('description', ''), 'success': result.get('status') == 'success'}
+
+            elif function_name == "generate_initialization_suggestions":
+                # Single-image (init_generate) or dual-image (init_verify)
+                if "image_path" in function_args:
+                    result = await self.tool_client.call_tool(
+                        server_type="image",
+                        tool_name="generate_initialization_suggestions",
+                        tool_args={"image_path": function_args.get("image_path", "")}
+                    )
+                    return {'text': result.get('suggestions', ''), 'success': result.get('status') == 'success'}
+                else:
+                    result = await self.tool_client.call_tool(
+                        server_type="image",
+                        tool_name="generate_initialization_suggestions",
+                        tool_args={
+                            "target_path": function_args.get("target_path", ""),
+                            "current_path": function_args.get("current_path", "")
+                        }
+                    )
+                    return {'text': result.get('suggestions', ''), 'success': result.get('status') == 'success'}
+
             elif function_name == "investigate_3d":
                 if self.server_type != "blender":
                     return {'text': "Error: 3D investigation is only available for Blender mode", 'success': False}

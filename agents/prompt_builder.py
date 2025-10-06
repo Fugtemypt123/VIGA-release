@@ -14,6 +14,9 @@ class PromptBuilder:
     
     def build_generator_prompt(self, config: Dict) -> List[Dict]:
         """Generic method to build generator prompts based on mode and config."""
+        with open('logs/generator.log', 'a') as f:
+            f.write(f"build_generator_prompt: {config}\n")
+        
         mode = config.get("mode")
         task_name = config.get("task_name")
         
