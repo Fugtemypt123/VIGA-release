@@ -18,6 +18,9 @@ class VerifierAgent:
     def __init__(self, **kwargs):
         self.config = kwargs
         
+        with open('logs/verifier.log', 'w') as f:
+            f.write(f"stage1: config: {kwargs}\n")
+        
         # Initialize configuration manager
         self.config_manager = ConfigManager(kwargs)
         
@@ -77,7 +80,12 @@ class VerifierAgent:
             
     async def setup_investigator(self, **kwargs):
         await self._ensure_server_connected()
-        result = await self.tool_client.initialize_investigator(self.server_type, **kwargs)
+        # ExternalToolClient is now a thin forwarder; call the tool directly
+        result = await self.tool_client.call_tool(
+            server_type=self.server_type,
+            tool_name="initialize_investigator",
+            tool_args={"args": kwargs}
+        )
         return result
     
     def _build_sliding_window_memory(self, current_chat_content=None):

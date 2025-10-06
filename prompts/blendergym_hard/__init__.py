@@ -1,6 +1,3 @@
-from .tool_example import *
-from .demo import *
-
 # System prompts for different levels
 blendergym_hard_generator_system = """
 You are SceneGeneratorHard, an expert agent in complex 3D scene generation and advanced Blender Python programming.
@@ -48,7 +45,6 @@ blendergym_hard_generator_system_dict = {
     "level1": blendergym_hard_generator_system,
     "level2": blendergym_hard_generator_system,
     "level3": blendergym_hard_generator_system,
-    "level4": demo_generator_system,
 }
 
 # Verifier system prompts for different levels
@@ -94,7 +90,6 @@ blendergym_hard_verifier_system_dict = {
     "level1": blendergym_hard_verifier_system,
     "level2": blendergym_hard_verifier_system,
     "level3": blendergym_hard_verifier_system,
-    "level4": demo_verifier_system,
 }
 
 # Generator formats for different levels
@@ -140,7 +135,6 @@ blendergym_hard_generator_format_dict = {
     "level1": blendergym_hard_generator_format,
     "level2": blendergym_hard_generator_format,
     "level3": blendergym_hard_generator_format,
-    "level4": demo_generator_format,
 }
 
 # Verifier formats for different levels
@@ -185,19 +179,16 @@ blendergym_hard_verifier_format_dict = {
     "level1": blendergym_hard_verifier_format,
     "level2": blendergym_hard_verifier_format,
     "level3": blendergym_hard_verifier_format,
-    "level4": demo_verifier_format,
 }
 
 blendergym_hard_generator_hints = {
     "level1": "Adjust the camera position and angle to make the view look like the target image. You will get the initial scene information. Please infer the appropriate camera position in 'Thought' based on the current view, the target view and the positional relationship of other objects. Remember to use infinigen optimization functions when appropriate for scene consistency.",
     "level2": "This type of task involves editing multiple elements, such as lighting, object position, and object shape. The order in which you modify these elements requires common sense reasoning, such as adjusting the brightness to see objects clearly, removing objects that are obstructing each other, etc. Use infinigen functions to optimize scene placement and consistency.",
     "level3": "This type of task involves editing multiple elements, such as lighting, object position, and object shape. The order in which you modify these elements requires common sense reasoning, such as adjusting the brightness to see objects clearly, removing objects that are obstructing each other, etc. You will get the initial scene information. Please infer the appropriate camera position and objects position in 'Thought' based on the current view, the target view and the positional relationship of other objects. Use infinigen optimization for better scene consistency.",
-    "level4": demo_generator_hints # "This type of task involves editing multiple elements, such as lighting, object position, and object shape. The order in which you modify these elements requires common sense reasoning, such as adjusting the brightness to see objects clearly, removing objects that are obstructing each other, etc. You will get the initial scene information. Please infer the appropriate camera position and objects position in 'Thought' based on the current view, the target view and the positional relationship of other objects." # demo_generator_hints,
 }
 
 blendergym_hard_verifier_hints = {
     "level1": "The generator's task is to adjust the camera position and angle to make the view look like the target image. Your task is to help him get the correct camera perspective. Start by using 'set_camera_starting_position' tool to set a consistent starting position (-z, -x, -y, or bbox), then use the 'investigator_3d' tool to move the camera and find the state that is closest to the correct camera perspective. You will get the initial scene information. Please infer the appropriate camera position in 'Thought' based on the current view, the target view and the positional relationship of other objects.",
     "level2": "The generator's task is to edit multiple elements, such as lighting, object position, and object shape. The order in which you modify these elements requires common sense reasoning, such as adjusting the brightness to see objects clearly, removing objects that are obstructing each other, etc. Start by using 'set_camera_starting_position' tool to set a consistent starting position, then move the camera in the scene to observe the overall picture of the scene and find out the specific parts that need to be modified.",
     "level3": "The generator's task is to edit multiple elements, such as lighting, object position, and object shape. The order in which you modify these elements requires common sense reasoning, such as adjusting the brightness to see objects clearly, removing objects that are obstructing each other, etc. Start by using 'set_camera_starting_position' tool to set a consistent starting position, then use investigator_3d tools to examine the scene. You will get the initial scene information. Please infer the appropriate camera position and objects position in 'Thought' based on the current view, the target view and the positional relationship of other objects.",
-    "level4": demo_verifier_hints, # "This type of task involves editing multiple elements, such as lighting, object position, and object shape. The order in which you modify these elements requires common sense reasoning, such as adjusting the brightness to see objects clearly, removing objects that are obstructing each other, etc. You will get the initial scene information. Please infer the appropriate camera position and objects position in 'Thought' based on the current view, the target view and the positional relationship of other objects." # demo_verifier_hints,
 }

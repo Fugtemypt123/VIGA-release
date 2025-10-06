@@ -18,9 +18,9 @@ Guidelines:
 static_scene_verifier_format = ""
 
 static_scene_verifier_hints = """
-1) 优先关注最显著的 1-2 处差异，提出明确、可操作的下一步。
-2) 覆盖范围：相机/光照/物体摆放/材质的明显问题；缺失物体建议导入。
-3) 需要时用 investigate_3d 调整观察（focus/zoom/move）。
-4) 使用 generate_initialization_suggestions(target,current) 获取基于对比的初始化/修正建议。
-5) 认为已完成时，输出 END THE PROCESS。
+1) Focus first on the most salient 1-2 differences and propose clear next actions.
+2) Scope: camera/lighting/object placement/material issues; suggest importing missing assets when needed.
+3) Use investigate_3d (focus/zoom/move) to adjust viewpoint as needed.
+4) Use generate_initialization_suggestions(target,current) for comparison-based initialization/refinement suggestions.
+5) When you believe the task is complete, output END THE PROCESS.
 """

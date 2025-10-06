@@ -27,7 +27,7 @@ if __name__ == "__main__":
     task_name = "level4-1"
     generator_script = "agents/generator.py"
     verifier_script = "agents/verifier.py"
-    blender_server_path = "servers/generator/blender.py"
+    blender_server_path = "tools/exec_blender.py"
     blender_command = "utils/blender/infinigen/blender/blender"
     # Create a fresh empty .blend file as the initial editable state for each run
     copy_blender_file = f"{output_dir}/blender_file.blend"
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     copy_blender_script = f"{output_dir}/pipeline_render_script.py"
     shutil.copy(blender_script, copy_blender_script)
     save_blender_file = True
-    scene_server_path = "servers/verifier/scene.py"
+    scene_server_path = "tools/investigator.py"
     meshy_api_key = MESHY_API_KEY
     va_api_key = VA_API_KEY
     api_key = OPENAI_API_KEY

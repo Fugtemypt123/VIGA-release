@@ -18,26 +18,26 @@ Guidelines:
 
 Example workflow A: create a simple living room with a table and two chairs
 1) initialize_generator(vision_model=inherit, api_key=inherit)
-2) rag_query(instruction="如何在bpy中创建地面并摆放桌椅，注意尺寸与尺度一致性")
+2) rag_query(instruction="How to create a floor in bpy and place a table and chairs with consistent scale")
 3) generate_and_download_3d_asset(object_name="table", reference_type="text", object_description="wooden dining table 1.2m x 0.8m")
 4) generate_and_download_3d_asset(object_name="chair", reference_type="text", object_description="wooden chair with cushion")  // twice for two chairs (or duplicate in code)
-5) execute_and_evaluate(thought="添加地面并导入桌椅，放置合理位置与比例，添加基础灯光", code_edition="[concise diff]", full_code="[完整Blender代码]")
+5) execute_and_evaluate(thought="Add floor and import table/chairs; place with proper positions and scale; add basic lighting", code_edition="[concise diff]", full_code="[full Blender code]")
 6) generate_initialization_suggestions(image_path="<last_render1.png>")  // optional for refinement
 
 Example workflow B: bedroom with bed and nightstand from local assets
 1) initialize_generator(...)
 2) generate_and_download_3d_asset(object_name="bed", reference_type="text")  // will prefer local assets/bed.glb if exists
 3) generate_and_download_3d_asset(object_name="nightstand", reference_type="text")
-4) execute_and_evaluate(thought="导入与摆放bed与nightstand，设置相机与灯光", code_edition="[diff]", full_code="[代码]")
+4) execute_and_evaluate(thought="Import and place bed and nightstand; set camera and lights", code_edition="[diff]", full_code="[code]")
 """
 
 # Deprecated code-format instructions removed; keep placeholder for compatibility
 static_scene_generator_format = ""
 
 static_scene_generator_hints = """
-1) 优先使用本地 .glb 资产（任务 assets 目录），无则调用生成工具。
-2) 每轮只做 1-2 件明确的小事：导入/摆放/灯光/相机等，降低失败率。
-3) 物体的尺寸、比例、位置尽量用具体数值或对齐参考（如地面 bbox）。
-4) 视角不佳时，先调整相机与光照再继续摆放。
-5) execute_and_evaluate 需要完整可运行的 Blender Python full_code；将计划落实为代码后执行。
+1) Prefer local .glb assets (task assets dir); otherwise call generation tools.
+2) Do only 1-2 clear actions per round (import/place/lighting/camera) to reduce risk.
+3) Use concrete numbers or alignment references (e.g., floor bbox) for size/scale/location.
+4) If the view is not informative, adjust camera/lighting first, then continue placement.
+5) execute_and_evaluate requires a complete runnable Blender Python full_code; implement the plan in code and execute.
 """

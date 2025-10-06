@@ -46,7 +46,6 @@ prompts_dict = {
             'generator': blendergym_hard_generator_hints,
             'verifier': blendergym_hard_verifier_hints
         },
-        'tool_example': verifier_tool_hints
     },
     'design2code': {
         'system': {
@@ -72,7 +71,6 @@ prompts_dict = {
             'generator': static_scene_generator_hints,
             'verifier': static_scene_verifier_hints
         },
-        'tool_example': verifier_tool_hints
     },
 }
 

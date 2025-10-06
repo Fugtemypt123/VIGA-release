@@ -302,7 +302,7 @@ def main():
     parser.add_argument("--api-key", default=OPENAI_API_KEY, help="OpenAI API key")
     
     # Blender parameters
-    parser.add_argument("--blender-server-path", default="servers/generator/blender.py", help="Path to Blender MCP server script")
+    parser.add_argument("--blender-server-path", default="tools/exec_blender.py", help="Path to Blender MCP server script")
     parser.add_argument("--blender-command", default="utils/blender/infinigen/blender/blender", help="Blender command path")
     parser.add_argument("--blender-script", default="data/blendergym/pipeline_render_script.py", help="Blender execution script")
     parser.add_argument("--save-blender-file", action="store_true", help="Save blender file")
@@ -310,8 +310,8 @@ def main():
     # Tool server paths
     parser.add_argument("--generator-script", default="agents/generator.py", help="Generator MCP script path")
     parser.add_argument("--verifier-script", default="agents/verifier.py", help="Verifier MCP script path")
-    parser.add_argument("--image-server-path", default="servers/verifier/image.py", help="Path to image processing MCP server script")
-    parser.add_argument("--scene-server-path", default="servers/verifier/scene.py", help="Path to scene investigation MCP server script")
+    parser.add_argument("--image-server-path", default="tools/init_verify.py", help="Path to image processing MCP server script")
+    parser.add_argument("--scene-server-path", default="tools/investigator.py", help="Path to scene investigation MCP server script")
     
     # Parallel execution parameters
     parser.add_argument("--max-workers", type=int, default=10, help="Maximum number of parallel workers")

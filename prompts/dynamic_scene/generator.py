@@ -17,12 +17,12 @@ Priorities:
 
 Example workflow: a character dribbles a ball while walking
 1) initialize_generator(vision_model=inherit, api_key=inherit)
-2) rag_query(instruction="如何在bpy中设置刚体与关键帧，实现人物行走与球的弹跳")
+2) rag_query(instruction="How to set rigid bodies and keyframes in bpy to make a person walk while the ball bounces")
 3) generate_and_download_3d_asset(object_name="human", reference_type="text", object_description="riggable human base model")
 4) generate_and_download_3d_asset(object_name="soccer_ball", reference_type="text")
-5) execute_and_evaluate(thought="导入人物与球，设置地面与灯光，给球添加刚体", code_edition="[diff]", full_code="[代码]")
-6) execute_and_evaluate(thought="为人物添加行走关键帧，为球设置弹跳并随人物前进", code_edition="[diff]", full_code="[代码]")
-7) generate_initialization_suggestions(image_path="<some_render_frame.png>")  // 可辅助微调光照/相机
+5) execute_and_evaluate(thought="Import human and ball; set ground and lighting; add rigid body to ball", code_edition="[diff]", full_code="[code]")
+6) execute_and_evaluate(thought="Add walking keyframes for human and bouncing behavior for ball while following the character", code_edition="[diff]", full_code="[code]")
+7) generate_initialization_suggestions(image_path="<some_render_frame.png>")  // can help fine-tune lighting/camera
 """
 
 dynamic_scene_generator_format = ""

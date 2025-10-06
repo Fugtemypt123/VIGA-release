@@ -14,9 +14,6 @@ class PromptBuilder:
     
     def build_generator_prompt(self, config: Dict) -> List[Dict]:
         """Generic method to build generator prompts based on mode and config."""
-        with open('logs/generator.log', 'a') as f:
-            f.write(f"build_generator_prompt: {config}\n")
-        
         mode = config.get("mode")
         task_name = config.get("task_name")
         
@@ -251,10 +248,10 @@ class PromptBuilder:
         config_manager = ConfigManager(config)
         
         # Get system prompt from prompt manager
-        system_prompt = prompts.get('system', {}).get('generator', '')
+        system_prompt = prompts.get('system', '')
         
         # Add available assets information
-        available_assets = config_manager.get_available_assets()
+        available_assets = config_manager.get_available_assets() 
         if available_assets:
             assets_info = f"\n\nAvailable 3D Assets:\n"
             for asset in available_assets:
@@ -262,6 +259,9 @@ class PromptBuilder:
                 assets_info += f"- {asset_name}: {asset}\n"
             assets_info += f"\nTo import an asset, use: bpy.ops.import_scene.gltf(filepath='{config_manager.get_assets_path()}/{{asset_name}}.glb')\n"
             system_prompt += assets_info
+            
+        # with open('logs/generator.log', 'a') as f:
+        #     f.write(f"build_static_scene_generator_prompt: {system_prompt}\n")
         
         return [{"role": "system", "content": system_prompt}]
     
@@ -271,7 +271,7 @@ class PromptBuilder:
         config_manager = ConfigManager(config)
         
         # Get system prompt from prompt manager
-        system_prompt = prompts.get('system', {}).get('generator', '')
+        system_prompt = prompts.get('system', '')
         
         # Add available assets information
         available_assets = config_manager.get_available_assets()
@@ -292,7 +292,7 @@ class PromptBuilder:
         config_manager = ConfigManager(config)
         
         # Get system prompt from prompt manager
-        system_prompt = prompts.get('system', {}).get('verifier', '')
+        system_prompt = prompts.get('system', '')
         
         # Add available assets information for context
         available_assets = config_manager.get_available_assets()
@@ -311,7 +311,7 @@ class PromptBuilder:
         config_manager = ConfigManager(config)
         
         # Get system prompt from prompt manager
-        system_prompt = prompts.get('system', {}).get('verifier', '')
+        system_prompt = prompts.get('system', '')
         
         # Add available assets information for context
         available_assets = config_manager.get_available_assets()

@@ -42,17 +42,11 @@ class GeneratorAgent:
         self.current_round = 0
         self.level = self.config_manager.level
         
-        with open('logs/generator.log', 'w') as f:
-            f.write(f"stage1: config ok\n")
-        
         # Initialize OpenAI client
         client_kwargs = {"api_key": self.api_key}
         if self.config_manager.api_base_url or os.getenv("OPENAI_BASE_URL"):
             client_kwargs["base_url"] = self.config_manager.api_base_url or os.getenv("OPENAI_BASE_URL")
         self.client = OpenAI(**client_kwargs)
-        
-        with open('logs/generator.log', 'a') as f:
-            f.write(f"stage2: client ok\n")
         
         # Initialize components
         self.tool_client = ExternalToolClient()
@@ -61,23 +55,14 @@ class GeneratorAgent:
         # Determine server type and path using config manager
         self.server_type, self.server_path = self.config_manager.get_generator_server_type_and_path()
         
-        with open('logs/generator.log', 'a') as f:
-            f.write(f"stage3: server type and path ok\n")
-        
         # Initialize prompt builder and tool handler
         self.prompt_builder = PromptBuilder(self.client, self.model)
         self.tool_handler = ToolHandler(self.tool_client, self.server_type)
-        
-        with open('logs/generator.log', 'a') as f:
-            f.write(f"stage4: prompt builder and tool handler ok\n")
         
         # Initialize memory using generic prompt builder
         self.system_prompt = self.prompt_builder.build_generator_prompt(kwargs)
         self.memory = copy.deepcopy(self.system_prompt)
         self.conversation_history = []  # Store last 6 chats for sliding window
-        
-        with open('logs/generator.log', 'a') as f:
-            f.write(f"stage5: memory ok\n")
 
     async def _ensure_server_connected(self):
         if not self._server_connected and self.server_type and self.server_path:

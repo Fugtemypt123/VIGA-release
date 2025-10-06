@@ -275,12 +275,12 @@ def main():
     parser.add_argument("--api-key", default=OPENAI_API_KEY, help="OpenAI API key")
     
     # Slides parameters
-    parser.add_argument("--slides-server-path", default="servers/generator/slides.py", help="Path to Slides MCP server script")
+    parser.add_argument("--slides-server-path", default="tools/exec_slides.py", help="Path to Slides MCP server script")
     
     # Tool server paths
     parser.add_argument("--generator-script", default="agents/generator.py", help="Generator MCP script path")
     parser.add_argument("--verifier-script", default="agents/verifier.py", help="Verifier MCP script path")
-    parser.add_argument("--image-server-path", default="servers/verifier/image.py", help="Path to image processing MCP server script")
+    parser.add_argument("--image-server-path", default="tools/init_verify.py", help="Path to image processing MCP server script")
     
     # Parallel execution parameters
     parser.add_argument("--max-workers", type=int, default=10, help="Maximum number of parallel workers")
