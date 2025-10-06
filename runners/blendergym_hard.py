@@ -215,17 +215,13 @@ def run_blendergym_task(task_config: Dict, args) -> tuple:
         "--target-image-path", str(task_config["target_image_path"]),
         "--target-description", str(task_config["target_description"]),
         "--output-dir", str(output_base),
-        # Agent server paths
-        "--generator-script", args.generator_script,
-        "--verifier-script", args.verifier_script,
+        # Tool servers
+        "--generator-tools", args.generator_tools,
+        "--verifier-tools", args.verifier_tools,
         # Blender execution parameters (for generator)
-        "--blender-server-path", args.blender_server_path,
         "--blender-command", args.blender_command,
         "--blender-file", str(output_base / "blender_file.blend"),
         "--blender-script", f'data/blendergym_hard/{task_name}/pipeline_render_script.py',
-        # Tool server paths (for verifier)
-        "--image-server-path", args.image_server_path,
-        "--scene-server-path", args.scene_server_path,
     ]
     
     if args.save_blender_file:

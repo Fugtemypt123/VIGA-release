@@ -99,14 +99,10 @@ def run_design2code_task(task_config: Dict, args) -> tuple:
         "--init-image-path", str(task_config["target_image_path"]),  # not used but required by main
         "--target-image-path", str(task_config["target_image_path"]),
         "--output-dir", str(output_base),
-        # Agent server paths
-        "--generator-script", args.generator_script,
-        "--verifier-script", args.verifier_script,
-        # HTML execution parameters
-        "--html-server-path", args.html_server_path,
+        # Tool servers
+        "--generator-tools", args.generator_tools,
+        "--verifier-tools", args.verifier_tools,
         "--browser-command", args.browser_command,
-        # Web comparison server path (verifier)
-        "--image-server-path", args.image_server_path,
     ]
 
     print(f"Command: {' '.join(cmd)}")

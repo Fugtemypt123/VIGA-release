@@ -145,13 +145,12 @@ def run_dynamic_scene_task(task_config: Dict, args) -> tuple:
         "--target-image-path", task_config["target_image_path"],
         "--output-dir", task_config["output_dir"],
         "--task-name", task_name,
-        "--generator-script", args.generator_script,
-        "--verifier-script", args.verifier_script,
+        "--generator-tools", args.generator_tools,
+        "--verifier-tools", args.verifier_tools,
         "--blender-server-path", args.blender_server_path,
         "--blender-command", args.blender_command,
         "--blender-file", created_blender_file,
         "--blender-script", args.blender_script,
-        "--scene-server-path", args.scene_server_path,
         "--meshy_api_key", args.meshy_api_key,
         "--va_api_key", args.va_api_key,
     ]
@@ -173,7 +172,7 @@ def run_dynamic_scene_task(task_config: Dict, args) -> tuple:
         cmd.extend(["--animation-config", animation_config_path])
     
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)  # 2 hour timeout for dynamic scenes
+        result = subprocess.run(cmd, check=False)  # 2 hour timeout for dynamic scenes
         
         if result.returncode == 0:
             print(f"✅ Dynamic scene task {task_name} completed successfully")

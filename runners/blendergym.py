@@ -122,17 +122,13 @@ def run_blendergym_task(task_config: Dict, args) -> tuple:
         "--init-image-path", str(task_config["init_image_path"]),
         "--target-image-path", str(task_config["target_image_path"]),
         "--output-dir", str(output_base),
-        # Agent server paths
-        "--generator-script", args.generator_script,
-        "--verifier-script", args.verifier_script,
+        # Tool servers
+        "--generator-tools", args.generator_tools,
+        "--verifier-tools", args.verifier_tools,
         # Blender execution parameters (for generator)
-        "--blender-server-path", args.blender_server_path,
         "--blender-command", args.blender_command,
         "--blender-file", str(task_config["blender_file"]),
         "--blender-script", args.blender_script,
-        # Tool server paths (for verifier)
-        "--image-server-path", args.image_server_path,
-        "--scene-server-path", args.scene_server_path,
         "--gpu-devices", args.gpu_devices,
     ]
     

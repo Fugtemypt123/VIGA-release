@@ -173,14 +173,10 @@ def run_autopresent_task(task_config: Dict, args) -> tuple:
         "--init-code-path", str(task_config["init_code_path"]),
         "--init-image-path", str(task_config["init_image_path"]),
         "--target-description", task_config["target_description_path"],
-        # Agent server paths
-        "--generator-script", args.generator_script,
-        "--verifier-script", args.verifier_script,
-        # Slides execution parameters (for generator)
-        "--slides-server-path", args.slides_server_path,
+        # Tool servers
+        "--generator-tools", args.generator_tools,
+        "--verifier-tools", args.verifier_tools,
         "--output-dir", str(output_base),
-        # Tool server paths (for verifier)
-        "--image-server-path", args.image_server_path,
     ]
     
     print(f"Command: {' '.join(cmd)}")
