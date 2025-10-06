@@ -272,9 +272,6 @@ class ConfigManager:
         if self.is_html_mode and not self.html_server_path:
             return False, "HTML server path is required for design2code mode"
         
-        if self.has_verifier_tools and not self.image_server_path and not self.scene_server_path:
-            return False, "Verifier server path is required"
-        
         return True, None
     
     def validate_verifier_configuration(self) -> tuple[bool, Optional[str]]:
