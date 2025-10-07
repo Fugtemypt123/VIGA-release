@@ -264,9 +264,6 @@ class PromptBuilder:
             assets_info += f"\nTo import an asset, use: bpy.ops.import_scene.gltf(filepath='{config_manager.get_assets_path()}/{{asset_name}}.glb')\n"
             system_prompt += assets_info
             
-        # with open('logs/generator.log', 'a') as f:
-        #     f.write(f"build_static_scene_generator_prompt: {system_prompt}\n")
-        
         return [{"role": "system", "content": system_prompt}]
     
     def _build_dynamic_scene_generator_prompt(self, config: Dict, prompts: Dict) -> List[Dict]:

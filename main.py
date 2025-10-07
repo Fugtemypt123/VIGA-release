@@ -75,7 +75,7 @@ async def main():
         save_blender_file = args.output_dir + "/blender_file.blend"
         if not os.path.exists(save_blender_file):
             # copy the blender file to the output directory
-            shutil.copy(args.blender_file, save_blender_file)
+            shutil.copy(args.blender_file, save_blender_file)       
 
     # Init agents
     generator = GeneratorAgentClient(args.generator_script)
@@ -123,7 +123,7 @@ async def main():
         
         await generator.create_session(**generator_params)
         await verifier.create_session(**verifier_params)
-
+        
         # Main loop
         for round_num in range(args.max_rounds):
             print(f"\n=== Round {round_num+1} ===")

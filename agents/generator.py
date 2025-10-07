@@ -54,17 +54,6 @@ class GeneratorAgent:
         
         # Determine tool servers and pick a primary server type for execution tools
         self.tool_servers = self.config_manager.get_generator_tool_servers()
-        with open('logs/generator.log', 'w') as f:
-            f.write(f"tool_servers: {self.tool_servers}")
-        if "blender" in self.tool_servers:
-            self.server_type = "blender"
-        elif "html" in self.tool_servers:
-            self.server_type = "html"
-        elif "slides" in self.tool_servers:
-            self.server_type = "slides"
-        else:
-            # Fallback to any provided server key
-            self.server_type = next(iter(self.tool_servers.keys()), None)
         
         # Initialize prompt builder and tool handler
         self.prompt_builder = PromptBuilder(self.client, self.model)
@@ -120,7 +109,7 @@ class GeneratorAgent:
             Dict containing the generated code, metadata, and verifier flag
         """
         # Setup executor if not connected (merged setup_executor into call_tool)
-        if not self._server_connected and self.server_type:
+        if not self._server_connected:
             await self._setup_executor_internal(**self.config)
         
         # Build sliding window memory

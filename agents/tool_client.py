@@ -105,8 +105,6 @@ class ExternalToolClient:
 
     async def connect_servers(self, tool_servers: Dict[str, str], api_key: Optional[str] = None) -> None:
         """Connect to multiple MCP servers given a server_type->script map."""
-        with open('logs/tool_client.log', 'a') as f:
-            f.write(f"connect_servers: {tool_servers}\n")
         if not tool_servers:
             return
         # Launch connections concurrently

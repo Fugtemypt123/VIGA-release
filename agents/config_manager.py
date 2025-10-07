@@ -14,7 +14,7 @@ class ConfigManager:
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        
+
         # Basic configuration
         self.mode = config.get("mode")
         self.task_name = config.get("task_name")
@@ -79,18 +79,6 @@ class ConfigManager:
         if self.is_blendergym_hard_mode and self.task_name:
             return self.task_name.split('-')[0]
         return None
-    
-    def get_generator_server_type_and_path(self) -> tuple[Optional[str], Optional[str]]:
-        """Deprecated single-server helper: return first generator tool if provided, else None."""
-        if self.generator_tools:
-            return "blender", self.generator_tools[0]
-        return None, None
-    
-    def get_verifier_server_type_and_path(self) -> tuple[Optional[str], Optional[str]]:
-        """Deprecated single-server helper: return first verifier tool if provided, else None."""
-        if self.verifier_tools:
-            return "image", self.verifier_tools[0]
-        return None, None
     
     def get_target_image_path_for_mode(self) -> Optional[str]:
         """Get the appropriate target image path based on mode and level."""
@@ -177,19 +165,19 @@ class ConfigManager:
         name = os.path.basename(script_path)
         if "exec_blender" in name:
             return "blender"
+        if "exec_html" in name:
+            return "html"
+        if "exec_slides" in name:
+            return "slides"
+        if "rag" in name:
+            return "rag"
         if "meshy" in name:
             # Expose meshy tools under blender server_type to match current handlers
-            return "blender"
-        if "init_generate" in name or "init_verify" in name or "image" in name:
+            return "meshy"
+        if "image" in name:
             return "image"
-        if "investigator" in name or "scene" in name:
-            return "scene"
-        if "rag" in name or "web" in name:
-            return "web"
-        if "exec_html" in name or "html" in name:
-            return "html"
-        if "exec_slides" in name or "slides" in name:
-            return "slides"
+        if "investigator" in name:
+            return "investigator"
         return None
 
     def get_generator_tool_servers(self) -> Dict[str, str]:
@@ -227,7 +215,7 @@ class ConfigManager:
             "output_dir": self.output_dir,
             "gpu_devices": self.gpu_devices,
             # Tool servers map for multi-server connection
-            "tool_servers": self.get_generator_tool_servers(),
+            "generator_tools": self.generator_tools,
         }
         
         # Add mode-specific configurations
@@ -268,7 +256,7 @@ class ConfigManager:
             "api_base_url": self.api_base_url,
             "blender_file": self.blender_file,
             # Tool servers map for multi-server connection
-            "tool_servers": self.get_verifier_tool_servers(),
+            "verifier_tools": self.verifier_tools,
         }
         
         return verifier_config

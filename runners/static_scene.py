@@ -233,7 +233,7 @@ def main():
     
     # Tool server scripts (comma-separated)
     parser.add_argument("--generator-tools", default="tools/exec_blender.py,tools/meshy.py,tools/rag.py", help="Comma-separated list of generator tool server scripts")
-    parser.add_argument("--verifier-tools", default="tools/init_verify.py,tools/investigator.py", help="Comma-separated list of verifier tool server scripts")
+    parser.add_argument("--verifier-tools", default="tools/comp_image.py,tools/investigator.py", help="Comma-separated list of verifier tool server scripts")
     
     # API keys
     parser.add_argument("--meshy_api_key", default=MESHY_API_KEY, help="Meshy API key")

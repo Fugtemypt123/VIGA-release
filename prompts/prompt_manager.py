@@ -50,24 +50,24 @@ class PromptManager:
         """Get format prompt for specified mode, agent type, and optional level."""
         self._ensure_prompts_loaded()
         if mode not in self.prompts:
-            raise ValueError(f"Mode {mode} not supported")
+            return None
         
         mode_prompts = self.prompts[mode]
         
         if agent_type not in mode_prompts.get('format', {}):
-            raise ValueError(f"Agent type {agent_type} not supported for mode {mode}")
+            return None
         
         format_prompts = mode_prompts['format'][agent_type]
         
         # Handle level-specific prompts (for blendergym-hard)
         if isinstance(format_prompts, dict) and level:
             if level not in format_prompts:
-                raise ValueError(f"Level {level} not supported for mode {mode}")
+                return None
             return format_prompts[level]
         elif isinstance(format_prompts, str):
             return format_prompts
         else:
-            raise ValueError(f"Invalid format prompt format for mode {mode}, agent {agent_type}")
+            return None
     
     def get_hints(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None) -> Optional[str]:
         """Get hints for specified mode, agent type, task name, and optional level."""
