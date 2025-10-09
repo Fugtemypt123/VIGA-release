@@ -16,8 +16,8 @@ from urllib.request import urlopen, Request
 from difflib import SequenceMatcher
 
 SRC_URL = "https://docs.meshy.ai/zh/api/animation-library"
-OUT_JSON = "meshy_animation_kb.json"
-OUT_JSONL = "meshy_animation_kb.jsonl"
+OUT_JSON = "tools/knowledgebase/meshy_animation_kb.json"
+OUT_JSONL = "tools/knowledgebase/meshy_animation_kb.jsonl"
 
 # English aliases / normalization helpers
 EN_ALIAS = {

@@ -24,7 +24,7 @@ tool_configs = [
                     "reference_type": {"type": "string", "choices": ["text", "image"], "description": "The type of reference to use"},
                     "object_description": {"type": "string", "description": "The description of the object to generate"},
                     "rig_and_animate": {"type": "boolean", "description": "Whether to rig and animate the generated asset. True for dynamic scene, False for static scene"},
-                    "action_description": {"type": "string", "description": "The description of the action to apply to the generated asset"}
+                    "action_description": {"type": "string", "description": "The description of the action to apply to the generated asset. Only input verbs here, e.g. walk, run, jump, etc."}
                 },
                 "required": ["object_name", "reference_type", "rig_and_animate"]
             }
@@ -48,6 +48,7 @@ class MeshyAPI:
             "Authorization": f"Bearer {self.api_key}",
         }
         self.save_dir = save_dir
+        os.makedirs(self.save_dir, exist_ok=True)
 
     def create_text_to_3d_preview(self, prompt: str, **kwargs) -> str:
         """
@@ -106,7 +107,6 @@ class MeshyAPI:
         """
         r = requests.get(file_url, stream=True)
         r.raise_for_status()
-        os.makedirs(self.save_dir, exist_ok=True)
         output_path = os.path.join(self.save_dir, filename)
         with open(output_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
@@ -216,7 +216,7 @@ class MeshyAPI:
             
         Returns: task_id (str)
         """
-        from tools.knowledgebase.meshy_builder import search
+        from knowledgebase.meshy_builder import search
         action = search(action_description)
         if not action:
             return {"status": "error", "output": "No action found"}
@@ -391,7 +391,7 @@ def download_meshy_asset_from_image(object_name: str, image_path: str, prompt: s
         return {"status": "error", "output": str(e)}
 
 
-def create_rigged_character(model_url: str) -> dict:
+def create_rigged_character(model_url: str, object_name: str) -> dict:
     """
     创建带有绑定的角色模型
     
@@ -422,7 +422,7 @@ def create_rigged_character(model_url: str) -> dict:
             return {"status": "error", "output": "No rigged model URL found in result"}
 
         # 4) 下载绑定的模型到本地
-        local_path = _meshy_api.download_model_url(rigged_model_url, f"rigged_character_{rig_task_id}.fbx")
+        local_path = _meshy_api.download_model_url(rigged_model_url, f"rigged_{object_name}.fbx")
         print(f"[Meshy] Downloading rigged model to: {local_path}")
 
         return {
@@ -435,7 +435,7 @@ def create_rigged_character(model_url: str) -> dict:
         return {"status": "error", "output": str(e)}
 
 
-def create_animated_character(rig_task_id: str, action_description: str) -> dict:
+def create_animated_character(rig_task_id: str, action_description: str, object_name: str) -> dict:
     """
     为绑定的角色创建动画
     
@@ -462,12 +462,12 @@ def create_animated_character(rig_task_id: str, action_description: str) -> dict
 
         # 3) 从结果中获取动画文件下载链接
         result = anim_task.get("result", {})
-        animated_model_url = result.get("animated_model_url")
+        animated_model_url = result.get("animation_glb_url")
         if not animated_model_url:
             return {"status": "error", "output": "No animated model URL found in result"}
 
         # 4) 下载动画模型到本地
-        local_path = _meshy_api.download_model_url(animated_model_url, f"animated_character_{anim_task_id}.glb")
+        local_path = _meshy_api.download_model_url(animated_model_url, f"animated_{object_name}.glb")
         print(f"[Meshy] Downloading animated model to: {local_path}")
 
         return {
@@ -480,7 +480,7 @@ def create_animated_character(rig_task_id: str, action_description: str) -> dict
         return {"status": "error", "output": str(e)}
 
 
-def create_rigged_and_animated_character(model_url: str, action_description: str) -> dict:
+def create_rigged_and_animated_character(model_url: str, action_description: str, object_name: str) -> dict:
     """
     完整的流程：创建绑定角色并添加动画
     
@@ -495,23 +495,20 @@ def create_rigged_and_animated_character(model_url: str, action_description: str
         global _meshy_api
         if _meshy_api is None:
             return {"status": "error", "output": "Meshy API not initialized"}
-        # 1) 首先创建绑定角色
-        rigging_result = create_rigged_character(model_url=model_url)
         
+        # 1) 首先创建绑定角色
+        rigging_result = create_rigged_character(model_url=model_url, object_name=object_name)
         if rigging_result.get("status") != "success":
             return rigging_result
 
         # 2) 然后创建动画
         rig_task_id = rigging_result["output"]["task_id"]
-        animation_result = create_animated_character(rig_task_id=rig_task_id, action_description=action_description)
+        animation_result = create_animated_character(rig_task_id=rig_task_id, action_description=action_description, object_name=object_name)
 
         if animation_result.get("status") != "success":
             return animation_result
 
-        return {
-            'status': 'success',
-            'output': animation_result["output"]
-        }
+        return {'status': 'success', 'output': animation_result["output"]}
 
     except Exception as e:
         logging.error(f"Failed to create rigged and animated character: {e}")
@@ -590,7 +587,7 @@ def generate_and_download_3d_asset(object_name: str, reference_type: str, object
         model_url = static_result.get('model_url')
         if not model_url:
             return static_result
-        dynamic_result = create_rigged_and_animated_character(model_url=model_url, action_description=action_description)
+        dynamic_result = create_rigged_and_animated_character(model_url=model_url, action_description=action_description, object_name=object_name)
         if dynamic_result.get('status') == 'success':
             dynamic_result['output'] = dynamic_result.get('output')
         return dynamic_result
@@ -626,7 +623,7 @@ def main():
             reference_type="text",
             object_description="stylized humanoid character",
             rig_and_animate=True,
-            action_id=92,
+            action_description="walk",
         )
         print(json.dumps(text_res, ensure_ascii=False, indent=2))
     else:
