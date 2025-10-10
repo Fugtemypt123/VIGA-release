@@ -105,6 +105,7 @@ class Executor:
     def execute(self, code: str, round: int) -> Dict:
         script_file = self.script_path / f"{round}.py"
         render_file = self.render_path / f"{round}"
+        os.makedirs(render_file, exist_ok=True)
         for img in os.listdir(render_file):
             os.remove(os.path.join(render_file, img))
         with open(script_file, "w") as f:
@@ -175,11 +176,11 @@ def main():
         # Read args from environment for convenience
         args = {
             "blender_command": os.getenv("BLENDER_COMMAND", "utils/blender/infinigen/blender/blender"),
-            "blender_file": os.getenv("BLENDER_FILE", "output/test/test.blend"),
+            "blender_file": os.getenv("BLENDER_FILE", "output/test/exec_blender/test.blend"),
             "blender_script": os.getenv("BLENDER_SCRIPT", "data/dynamic_scene/pipeline_render_script.py"),
-            "script_save": os.getenv("SCRIPT_SAVE", "output/test/scripts"),
-            "render_save": os.getenv("RENDER_SAVE", "output/test/renders"),
-            "blender_save": os.getenv("BLENDER_SAVE", None),
+            "script_save": os.getenv("SCRIPT_SAVE", "output/test/exec_blender/scripts"),
+            "render_save": os.getenv("RENDER_SAVE", "output/test/exec_blender/renders"),
+            "blender_save": os.getenv("BLENDER_SAVE", "output/test/exec_blender/test.blend"),
             "gpu_devices": os.getenv("GPU_DEVICES", None),
         }
         

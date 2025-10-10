@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 import logging
 from mcp.server.fastmcp import FastMCP
+import json
 
 # tool config for agent (only the function w/ @mcp.tools)
 tool_configs = [
@@ -88,12 +89,13 @@ class GetSceneInfo:
         try:
             scene_info = {"objects": [], "materials": [], "lights": [], "cameras": [], "render_settings": {}}
             for obj in bpy.data.objects:
+                if obj.type == 'CAMERA' or obj.type == 'LIGHT':
+                    continue
                 obj_info = {"name": obj.name, "type": obj.type,
                             "location": list(obj.matrix_world.translation),
                             "rotation": list(obj.rotation_euler),
                             "scale": list(obj.scale),
-                            "visible": not (obj.hide_viewport or obj.hide_render),
-                            "active": obj == bpy.context.active_object}
+                            "visible": not (obj.hide_viewport or obj.hide_render)}
                 if obj.type == 'MESH':
                     obj_info["vertices"] = len(obj.data.vertices)
                     obj_info["faces"] = len(obj.data.polygons)
@@ -870,8 +872,8 @@ def test_tools():
     print("=" * 50)
 
     # 设置测试路径（从环境变量读取）
-    blender_file = os.getenv("BLENDER_FILE", "")
-    test_save_dir = os.getenv("THOUGHT_SAVE", "output/test/scene_test")
+    blender_file = os.getenv("BLENDER_FILE", "output/test/exec_blender/test.blend")
+    test_save_dir = os.getenv("THOUGHT_SAVE", "output/test/investigator/")
 
     # 检查 blender 文件是否存在
     if not os.path.exists(blender_file):
@@ -885,14 +887,13 @@ def test_tools():
     print("\n1. Testing get_scene_info...")
     try:
         result = get_scene_info(blender_file)
-        print(f"Result: {result}")
+        
+        with open('logs/investigator.log', 'w') as f:
+            f.write(json.dumps(result, ensure_ascii=False, indent=2))
+        
         if result.get("status") == "success":
             print("✓ get_scene_info passed")
             info = result.get("output", {})
-            # print(f"  - Objects: {len(info.get('objects', []))}")
-            # print(f"  - Materials: {len(info.get('materials', []))}")
-            # print(f"  - Lights: {len(info.get('lights', []))}")
-            print(f"  - Cameras: {len(info.get('cameras', []))}")
 
             # 获取第一个对象名称用于后续测试
             objects = info.get("objects", [])
@@ -901,7 +902,7 @@ def test_tools():
                 # 继续 Meshy 测试
                 first_object = None
             else:
-                first_object = 'Chair_Rig'
+                first_object = objects[0]
                 print(f"  - Will focus on: {first_object}")
         else:
             print("✗ get_scene_info failed")

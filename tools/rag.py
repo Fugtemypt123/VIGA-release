@@ -32,7 +32,7 @@ except ImportError:
 
 try:
     import chromadb
-    from chromadb.config import Settings
+    from chromadb.config import Settings, DEFAULT_TENANT, DEFAULT_DATABASE
     CHROMADB_AVAILABLE = True
 except ImportError:
     CHROMADB_AVAILABLE = False
@@ -51,7 +51,7 @@ class BlenderInfinigenRAG:
     
     def __init__(self, openai_api_key: str = None, knowledge_file: str = None):
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
-        self.knowledge_file = knowledge_file or "tools/knowledge_base/rag_kb.jsonl"
+        self.knowledge_file = knowledge_file or "tools/knowledge_base/rag_kb_deduplicated.jsonl"
         
         # Initialize OpenAI client
         if self.openai_api_key and OPENAI_AVAILABLE:
@@ -92,6 +92,12 @@ class BlenderInfinigenRAG:
             ]
         }
     
+    def _get_collection_name(self) -> str:
+        """Generate collection name based on knowledge file name"""
+        # Extract filename without extension and use as collection name
+        filename = Path(self.knowledge_file).stem
+        return filename
+    
     def _init_vector_db(self):
         """Initialize vector database for knowledge search"""
         if not CHROMADB_AVAILABLE:
@@ -100,10 +106,12 @@ class BlenderInfinigenRAG:
         
         try:
             # Initialize ChromaDB client
-            self.vector_db = chromadb.Client(Settings(
-                chroma_db_impl="duckdb+parquet",
-                persist_directory="./chroma_db"
-            ))
+            self.vector_db = chromadb.PersistentClient(
+                path="./tools/knowledge_base/chroma",              # 本地目录（会自动创建）
+                settings=Settings(),          # 可选：Settings(anonymized_telemetry=False)
+                tenant=DEFAULT_TENANT,        # 可选
+                database=DEFAULT_DATABASE     # 可选
+            )
             
             # Initialize embedding model
             if SENTENCE_TRANSFORMERS_AVAILABLE:
@@ -128,15 +136,15 @@ class BlenderInfinigenRAG:
             return
         
         try:
-            # Check if collection already exists
-            collection_name = "blender_infinigen_knowledge"
+            # Use knowledge file path as collection name to enable different collections for different files
+            collection_name = self._get_collection_name()
             try:
                 collection = self.vector_db.get_collection(collection_name)
-                logging.info("Using existing knowledge collection")
+                logging.info(f"Using existing knowledge collection: {collection_name}")
                 return
             except:
                 collection = self.vector_db.create_collection(collection_name)
-                logging.info("Created new knowledge collection")
+                logging.info(f"Created new knowledge collection: {collection_name}")
             
             # Load and process knowledge entries
             documents = []
@@ -217,7 +225,9 @@ class BlenderInfinigenRAG:
             return self._fallback_text_search(query, max_results, domain_filter)
         
         try:
-            collection = self.vector_db.get_collection("blender_infinigen_knowledge")
+            # Use the same collection name as used during loading
+            collection_name = self._get_collection_name()
+            collection = self.vector_db.get_collection(collection_name)
             
             # Apply domain filter if specified
             where_clause = None
@@ -241,7 +251,7 @@ class BlenderInfinigenRAG:
                     formatted_results.append({
                         'title': metadata.get('title', 'Unknown'),
                         'url': metadata.get('url', ''),
-                        'snippet': doc[:200] + '...' if len(doc) > 200 else doc,
+                        'snippet': doc,
                         'source': metadata.get('domain', 'unknown'),
                         'similarity': 1 - distance,  # Convert distance to similarity
                         'tags': metadata.get('tags', ''),
@@ -291,7 +301,7 @@ class BlenderInfinigenRAG:
                             results.append({
                                 'title': entry.get('title', 'Unknown'),
                                 'url': entry.get('url', ''),
-                                'snippet': entry.get('content_summary', '')[:200] + '...' if len(entry.get('content_summary', '')) > 200 else entry.get('content_summary', ''),
+                                'snippet': entry.get('content_summary', ''),
                                 'source': entry.get('domain', 'unknown'),
                                 'similarity': score / len(query_words),  # Normalized score
                                 'tags': ','.join(entry.get('tags', [])),
@@ -373,8 +383,9 @@ class BlenderInfinigenRAG:
         if not instruction:
             return []
         
-        # Use vector search to find relevant knowledge
-        vector_results = self.search_vector_knowledge(instruction, max_results=10)
+        # Use vector search to find relevant knowledge - get more results for better deduplication
+        vector_results = self.search_vector_knowledge(instruction, max_results=40)
+        logging.info(f"Vector search returned {len(vector_results)} results")
         
         # Convert vector results to API-like format for compatibility
         api_results = []
@@ -389,7 +400,7 @@ class BlenderInfinigenRAG:
                 for api_name in set(api_matches):  # Remove duplicates
                     api_results.append({
                         'name': api_name,
-                        'description': f"Found in {title}: {content[:100]}...",
+                        'description': content[:100],
                         'example': '',
                         'use_case': result.get('tags', ''),
                         'source': result.get('source', ''),
@@ -400,7 +411,7 @@ class BlenderInfinigenRAG:
                 # If no specific APIs found, create a general entry
                 api_results.append({
                     'name': title,
-                    'description': content[:200] + '...' if len(content) > 200 else content,
+                    'description': content,
                     'example': '',
                     'use_case': result.get('tags', ''),
                     'source': result.get('source', ''),
@@ -408,9 +419,37 @@ class BlenderInfinigenRAG:
                     'url': result.get('url', '')
                 })
         
+        logging.info(f"Created {len(api_results)} API results from vector search")
+        
+        # Remove duplicates based on name and description similarity
+        deduplicated_results = self._deduplicate_results(api_results)
+        logging.info(f"After deduplication: {len(deduplicated_results)} results")
+        
         # Sort by similarity and return top 5
-        api_results.sort(key=lambda x: x.get('similarity', 0), reverse=True)
-        return api_results[:5]
+        deduplicated_results.sort(key=lambda x: x.get('similarity', 0), reverse=True)
+        return deduplicated_results[:5]
+    
+    def _deduplicate_results(self, results: List[Dict]) -> List[Dict]:
+        """Remove duplicate results based on exact name matches only"""
+        if not results:
+            return results
+        
+        # Simple deduplication: only remove exact name matches, keep the one with highest similarity
+        seen_names = {}
+        
+        for result in results:
+            name = result.get('name', '').strip()
+            
+            # Only deduplicate exact matches (case-insensitive)
+            if name.lower() in seen_names:
+                # Keep the one with higher similarity
+                if result.get('similarity', 0) > seen_names[name.lower()].get('similarity', 0):
+                    seen_names[name.lower()] = result
+            else:
+                seen_names[name.lower()] = result
+        
+        # Return all unique results
+        return list(seen_names.values())
     
     def rag_query(self, instruction: str) -> Dict:
         """Main RAG query function using vector search"""
@@ -455,16 +494,11 @@ def initialize(args: dict) -> dict:
         global _rag_tool
         _rag_tool = BlenderInfinigenRAG(
             openai_api_key=args.get("openai_api_key"),
-            knowledge_file=args.get("knowledge_file", "tools/knowledge_base/rag_kb.jsonl")
+            knowledge_file=args.get("knowledge_file", "tools/knowledge_base/rag_kb_deduplicated.jsonl")
         )
-        return {
-            "status": "success", 
-            "message": "RAG tool initialized successfully with vector database",
-            "vector_db_available": _rag_tool.vector_db is not None,
-            "embedding_model": "sentence-transformers" if SENTENCE_TRANSFORMERS_AVAILABLE else ("openai" if _rag_tool.openai_client else "none")
-        }
+        return {"status": "success", "output": "RAG tool initialized successfully with vector database"}
     except Exception as e:
-        return {"status": "error", "error": str(e)}
+        return {"status": "error", "output": str(e)}
 
 
 def main():
@@ -480,14 +514,16 @@ def main():
         print("[test:initialize] Initializing RAG tool with vector database...")
         init_args = {
             "openai_api_key": os.getenv("OPENAI_API_KEY"),
-            "knowledge_file": "tools/knowledge_base/rag_kb.jsonl"
+            "knowledge_file": "tools/knowledge_base/rag_kb_deduplicated.jsonl"
         }
         init_result = initialize(init_args)
         print("[test:initialize]", json.dumps(init_result, ensure_ascii=False, indent=2))
 
         # Test 2: RAG query
-        result = rag_query("Place a cube on a plane and set physics")
+        result = rag_query("Create a living room with table and chair")
         print("[test:rag_query]", json.dumps(result, ensure_ascii=False, indent=2))
+        with open('logs/rag.log', 'w') as f:
+            f.write(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         # Default: run as MCP server
         mcp.run(transport="stdio")
