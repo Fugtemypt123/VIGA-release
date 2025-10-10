@@ -194,14 +194,6 @@ class Investigator3D:
         out = bpy.context.scene.render.filepath
         self.count += 1
 
-        # Do not save the blender file after each operation
-        # try:
-        #     bpy.ops.wm.save_mainfile(filepath=self.blender_path)
-        #     print(f"Blender file saved to: {self.blender_path}")
-        # except Exception as e:
-        #     print(f"Warning: Failed to save blender file: {e}")
-
-        # 获取当前相机位置信息
         camera_position = str({
             "location": list(self.cam.matrix_world.translation),
             "rotation": list(self.cam.rotation_euler),
@@ -246,8 +238,8 @@ class Investigator3D:
 
     def move_camera(self, direction: str) -> dict:
         step = self.radius
-        theta_step = step/(self.radius*math.cos(self.phi))
-        phi_step = step/self.radius
+        theta_step = step / (self.radius*math.cos(self.phi))
+        phi_step = step / self.radius
         if direction=='up': self.phi = min(math.pi/2-0.1, self.phi+phi_step)
         elif direction=='down': self.phi = max(-math.pi/2+0.1, self.phi-phi_step)
         elif direction=='left': self.theta -= theta_step
@@ -256,9 +248,9 @@ class Investigator3D:
 
     def _update_and_render(self) -> dict:
         t = self.target.matrix_world.translation
-        x = self.radius*math.cos(self.phi)*math.cos(self.theta)
-        y = self.radius*math.cos(self.phi)*math.sin(self.theta)
-        z = self.radius*math.sin(self.phi)
+        x = self.radius * math.cos(self.phi) * math.cos(self.theta)
+        y = self.radius * math.cos(self.phi) * math.sin(self.theta)
+        z = self.radius * math.sin(self.phi)
         self.cam.matrix_world.translation = (t.x+x, t.y+y, t.z+z)
         return self._render()
 
@@ -273,7 +265,6 @@ class Investigator3D:
             dict: 包含最佳视角的渲染结果
         """
         try:
-            # 获取所有指定的对象
             objects = []
             for obj_name in object_names:
                 obj = bpy.data.objects.get(obj_name)
@@ -284,15 +275,12 @@ class Investigator3D:
             
             if not objects:
                 raise ValueError("No valid objects found in the provided list")
-            
-            # 计算所有对象的联合边界框
+
             min_x = min_y = min_z = float('inf')
             max_x = max_y = max_z = float('-inf')
             
             for obj in objects:
-                # 获取对象的世界坐标边界框
                 bbox_corners = [obj.matrix_world @ mathutils.Vector(corner) for corner in obj.bound_box]
-                
                 for corner in bbox_corners:
                     min_x = min(min_x, corner.x)
                     min_y = min(min_y, corner.y)
@@ -300,50 +288,40 @@ class Investigator3D:
                     max_x = max(max_x, corner.x)
                     max_y = max(max_y, corner.y)
                     max_z = max(max_z, corner.z)
-            
-            # 计算边界框中心和尺寸
+
             center_x = (min_x + max_x) / 2
             center_y = (min_y + max_y) / 2
             center_z = (min_z + max_z) / 2
             center = mathutils.Vector((center_x, center_y, center_z))
-            
-            # 计算边界框尺寸，添加一些边距
+
             size_x = max_x - min_x
             size_y = max_y - min_y
             size_z = max_z - min_z
             max_size = max(size_x, size_y, size_z)
-            margin = max_size * 0.5  # 添加50%的边距
+            margin = max_size * 0.5  
             
-            # 定义四个上角的相机位置
             camera_positions = [
-                (center_x - margin, center_y - margin, center_z + margin),  # 左下角
-                (center_x + margin, center_y - margin, center_z + margin),  # 右下角
-                (center_x - margin, center_y + margin, center_z + margin),  # 左上角
-                (center_x + margin, center_y + margin, center_z + margin)   # 右上角
+                (center_x - margin, center_y - margin, center_z + margin),
+                (center_x + margin, center_y - margin, center_z + margin),
+                (center_x - margin, center_y + margin, center_z + margin),
+                (center_x + margin, center_y + margin, center_z + margin)
             ]
-            
-            # 为每个相机位置渲染并评估视角质量
+
             best_view = None
             best_score = -1
+            previous_cam_info = {'location': self.cam.location, 'rotation': self.cam.rotation_euler}
             
             for i, pos in enumerate(camera_positions):
-                # 设置相机位置
                 self.cam.location = pos
                 self.cam.rotation_euler = (math.radians(60), 0, math.radians(45))
                 
-                # 让相机看向中心点
                 direction = center - self.cam.location
-                self.cam.rotation_euler = self.cam.location.to_track_quat('-Z', 'Y').to_euler()
-                
-                # 渲染当前视角
+                self.cam.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
                 render_result = self._render()
                 
-                # 简单的视角质量评估（可以扩展）
-                # 这里使用边界框覆盖度和距离作为评估标准
                 distance_to_center = (self.cam.location - center).length
                 bbox_visible_ratio = min(1.0, max_size / distance_to_center) if distance_to_center > 0 else 1.0
                 
-                # 综合评分：距离适中 + 可见度高
                 ideal_distance = max_size * 2
                 distance_score = 1.0 - abs(distance_to_center - ideal_distance) / ideal_distance
                 score = bbox_visible_ratio * 0.7 + distance_score * 0.3
@@ -359,33 +337,36 @@ class Investigator3D:
                     }
                 
                 logging.info(f"Viewpoint {i+1}: position={self.cam.location}, rotation={self.cam.rotation_euler}, score={score:.3f}")
+                
+            self.cam.location = previous_cam_info['location']
+            self.cam.rotation_euler = previous_cam_info['rotation']
             
-            # 返回最佳视角的结果
             if best_view:
                 logging.info(f"Best viewpoint selected: {best_view['view_index']+1} with score {best_view['score']:.3f}")
                 return {
                     'status': 'success',
-                    'image': best_view['render_result']['image_path'],
-                    'camera_position': best_view['render_result']['camera_position'],
-                    'best_viewpoint': {
-                        'position': best_view['position'],
-                        'rotation': best_view['rotation'],
-                        'score': best_view['score'],
-                        'view_index': best_view['view_index']
-                    },
-                    'bounding_box': {
-                        'center': [center_x, center_y, center_z],
-                        'size': [size_x, size_y, size_z],
-                        'min': [min_x, min_y, min_z],
-                        'max': [max_x, max_y, max_z]
+                    'output': {
+                        'image': best_view['render_result']['image_path'],
+                        'camera_position': best_view['render_result']['camera_position'],
+                        'best_viewpoint': {
+                            'position': best_view['position'],
+                            'rotation': best_view['rotation'],
+                            'score': best_view['score'],
+                            'view_index': best_view['view_index']
+                        },
+                        'bounding_box': {
+                            'center': [center_x, center_y, center_z],
+                            'size': [size_x, size_y, size_z],
+                            'min': [min_x, min_y, min_z],
+                            'max': [max_x, max_y, max_z]
+                        }
                     }
                 }
             else:
                 raise ValueError("Failed to find a suitable viewpoint")
                 
         except Exception as e:
-            logging.error(f"add_viewpoint failed: {e}")
-            raise e
+            return {'status': 'error', 'output': str(e)}
 
     def add_keyframe(self, keyframe_type: str = "next") -> dict:
         """
@@ -398,17 +379,11 @@ class Investigator3D:
             dict: 包含渲染结果的字典
         """
         try:
-            # 获取当前场景
             scene = bpy.context.scene
-            
-            # 获取当前帧号
             current_frame = scene.frame_current
             
-            # 根据类型确定目标帧号
             if keyframe_type == "next":
-                # 找到下一个关键帧
                 target_frame = current_frame + 1
-                # 查找动画中的下一个关键帧
                 for obj in bpy.data.objects:
                     if obj.animation_data and obj.animation_data.action:
                         for fcurve in obj.animation_data.action.fcurves:
@@ -416,9 +391,7 @@ class Investigator3D:
                                 if keyframe.co[0] > current_frame:
                                     target_frame = min(target_frame, int(keyframe.co[0]))
             elif keyframe_type == "previous":
-                # 找到上一个关键帧
                 target_frame = current_frame - 1
-                # 查找动画中的上一个关键帧
                 for obj in bpy.data.objects:
                     if obj.animation_data and obj.animation_data.action:
                         for fcurve in obj.animation_data.action.fcurves:
@@ -426,7 +399,6 @@ class Investigator3D:
                                 if keyframe.co[0] < current_frame:
                                     target_frame = max(target_frame, int(keyframe.co[0]))
             elif keyframe_type == "first":
-                # 第一个关键帧
                 target_frame = scene.frame_start
                 for obj in bpy.data.objects:
                     if obj.animation_data and obj.animation_data.action:
@@ -434,7 +406,6 @@ class Investigator3D:
                             if fcurve.keyframe_points:
                                 target_frame = max(target_frame, int(fcurve.keyframe_points[0].co[0]))
             elif keyframe_type == "last":
-                # 最后一个关键帧
                 target_frame = scene.frame_end
                 for obj in bpy.data.objects:
                     if obj.animation_data and obj.animation_data.action:
@@ -442,37 +413,31 @@ class Investigator3D:
                             if fcurve.keyframe_points:
                                 target_frame = min(target_frame, int(fcurve.keyframe_points[-1].co[0]))
             else:
-                # 尝试解析为具体的帧号
                 try:
                     target_frame = int(keyframe_type)
                 except ValueError:
                     raise ValueError(f"Invalid keyframe type: {keyframe_type}")
             
-            # 确保目标帧在有效范围内
             target_frame = max(scene.frame_start, min(scene.frame_end, target_frame))
-            
-            # 设置到目标帧
             scene.frame_set(target_frame)
-            
             logging.info(f"Changed to keyframe {target_frame} (was {current_frame})")
-            
-            # 渲染当前帧
             render_result = self._render()
             
             return {
                 'status': 'success',
-                'image': render_result['image_path'],
-                'camera_position': render_result['camera_position'],
-                'keyframe_info': {
-                    'previous_frame': current_frame,
-                    'current_frame': target_frame,
-                    'keyframe_type': keyframe_type
+                'output': {
+                    'image': render_result['image_path'],
+                    'camera_position': render_result['camera_position'],
+                    'keyframe_info': {
+                        'previous_frame': current_frame,
+                        'current_frame': target_frame,
+                        'keyframe_type': keyframe_type
+                    }
                 }
             }
             
         except Exception as e:
-            logging.error(f"add_keyframe failed: {e}")
-            raise e
+            return {'status': 'error', 'output': str(e)}
 
 @mcp.tool()
 def initialize(args: dict) -> dict:
@@ -526,8 +491,7 @@ def focus(object_name: str) -> dict:
         result = _investigator.focus_on_object(object_name)
         return {
             "status": "success", 
-            "image": result["image_path"],
-            "camera_position": result["camera_position"]
+            "output": {"image": result["image_path"], "camera_position": result["camera_position"]}
         }
     except Exception as e:
         logging.error(f"Focus failed: {e}")
@@ -783,7 +747,7 @@ def test_tools():
                 # 继续 Meshy 测试
                 first_object = None
             else:
-                first_object = objects[0]
+                first_object = objects[0]['name']
                 print(f"  - Will focus on: {first_object}")
         else:
             print("✗ get_scene_info failed")
@@ -825,8 +789,6 @@ def test_tools():
             print("✗ add_viewpoint failed")
     except Exception as e:
         print(f"✗ add_viewpoint failed with exception: {e}")
-    
-    raise Exception("Stop here")
 
     if first_object:        
         # 测试 3: 聚焦对象（如果有对象）
