@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 from mcp.server.fastmcp import FastMCP
 import json
+import copy
 
 # tool config for agent (only the function w/ @mcp.tools)
 tool_configs = [
@@ -152,10 +153,10 @@ class GetSceneInfo:
 # ======================
 
 class Investigator3D:
-    def __init__(self, thoughtprocess_save: str, blender_path: str):
+    def __init__(self, save_dir: str, blender_path: str):
         self.blender_path = blender_path          # 先保存路径
         self._load_blender_file()                 # 再加载文件
-        self.base = Path(thoughtprocess_save) / "investigator"
+        self.base = Path(save_dir)
         self.base.mkdir(parents=True, exist_ok=True)
         # self.cam = self._get_or_create_cam()
         self.target = None
@@ -165,7 +166,6 @@ class Investigator3D:
         self.count = 0
 
     def _load_blender_file(self):
-        """加载 Blender 文件，如果已经加载了相同的文件则跳过"""
         # current_file = bpy.data.filepath
         # if current_file != self.blender_path:
         bpy.ops.wm.open_mainfile(filepath=str(self.blender_path))
@@ -173,51 +173,23 @@ class Investigator3D:
 
     def _get_or_create_cam(self):
         # Use existing camera if available, otherwise create with fixed starting positions
-        if 'Camera1' in bpy.data.objects:
-            cam = bpy.data.objects['Camera1']
-            # Set to a fixed starting position (-z direction)
-            self._set_camera_to_position(cam, "z")
-            return cam
-        else:
-            # Check for any existing camera
-            for existing_cam in bpy.data.objects:
-                if existing_cam.type == 'CAMERA':
-                    # Set to fixed starting position
-                    self._set_camera_to_position(existing_cam, "z")
-                    return existing_cam
-            
-            # Create new camera with fixed starting position (-z direction)
-            bpy.ops.object.camera_add(location=(0, 0, 5))
-            cam = bpy.context.active_object
-            cam.name = "InvestigatorCamera"
-            self._set_camera_to_position(cam, "z")
-            return cam
-    
-    def _set_camera_to_position(self, cam, direction="z"):
-        """Set camera to fixed starting positions: -z, -x, -y directions or bbox above"""
-        if direction == "z":
-            # -z direction (from above looking down)
-            cam.location = (0, 0, 5)
-            cam.rotation_euler = (math.radians(60), 0, 0)
-        elif direction == "x":
-            # -x direction (from side looking at scene)
-            cam.location = (-5, 0, 2)
-            cam.rotation_euler = (math.radians(90), 0, math.radians(90))
-        elif direction == "y":
-            # -y direction (from front looking at scene)
-            cam.location = (0, -5, 2)
-            cam.rotation_euler = (math.radians(90), 0, 0)
-        elif direction == "bbox":
-            # From above bounding box
-            cam.location = (0, 0, 10)
-            cam.rotation_euler = (math.radians(90), 0, 0)
-        
-        cam.data.lens = 20
+        # Add a new camera in the scene
+        bpy.ops.object.camera_add()
+        cam = bpy.context.active_object
+        cam.name = "InvestigatorCamera"
+        cam.location = (0, 0, 5)
+        cam.rotation_euler = (math.radians(60), 0, 0)
+        for existing_cam in bpy.data.objects:
+            if existing_cam.type == 'CAMERA':
+                cam.location = existing_cam.location
+                cam.rotation_euler = existing_cam.rotation_euler
+                break
+        return cam
 
-    def _render(self, round_num: int):
+    def _render(self):
         bpy.context.scene.camera = self.cam
         bpy.context.scene.render.engine = 'CYCLES'
-        bpy.context.scene.render.filepath = str(self.base / f"{round_num+1}" / f"{self.count+1}.png")
+        bpy.context.scene.render.filepath = str(self.base / f"{self.count+1}.png")
         bpy.ops.render.render(write_still=True)
         out = bpy.context.scene.render.filepath
         self.count += 1
@@ -244,7 +216,7 @@ class Investigator3D:
             "camera_position": camera_position
         }
 
-    def focus_on_object(self, object_name: str, round_num: int) -> dict:
+    def focus_on_object(self, object_name: str) -> dict:
         obj = bpy.data.objects.get(object_name)
         if not obj:
             raise ValueError(f"{object_name} not found")
@@ -263,16 +235,16 @@ class Investigator3D:
         self.radius = (self.cam.matrix_world.translation - obj.matrix_world.translation).length
         self.theta = math.atan2(*(self.cam.matrix_world.translation[i] - obj.matrix_world.translation[i] for i in (1,0)))
         self.phi = math.asin((self.cam.matrix_world.translation.z - obj.matrix_world.translation.z)/self.radius)
-        return self._render(round_num)
+        return self._render()
 
-    def zoom(self, direction: str, round_num: int) -> dict:
+    def zoom(self, direction: str) -> dict:
         if direction == 'in':
             self.radius = max(1, self.radius-3)
         elif direction == 'out':
             self.radius += 3
-        return self._update_and_render(round_num)
+        return self._update_and_render()
 
-    def move_camera(self, direction: str, round_num: int) -> dict:
+    def move_camera(self, direction: str) -> dict:
         step = self.radius
         theta_step = step/(self.radius*math.cos(self.phi))
         phi_step = step/self.radius
@@ -280,23 +252,22 @@ class Investigator3D:
         elif direction=='down': self.phi = max(-math.pi/2+0.1, self.phi-phi_step)
         elif direction=='left': self.theta -= theta_step
         elif direction=='right': self.theta += theta_step
-        return self._update_and_render(round_num)
+        return self._update_and_render()
 
-    def _update_and_render(self, round_num: int) -> dict:
+    def _update_and_render(self) -> dict:
         t = self.target.matrix_world.translation
         x = self.radius*math.cos(self.phi)*math.cos(self.theta)
         y = self.radius*math.cos(self.phi)*math.sin(self.theta)
         z = self.radius*math.sin(self.phi)
         self.cam.matrix_world.translation = (t.x+x, t.y+y, t.z+z)
-        return self._render(round_num)
+        return self._render()
 
-    def add_viewpoint(self, object_names: list, round_num: int) -> dict:
+    def add_viewpoint(self, object_names: list) -> dict:
         """
         计算对象列表的边界框，在四个上角放置相机，选择最佳视角
         
         Args:
             object_names: 要观察的对象名称列表
-            round_num: 轮次编号
             
         Returns:
             dict: 包含最佳视角的渲染结果
@@ -365,7 +336,7 @@ class Investigator3D:
                 self.cam.rotation_euler = self.cam.location.to_track_quat('-Z', 'Y').to_euler()
                 
                 # 渲染当前视角
-                render_result = self._render(round_num)
+                render_result = self._render()
                 
                 # 简单的视角质量评估（可以扩展）
                 # 这里使用边界框覆盖度和距离作为评估标准
@@ -380,13 +351,14 @@ class Investigator3D:
                 if score > best_score:
                     best_score = score
                     best_view = {
-                        'position': pos,
+                        'position': self.cam.location,
+                        'rotation': self.cam.rotation_euler,
                         'score': score,
                         'render_result': render_result,
                         'view_index': i
                     }
                 
-                logging.info(f"Viewpoint {i+1}: position={pos}, score={score:.3f}")
+                logging.info(f"Viewpoint {i+1}: position={self.cam.location}, rotation={self.cam.rotation_euler}, score={score:.3f}")
             
             # 返回最佳视角的结果
             if best_view:
@@ -397,6 +369,7 @@ class Investigator3D:
                     'camera_position': best_view['render_result']['camera_position'],
                     'best_viewpoint': {
                         'position': best_view['position'],
+                        'rotation': best_view['rotation'],
                         'score': best_view['score'],
                         'view_index': best_view['view_index']
                     },
@@ -414,13 +387,12 @@ class Investigator3D:
             logging.error(f"add_viewpoint failed: {e}")
             raise e
 
-    def add_keyframe(self, keyframe_type: str = "next", round_num: int = 1) -> dict:
+    def add_keyframe(self, keyframe_type: str = "next") -> dict:
         """
         改变场景到另一个关键帧进行观察
         
         Args:
             keyframe_type: 关键帧类型 ("next", "previous", "first", "last", 或具体的帧号)
-            round_num: 轮次编号
             
         Returns:
             dict: 包含渲染结果的字典
@@ -485,7 +457,7 @@ class Investigator3D:
             logging.info(f"Changed to keyframe {target_frame} (was {current_frame})")
             
             # 渲染当前帧
-            render_result = self._render(round_num)
+            render_result = self._render()
             
             return {
                 'status': 'success',
@@ -509,24 +481,24 @@ def initialize(args: dict) -> dict:
     """
     global _investigator
     try:
-        _investigator = Investigator3D(args.get("thought_save"), str(args.get("blender_file")))
+        save_dir = args.get("thought_save") + "/investigator/" + str(args.get("round_num"))
+        _investigator = Investigator3D(save_dir, str(args.get("blender_file")))
         return {"status": "success", "output": "Investigator3D initialized successfully"}
     except Exception as e:
         return {"status": "error", "output": str(e)}
 
-def focus(object_name: str, round_num: int) -> dict:
+def focus(object_name: str) -> dict:
     """
     Focus the camera on a specific object in the 3D scene.
     
     Args:
         object_name: Name of the object to focus on (must exist in the scene)
-        round_num: Current round number for file organization
         
     Returns:
         dict: Status, rendered image path, and camera position information
         
     Example:
-        focus(object_name="Cube", round_num=1)
+        focus(object_name="Cube")
         # Focuses camera on the object named "Cube" and renders the view
         
     Detailed Description:
@@ -551,7 +523,7 @@ def focus(object_name: str, round_num: int) -> dict:
         if not obj:
             return {"status": "error", "output": f"Object '{object_name}' not found in scene"}
 
-        result = _investigator.focus_on_object(object_name, round_num)
+        result = _investigator.focus_on_object(object_name)
         return {
             "status": "success", 
             "image": result["image_path"],
@@ -561,19 +533,18 @@ def focus(object_name: str, round_num: int) -> dict:
         logging.error(f"Focus failed: {e}")
         return {"status": "error", "output": str(e)}
 
-def zoom(direction: str, round_num: int) -> dict:
+def zoom(direction: str) -> dict:
     """
     Zoom the camera in or out from the current target object.
     
     Args:
         direction: Zoom direction - "in" (closer to object) or "out" (farther from object)
-        round_num: Current round number for file organization
         
     Returns:
         dict: Status, rendered image path, and camera position information
         
     Example:
-        zoom(direction="in", round_num=1)
+        zoom(direction="in")
         # Moves camera closer to the target object for detailed examination
         
     Detailed Description:
@@ -597,7 +568,7 @@ def zoom(direction: str, round_num: int) -> dict:
         if _investigator.target is None:
             return {"status": "error", "output": "No target object set. Call focus first."}
 
-        result = _investigator.zoom(direction, round_num)
+        result = _investigator.zoom(direction)
         return {
             "status": "success", 
             "output": {'image': result["image_path"], 'camera_position': result["camera_position"]}
@@ -606,19 +577,18 @@ def zoom(direction: str, round_num: int) -> dict:
         logging.error(f"Zoom failed: {e}")
         return {"status": "error", "output": str(e)}
 
-def move(direction: str, round_num: int) -> dict:
+def move(direction: str) -> dict:
     """
     Move the camera around the current target object in spherical coordinates.
     
     Args:
         direction: Movement direction - "up", "down", "left", or "right"
-        round_num: Current round number for file organization
         
     Returns:
         dict: Status, rendered image path, and camera position information
         
     Example:
-        move(direction="left", round_num=1)
+        move(direction="left")
         # Rotates camera around the target object to the left
         
     Detailed Description:
@@ -648,7 +618,7 @@ def move(direction: str, round_num: int) -> dict:
         if _investigator.target is None:
             return {"status": "error", "output": "No target object set. Call focus first."}
 
-        result = _investigator.move_camera(direction, round_num)
+        result = _investigator.move_camera(direction)
         return {
             "status": "success", 
             "output": {'image': result["image_path"], 'camera_position': result["camera_position"]}
@@ -669,13 +639,12 @@ def get_scene_info(blender_path: str) -> dict:
         return {"status": "error", "output": str(e)}
 
 @mcp.tool()
-def add_viewpoint(object_names: list, round_num: int) -> dict:
+def add_viewpoint(object_names: list) -> dict:
     """
     添加视角：输入对象列表，计算其边界框并在四个上角放置相机，选择最佳视角。
     
     Args:
         object_names: 要观察的对象名称列表
-        round_num: 轮次编号
         
     Returns:
         dict: 包含最佳视角渲染结果的字典
@@ -685,14 +654,14 @@ def add_viewpoint(object_names: list, round_num: int) -> dict:
         return {"status": "error", "output": "Investigator3D not initialized. Call initialize_investigator first."}
 
     try:
-        result = _investigator.add_viewpoint(object_names, round_num)
+        result = _investigator.add_viewpoint(object_names)
         return result
     except Exception as e:
         logging.error(f"Add viewpoint failed: {e}")
         return {"status": "error", "output": str(e)}
 
 @mcp.tool()
-def investigate(operation: str, object_name: str = None, direction: str = None, round_num: int = 0) -> dict:
+def investigate(operation: str, object_name: str = None, direction: str = None) -> dict:
     """
     Unified investigation tool.
     
@@ -700,25 +669,24 @@ def investigate(operation: str, object_name: str = None, direction: str = None, 
         operation: One of ["focus", "zoom", "move"].
         object_name: Required when operation == "focus".
         direction: Direction for zoom/move. For zoom: ["in","out"]. For move: ["up","down","left","right"].
-        round_num: Current round number for file organization.
     """
     if operation == "focus":
         if not object_name:
             return {"status": "error", "output": "object_name is required for focus"}
-        return focus(object_name=object_name, round_num=round_num)
+        return focus(object_name=object_name)
     elif operation == "zoom":
         if direction not in ("in", "out"):
             return {"status": "error", "output": "direction must be 'in' or 'out' for zoom"}
-        return zoom(direction=direction, round_num=round_num)
+        return zoom(direction=direction)
     elif operation == "move":
         if direction not in ("up", "down", "left", "right"):
             return {"status": "error", "output": "direction must be one of up/down/left/right for move"}
-        return move(direction=direction, round_num=round_num)
+        return move(direction=direction)
     else:
         return {"status": "error", "output": f"Unknown operation: {operation}"}
 
 @mcp.tool()
-def set_object_visibility(show_object_list: list = None, hide_object_list: list = None, round_num: int = 0) -> dict:
+def set_object_visibility(show_object_list: list = None, hide_object_list: list = None) -> dict:
     """
     Toggle object visibility for inspection and render a view.
     """
@@ -736,20 +704,19 @@ def set_object_visibility(show_object_list: list = None, hide_object_list: list 
             if obj.name in show_object_list:
                 obj.hide_viewport = False
                 obj.hide_render = False
-        result = _investigator._render(round_num)
+        result = _investigator._render()
         return {"status": "success", "output": {'image': result["image_path"], 'camera_position': result["camera_position"]}}
     except Exception as e:
         logging.error(f"set_object_visibility failed: {e}")
         return {"status": "error", "output": str(e)}
 
 @mcp.tool()
-def add_keyframe(keyframe_type: str, round_num: int) -> dict:
+def add_keyframe(keyframe_type: str = "next") -> dict:
     """
     添加关键帧：改变场景到另一个关键帧进行观察。
     
     Args:
         keyframe_type: 关键帧类型，支持 "next", "previous", "first", "last", 或具体的帧号
-        round_num: 轮次编号
         
     Returns:
         dict: 包含渲染结果的字典
@@ -759,7 +726,7 @@ def add_keyframe(keyframe_type: str, round_num: int) -> dict:
         return {"status": "error", "output": "Investigator3D not initialized. Call initialize_investigator first."}
 
     try:
-        result = _investigator.add_keyframe(keyframe_type, round_num)
+        result = _investigator.add_keyframe(keyframe_type)
         return result
     except Exception as e:
         logging.error(f"Add keyframe failed: {e}")
@@ -828,20 +795,44 @@ def test_tools():
     # 测试 2: 初始化调查工具
     print("\n2. Testing initialize_investigator...")
     try:
-        args = {"thought_save": test_save_dir, "blender_file": blender_file}
+        args = {"thought_save": test_save_dir, "blender_file": blender_file, "round_num": 0}
         result = initialize(args)
         if result.get("status") == "success":
             print("✓ initialize_investigator passed")
         else:
-            print("✗ initialize_investigator failed")
+            print("✗ initialize_investigator failed: ", result.get("output"))
     except Exception as e:
         print(f"✗ initialize_investigator failed with exception: {e}")
+        
+    # 尝试渲染
+    global _investigator
+    result = _investigator._render()
+    print(f"Result: {result}")
+        
+    # 测试 6: 添加视角功能
+    print("\n6. Testing add_viewpoint...")
+    try:
+        test_objects = [obj['name'] for obj in objects]
+        print(f"Test objects: {test_objects}")
+        result = add_viewpoint(object_names=test_objects)
+        print(f"Result: {result}")
+        if result.get("status") == "success":
+            print("✓ add_viewpoint passed")
+            print(f"  - Image saved: {result.get('output', 'N/A')}")
+            print(f"  - Best viewpoint: {result.get('best_viewpoint', {}).get('view_index', 'N/A')}")
+            print(f"  - Score: {result.get('best_viewpoint', {}).get('score', 'N/A')}")
+        else:
+            print("✗ add_viewpoint failed")
+    except Exception as e:
+        print(f"✗ add_viewpoint failed with exception: {e}")
+    
+    raise Exception("Stop here")
 
-    # 测试 3: 聚焦对象（如果有对象）
-    if first_object:
+    if first_object:        
+        # 测试 3: 聚焦对象（如果有对象）
         print("\n3. Testing focus...")
         try:
-            result = focus(object_name=first_object, round_num=1)
+            result = focus(object_name=first_object)
             print(f"Result: {result}")
             if result.get("status") == "success":
                 print("✓ focus passed")
@@ -855,7 +846,7 @@ def test_tools():
         # 测试 4: 缩放功能
         print("\n4. Testing zoom...")
         try:
-            result = zoom(direction="in", round_num=1)
+            result = zoom(direction="in")
             print(f"Result: {result}")
             if result.get("status") == "success":
                 print("✓ zoom passed")
@@ -868,7 +859,7 @@ def test_tools():
         # 测试 5: 移动功能
         print("\n5. Testing move...")
         try:
-            result = move(direction="up", round_num=1)
+            result = move(direction="up")
             print(f"Result: {result}")
             if result.get("status") == "success":
                 print("✓ move passed")
@@ -878,27 +869,10 @@ def test_tools():
         except Exception as e:
             print(f"✗ move failed with exception: {e}")
 
-        # 测试 6: 添加视角功能
-        print("\n6. Testing add_viewpoint...")
-        try:
-            # 使用第一个对象进行测试
-            test_objects = [first_object] if first_object else ['Chair_Rig']
-            result = add_viewpoint(object_names=test_objects, round_num=1)
-            print(f"Result: {result}")
-            if result.get("status") == "success":
-                print("✓ add_viewpoint passed")
-                print(f"  - Image saved: {result.get('output', 'N/A')}")
-                print(f"  - Best viewpoint: {result.get('best_viewpoint', {}).get('view_index', 'N/A')}")
-                print(f"  - Score: {result.get('best_viewpoint', {}).get('score', 'N/A')}")
-            else:
-                print("✗ add_viewpoint failed")
-        except Exception as e:
-            print(f"✗ add_viewpoint failed with exception: {e}")
-
         # 测试 7: 添加关键帧功能
         print("\n7. Testing add_keyframe...")
         try:
-            result = add_keyframe(keyframe_type="next", round_num=1)
+            result = add_keyframe(keyframe_type="next")
             print(f"Result: {result}")
             if result.get("status") == "success":
                 print("✓ add_keyframe passed")
