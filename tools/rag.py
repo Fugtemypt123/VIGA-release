@@ -13,10 +13,10 @@ tool_configs = [
         "type": "function",
         "function": {
             "name": "rag_query",
-            "description": "Search knowledge base using vector similarity",
+            "description": "A RAG tool to search the bpy and Infinigen documentation for information relevant to the current instruction, in order to support your use of execute_and_evaluate.",
             "parameters": {
                 "type": "object",
-                "properties": {"query": {"type": "string", "description": "Search query"}},
+                "properties": {"query": {"type": "string", "description": "The query to search the bpy and Infinigen documentation for information relevant to the current instruction."}},
                 "required": ["query"]
             }
         }

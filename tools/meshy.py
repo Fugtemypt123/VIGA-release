@@ -17,15 +17,15 @@ tool_configs = [
         "type": "function",
         "function": {
             "name": "generate_and_download_3d_asset",
-            "description": "Generate and download a 3D asset",
+            "description": "Use the Meshy API to generate a 3D asset.\n• You may provide either text or image as the reference:\n– If the target 3D asset in the reference image is clear and unobstructed, use reference_type=\"image\".\n– Otherwise, use reference_type=\"text\".\n• The tool downloads the generated asset locally and returns its file path for later import in code.\n• When generating assets that require rigging or animation, attach appropriate actions via the Meshy API where supported. The API currently supports only a limited set of objects and motions; for anything beyond that, implement animation via code.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "object_name": {"type": "string", "description": "The name of the object to generate"},
-                    "reference_type": {"type": "string", "choices": ["text", "image"], "description": "The type of reference to use"},
-                    "object_description": {"type": "string", "description": "The description of the object to generate"},
+                    "object_name": {"type": "string", "description": "The name of the object to generate. For example, 'chair', 'table', 'lamp', etc."},
+                    "reference_type": {"type": "string", "choices": ["text", "image"], "description": 'The type of reference to use. If the target 3D asset in the reference image is clear and unobstructed, use reference_type=\"image\". Otherwise, use reference_type=\"text\".'},
+                    "object_description": {"type": "string", "description": "If you use reference_type=\"text\", you must provide a detailed description of the object to generate."},
                     "rig_and_animate": {"type": "boolean", "description": "Whether to rig and animate the generated asset. True for dynamic scene, False for static scene"},
-                    "action_description": {"type": "string", "description": "The description of the action to apply to the generated asset. Only input verbs here, e.g. walk, run, jump, etc."}
+                    "action_description": {"type": "string", "description": "If you use rig_and_animate=True, you must provide a description of the action to apply to the generated asset. Only input verbs here, e.g. walk, run, jump, etc."}
                 },
                 "required": ["object_name", "reference_type", "rig_and_animate"]
             }

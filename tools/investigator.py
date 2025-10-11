@@ -15,12 +15,12 @@ tool_configs = [
     {
         "type": "function",
         "function": {
-            "name": "add_viewpoint",
-            "description": "Add a viewpoint to the scene",
+            "name": "init_viewpoint",
+            "description": "Adds a viewpoint to observe the listed objects. The viewpoints are added to the four corners of the bounding box of the listed objects. This tool returns the positions and rotations of the four viewpoint cameras, as well as the rendered images of the four cameras. You would better call this tool first before you can call the other tools.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "object_names": {"type": "array", "description": "The names of the objects to add viewpoints to"}
+                    "object_names": {"type": "array", "description": "The names of the objects to observe. Objects must exist in the scene (you can check the scene information to see if they exist). If you want to observe the whole scene, you can pass an empty list."}
                 },
                 "required": ["object_names"]
             }
@@ -29,14 +29,29 @@ tool_configs = [
     {
         "type": "function",
         "function": {
-            "name": "investigate",
-            "description": "Investigate the scene",
+            "name": "set_camera",
+            "description": "Set the current active camera to the given location and rotation",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "operation": {"type": "string", "description": "The operation to perform"},
-                    "object_name": {"type": "string", "description": "The name of the object to investigate"},
-                    "direction": {"type": "string", "description": "The direction to investigate"}
+                    "location": {"type": "array", "description": "The location of the camera (in world coordinates)"},
+                    "rotation_euler": {"type": "array", "description": "The rotation of the camera (in euler angles)"}
+                },
+                "required": ["location", "rotation_euler"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "investigate",
+            "description": "Investigate the scene by the current camera. You can zoom, move, and focus on the object you want to investigate.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operation": {"type": "string", "choices": ["zoom", "move", "focus"], "description": "The operation to perform."},
+                    "object_name": {"type": "string", "description": "If the operation is focus, you need to provide the name of the object to focus on. The object must exist in the scene."},
+                    "direction": {"type": "string", "choices": ["up", "down", "left", "right", "in", "out"], "description": "If the operation is move or zoom, you need to provide the direction to move or zoom."}
                 },
                 "required": ["operation"]
             }
@@ -46,27 +61,28 @@ tool_configs = [
         "type": "function",
         "function": {
             "name": "set_object_visibility",
-            "description": "Set the visibility of the objects in the scene",
+            "description": "Set the visibility of the objects in the scene. You can decide to show or hide the objects. You do not need to mention all the objects here, the objects you do not metioned will keep their original visibility.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "show_object_list": {"type": "array", "description": "The names of the objects to show"},
-                    "hide_object_list": {"type": "array", "description": "The names of the objects to hide"}
+                    "show_object_list": {"type": "array", "description": "The names of the objects to show. Objects must exist in the scene."},
+                    "hide_object_list": {"type": "array", "description": "The names of the objects to hide. Objects must exist in the scene."}
                 },
-                "required": ["show_object_list"]
+                "required": ["show_object_list", "hide_object_list"]
             }
         }
     },
     {
         "type": "function",
         "function": {
-            "name": "add_keyframe",
-            "description": "Add a keyframe to the scene",
+            "name": "set_keyframe",
+            "description": "Set the scene to a specific frame number for observation",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "keyframe_type": {"type": "string", "description": "The type of keyframe to add"}
-                }
+                    "frame_number": {"type": "integer", "description": "The specific frame number to set the scene to."}
+                },
+                "required": ["frame_number"]
             }
         }
     }
@@ -254,27 +270,40 @@ class Investigator3D:
         self.cam.matrix_world.translation = (t.x+x, t.y+y, t.z+z)
         return self._render()
 
-    def add_viewpoint(self, object_names: list) -> dict:
+    def set_camera(self, location: list, rotation_euler: list) -> dict:
+        self.cam.location = location
+        self.cam.rotation_euler = rotation_euler
+
+    def init_viewpoint(self, object_names: list) -> dict:
         """
-        计算对象列表的边界框，在四个上角放置相机，选择最佳视角
+        计算对象列表的边界框，在四个上角放置相机，返回所有视角
         
         Args:
-            object_names: 要观察的对象名称列表
+            object_names: 要观察的对象名称列表。如果为空列表，则观察整个场景
             
         Returns:
-            dict: 包含最佳视角的渲染结果
+            dict: 包含所有视角的渲染结果
         """
         try:
             objects = []
-            for obj_name in object_names:
-                obj = bpy.data.objects.get(obj_name)
-                if obj:
-                    objects.append(obj)
-                else:
-                    logging.warning(f"Object '{obj_name}' not found in scene")
+            
+            # 如果传入空列表，观察整个场景中的所有mesh对象
+            if not object_names:
+                for obj in bpy.data.objects:
+                    if obj.type == 'MESH' and obj.name not in ['Ground', 'Plane']:  # 排除地面等辅助对象
+                        objects.append(obj)
+                logging.info(f"Observing whole scene: found {len(objects)} mesh objects")
+            else:
+                # 按名称查找指定对象
+                for obj_name in object_names:
+                    obj = bpy.data.objects.get(obj_name)
+                    if obj:
+                        objects.append(obj)
+                    else:
+                        logging.warning(f"Object '{obj_name}' not found in scene")
             
             if not objects:
-                raise ValueError("No valid objects found in the provided list")
+                raise ValueError("No valid objects found in the scene or provided list")
 
             min_x = min_y = min_z = float('inf')
             max_x = max_y = max_z = float('-inf')
@@ -307,8 +336,7 @@ class Investigator3D:
                 (center_x + margin, center_y + margin, center_z + margin)
             ]
 
-            best_view = None
-            best_score = -1
+            viewpoints = []
             previous_cam_info = {'location': self.cam.location, 'rotation': self.cam.rotation_euler}
             
             for i, pos in enumerate(camera_positions):
@@ -319,61 +347,43 @@ class Investigator3D:
                 self.cam.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
                 render_result = self._render()
                 
-                distance_to_center = (self.cam.location - center).length
-                bbox_visible_ratio = min(1.0, max_size / distance_to_center) if distance_to_center > 0 else 1.0
+                viewpoint_data = {
+                    'view_index': i,
+                    'position': list(self.cam.location),
+                    'rotation': list(self.cam.rotation_euler),
+                    'image': render_result['image_path'],
+                    'camera_position': render_result['camera_position']
+                }
+                viewpoints.append(viewpoint_data)
                 
-                ideal_distance = max_size * 2
-                distance_score = 1.0 - abs(distance_to_center - ideal_distance) / ideal_distance
-                score = bbox_visible_ratio * 0.7 + distance_score * 0.3
+                logging.info(f"Viewpoint {i+1}: position={self.cam.location}, rotation={self.cam.rotation_euler}")
                 
-                if score > best_score:
-                    best_score = score
-                    best_view = {
-                        'position': self.cam.location,
-                        'rotation': self.cam.rotation_euler,
-                        'score': score,
-                        'render_result': render_result,
-                        'view_index': i
-                    }
-                
-                logging.info(f"Viewpoint {i+1}: position={self.cam.location}, rotation={self.cam.rotation_euler}, score={score:.3f}")
-                
+            # Restore original camera position
             self.cam.location = previous_cam_info['location']
             self.cam.rotation_euler = previous_cam_info['rotation']
             
-            if best_view:
-                logging.info(f"Best viewpoint selected: {best_view['view_index']+1} with score {best_view['score']:.3f}")
-                return {
-                    'status': 'success',
-                    'output': {
-                        'image': best_view['render_result']['image_path'],
-                        'camera_position': best_view['render_result']['camera_position'],
-                        'best_viewpoint': {
-                            'position': best_view['position'],
-                            'rotation': best_view['rotation'],
-                            'score': best_view['score'],
-                            'view_index': best_view['view_index']
-                        },
-                        'bounding_box': {
-                            'center': [center_x, center_y, center_z],
-                            'size': [size_x, size_y, size_z],
-                            'min': [min_x, min_y, min_z],
-                            'max': [max_x, max_y, max_z]
-                        }
+            return {
+                'status': 'success',
+                'output': {
+                    'viewpoints': viewpoints,
+                    'bounding_box': {
+                        'center': [center_x, center_y, center_z],
+                        'size': [size_x, size_y, size_z],
+                        'min': [min_x, min_y, min_z],
+                        'max': [max_x, max_y, max_z]
                     }
                 }
-            else:
-                raise ValueError("Failed to find a suitable viewpoint")
+            }
                 
         except Exception as e:
             return {'status': 'error', 'output': str(e)}
 
-    def add_keyframe(self, keyframe_type: str = "next") -> dict:
+    def set_keyframe(self, frame_number: int) -> dict:
         """
-        改变场景到另一个关键帧进行观察
+        改变场景到指定的帧号进行观察
         
         Args:
-            keyframe_type: 关键帧类型 ("next", "previous", "first", "last", 或具体的帧号)
+            frame_number: 要设置的帧号
             
         Returns:
             dict: 包含渲染结果的字典
@@ -382,45 +392,10 @@ class Investigator3D:
             scene = bpy.context.scene
             current_frame = scene.frame_current
             
-            if keyframe_type == "next":
-                target_frame = current_frame + 1
-                for obj in bpy.data.objects:
-                    if obj.animation_data and obj.animation_data.action:
-                        for fcurve in obj.animation_data.action.fcurves:
-                            for keyframe in fcurve.keyframe_points:
-                                if keyframe.co[0] > current_frame:
-                                    target_frame = min(target_frame, int(keyframe.co[0]))
-            elif keyframe_type == "previous":
-                target_frame = current_frame - 1
-                for obj in bpy.data.objects:
-                    if obj.animation_data and obj.animation_data.action:
-                        for fcurve in obj.animation_data.action.fcurves:
-                            for keyframe in fcurve.keyframe_points:
-                                if keyframe.co[0] < current_frame:
-                                    target_frame = max(target_frame, int(keyframe.co[0]))
-            elif keyframe_type == "first":
-                target_frame = scene.frame_start
-                for obj in bpy.data.objects:
-                    if obj.animation_data and obj.animation_data.action:
-                        for fcurve in obj.animation_data.action.fcurves:
-                            if fcurve.keyframe_points:
-                                target_frame = max(target_frame, int(fcurve.keyframe_points[0].co[0]))
-            elif keyframe_type == "last":
-                target_frame = scene.frame_end
-                for obj in bpy.data.objects:
-                    if obj.animation_data and obj.animation_data.action:
-                        for fcurve in obj.animation_data.action.fcurves:
-                            if fcurve.keyframe_points:
-                                target_frame = min(target_frame, int(fcurve.keyframe_points[-1].co[0]))
-            else:
-                try:
-                    target_frame = int(keyframe_type)
-                except ValueError:
-                    raise ValueError(f"Invalid keyframe type: {keyframe_type}")
-            
-            target_frame = max(scene.frame_start, min(scene.frame_end, target_frame))
+            # 确保帧号在有效范围内
+            target_frame = max(scene.frame_start, min(scene.frame_end, frame_number))
             scene.frame_set(target_frame)
-            logging.info(f"Changed to keyframe {target_frame} (was {current_frame})")
+            logging.info(f"Changed to frame {target_frame} (was {current_frame})")
             render_result = self._render()
             
             return {
@@ -428,10 +403,10 @@ class Investigator3D:
                 'output': {
                     'image': render_result['image_path'],
                     'camera_position': render_result['camera_position'],
-                    'keyframe_info': {
+                    'frame_info': {
                         'previous_frame': current_frame,
                         'current_frame': target_frame,
-                        'keyframe_type': keyframe_type
+                        'requested_frame': frame_number
                     }
                 }
             }
@@ -603,7 +578,7 @@ def get_scene_info(blender_path: str) -> dict:
         return {"status": "error", "output": str(e)}
 
 @mcp.tool()
-def add_viewpoint(object_names: list) -> dict:
+def init_viewpoint(object_names: list) -> dict:
     """
     添加视角：输入对象列表，计算其边界框并在四个上角放置相机，选择最佳视角。
     
@@ -618,7 +593,7 @@ def add_viewpoint(object_names: list) -> dict:
         return {"status": "error", "output": "Investigator3D not initialized. Call initialize_investigator first."}
 
     try:
-        result = _investigator.add_viewpoint(object_names)
+        result = _investigator.init_viewpoint(object_names)
         return result
     except Exception as e:
         logging.error(f"Add viewpoint failed: {e}")
@@ -675,12 +650,12 @@ def set_object_visibility(show_object_list: list = None, hide_object_list: list 
         return {"status": "error", "output": str(e)}
 
 @mcp.tool()
-def add_keyframe(keyframe_type: str = "next") -> dict:
+def set_keyframe(frame_number: int) -> dict:
     """
-    添加关键帧：改变场景到另一个关键帧进行观察。
+    设置场景到指定的帧号进行观察。
     
     Args:
-        keyframe_type: 关键帧类型，支持 "next", "previous", "first", "last", 或具体的帧号
+        frame_number: 要设置的帧号
         
     Returns:
         dict: 包含渲染结果的字典
@@ -690,10 +665,25 @@ def add_keyframe(keyframe_type: str = "next") -> dict:
         return {"status": "error", "output": "Investigator3D not initialized. Call initialize_investigator first."}
 
     try:
-        result = _investigator.add_keyframe(keyframe_type)
+        result = _investigator.set_keyframe(frame_number)
         return result
     except Exception as e:
-        logging.error(f"Add keyframe failed: {e}")
+        logging.error(f"Set keyframe failed: {e}")
+        return {"status": "error", "output": str(e)}
+    
+@mcp.tool()
+def set_camera(location: list, rotation_euler: list) -> dict:
+    """
+    Set the current active camera to the given location and rotation
+    """
+    global _investigator
+    if _investigator is None:
+        return {"status": "error", "output": "Investigator3D not initialized. Call initialize_investigator first."}
+    try:
+        _investigator.set_camera(location, rotation_euler)
+        return {"status": "success", "output": "Successfully set the camera"}
+    except Exception as e:
+        logging.error(f"set_camera failed: {e}")
         return {"status": "error", "output": str(e)}
 
 
@@ -773,22 +763,43 @@ def test_tools():
     result = _investigator._render()
     print(f"Result: {result}")
         
-    # 测试 6: 添加视角功能
-    print("\n6. Testing add_viewpoint...")
+    # 测试 6: 添加视角功能（指定对象）
+    print("\n6. Testing init_viewpoint with specific objects...")
     try:
         test_objects = [obj['name'] for obj in objects]
         print(f"Test objects: {test_objects}")
-        result = add_viewpoint(object_names=test_objects)
+        result = init_viewpoint(object_names=test_objects)
         print(f"Result: {result}")
         if result.get("status") == "success":
-            print("✓ add_viewpoint passed")
-            print(f"  - Image saved: {result.get('output', 'N/A')}")
-            print(f"  - Best viewpoint: {result.get('best_viewpoint', {}).get('view_index', 'N/A')}")
-            print(f"  - Score: {result.get('best_viewpoint', {}).get('score', 'N/A')}")
+            print("✓ init_viewpoint passed")
+            viewpoints = result.get('output', {}).get('viewpoints', [])
+            print(f"  - Generated {len(viewpoints)} viewpoints:")
+            for vp in viewpoints:
+                print(f"    Viewpoint {vp.get('view_index', 'N/A')}: {vp.get('image', 'N/A')}")
+                print(f"      Position: {vp.get('position', 'N/A')}")
+                print(f"      Rotation: {vp.get('rotation', 'N/A')}")
         else:
-            print("✗ add_viewpoint failed")
+            print("✗ init_viewpoint failed")
     except Exception as e:
-        print(f"✗ add_viewpoint failed with exception: {e}")
+        print(f"✗ init_viewpoint failed with exception: {e}")
+    
+    # 测试 7: 添加视角功能（整个场景）
+    print("\n7. Testing init_viewpoint with whole scene...")
+    try:
+        result = init_viewpoint(object_names=[])  # 空列表表示观察整个场景
+        print(f"Result: {result}")
+        if result.get("status") == "success":
+            print("✓ init_viewpoint (whole scene) passed")
+            viewpoints = result.get('output', {}).get('viewpoints', [])
+            print(f"  - Generated {len(viewpoints)} viewpoints for whole scene:")
+            for vp in viewpoints:
+                print(f"    Viewpoint {vp.get('view_index', 'N/A')}: {vp.get('image', 'N/A')}")
+                print(f"      Position: {vp.get('position', 'N/A')}")
+                print(f"      Rotation: {vp.get('rotation', 'N/A')}")
+        else:
+            print("✗ init_viewpoint (whole scene) failed")
+    except Exception as e:
+        print(f"✗ init_viewpoint (whole scene) failed with exception: {e}")
 
     if first_object:        
         # 测试 3: 聚焦对象（如果有对象）
@@ -831,19 +842,19 @@ def test_tools():
         except Exception as e:
             print(f"✗ move failed with exception: {e}")
 
-        # 测试 7: 添加关键帧功能
-        print("\n7. Testing add_keyframe...")
+        # 测试 8: 设置关键帧功能
+        print("\n8. Testing set_keyframe...")
         try:
-            result = add_keyframe(keyframe_type="next")
+            result = set_keyframe(frame_number=1)
             print(f"Result: {result}")
             if result.get("status") == "success":
-                print("✓ add_keyframe passed")
+                print("✓ set_keyframe passed")
                 print(f"  - Image saved: {result.get('output', 'N/A')}")
-                print(f"  - Frame changed from {result.get('keyframe_info', {}).get('previous_frame', 'N/A')} to {result.get('keyframe_info', {}).get('current_frame', 'N/A')}")
+                print(f"  - Frame changed from {result.get('output', {}).get('frame_info', {}).get('previous_frame', 'N/A')} to {result.get('output', {}).get('frame_info', {}).get('current_frame', 'N/A')}")
             else:
-                print("✗ add_keyframe failed")
+                print("✗ set_keyframe failed")
         except Exception as e:
-            print(f"✗ add_keyframe failed with exception: {e}")
+            print(f"✗ set_keyframe failed with exception: {e}")
 
     print("\n" + "=" * 50)
     print("Test completed!")

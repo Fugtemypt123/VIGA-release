@@ -17,7 +17,7 @@ tool_configs = [
         "type": "function",
         "function": {
             "name": "execute_and_evaluate",
-            "description": "Execute code modifications and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.",
+            "description": "Execute code modifications and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.\nReturns either:\n  (1) On error: detailed error information; or \n  (2) On success: a clear render (you must add a camera in your code) and further modification suggestions from a separate verifier agent.",
             "parameters": {
                 "type": "object",
                 "properties": {
