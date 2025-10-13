@@ -37,6 +37,9 @@ class ExternalToolClient:
         Multiple servers can be connected; indexed by server_name key.
         """
         server_name = server_path.split("/")[-1].split(".")[0]
+        if server_name in self.mcp_sessions:
+            await self.call_tool(tool_name="initialize", tool_args={"args": self.args}, server_name=server_name)
+            return
         print(f"Connecting to {server_name} server at {server_path}")
         ready_event = asyncio.Event()
         
@@ -109,12 +112,10 @@ class ExternalToolClient:
         # Launch connections concurrently
         await asyncio.gather(*[self.connect_server(server_path=path) for path in self.tool_servers])
     
-    async def call_tool(self, tool_name: str, tool_args: dict = None, timeout: int = 3600) -> Any:
+    async def call_tool(self, tool_name: str, tool_args: dict = None, server_name: str = None, timeout: int = 3600) -> Any:
         """Call a specific tool by name with timeout. Server is inferred from known mappings."""
-        server_name = self.tool_to_server.get(tool_name)
         if not server_name:
-            available = ", ".join(sorted(self.tool_to_server.keys()))
-            raise RuntimeError(f"No server mapping for tool '{tool_name}'. Known tools: [{available}]")
+            server_name = self.tool_to_server.get(tool_name)
         session = self.mcp_sessions.get(server_name)
         if not session:
             raise RuntimeError(f"Server '{server_name}' for tool '{tool_name}' not connected")
