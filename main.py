@@ -56,23 +56,22 @@ async def main():
     
     # Init agents
     print("\n=== Initializing agents ===\n")
-    # generator = GeneratorAgent(args)
+    generator = GeneratorAgent(args)
     verifier = VerifierAgent(args)
-    # await generator.tool_client.connect_servers()
+    await generator.tool_client.connect_servers()
     await verifier.tool_client.connect_servers()
 
     try:
         # Main loop
         print("=== Starting dual-agent interaction ===")
-        await verifier.run({"argument": {"thought": "use get_scene_info to get the object name of christmas tree, then use investigator to focus on it.", "code_edition": "use get_scene_info to get the object name of christmas tree, then use investigator to focus on it.", "full_code": "use get_scene_info to get the object name of christmas tree, then use investigator to focus on it."}, "execution": {"text": ["use get_scene_info to get the object name of christmas tree, then use investigator to focus on it."], "image": ["output/blendergym_hard/gpt-4o/level4/christmas1/renders/10/render1.png"]}, "init_plan": "use get_scene_info to get the object name of christmas tree, then use investigator to focus on it."})
-        # await generator.run(verifier=verifier)
+        await generator.run(verifier=verifier)
         print("=== Dual-agent interaction finished ===")
     except Exception as e:
         print(f"Error: {e}\n\n")
     finally:
         # Cleanup
         print("=== Cleaning up ===")
-        # await generator.cleanup()
+        await generator.cleanup()
         await verifier.cleanup()
         print("=== Cleanup finished ===")
 
