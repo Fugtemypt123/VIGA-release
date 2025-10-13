@@ -76,12 +76,12 @@ class VerifierAgent:
         """Update the memory with the new message"""
         # Add tool calling
         assistant_content = message['assistant'].content
-        assistant_tool_calls = message['assistant'].tool_calls[0]
+        assistant_tool_calls = message['assistant'].tool_calls[0].model_dump()
         self.memory.append({"role": "assistant", "content": assistant_content, "tool_calls": [assistant_tool_calls]})
         
         # Add tool response
-        tool_call_id = message['assistant'].tool_calls[0]['id']
-        tool_call_name = message['assistant'].tool_calls[0]['function']['name']
+        tool_call_id = message['assistant'].tool_calls[0].id
+        tool_call_name = message['assistant'].tool_calls[0].function.name
         tool_response = []
         if 'image' in message['user']:
             for text, image in zip(message['user']['text'], message['user']['image']):

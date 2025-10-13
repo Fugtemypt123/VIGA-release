@@ -62,7 +62,7 @@ async def main():
     try:
         # Main loop
         print("=== Starting dual-agent interaction ===")
-        await verifier.run({"argument": {"thought": "I need to verify the generated scene", "code_edition": "I need to verify the generated scene", "full_code": "I need to verify the generated scene"}, "execution": {"text": ["I need to verify the generated scene"], "image": ["output/static_scene/20251013_082853/christmas1/assets/cropped_Christmas tree.png"]}, "init_plan": "I need to verify the generated scene"})
+        await verifier.run({"argument": {"thought": "use get_scene_info to get the object name of christmas tree, then use investigator to focus on it.", "code_edition": "use get_scene_info to get the object name of christmas tree, then use investigator to focus on it.", "full_code": "use get_scene_info to get the object name of christmas tree, then use investigator to focus on it."}, "execution": {"text": ["use get_scene_info to get the object name of christmas tree, then use investigator to focus on it."], "image": ["output/blendergym_hard/gpt-4o/level4/christmas1/renders/10/render1.png"]}, "init_plan": "use get_scene_info to get the object name of christmas tree, then use investigator to focus on it."})
         # await generator.run(verifier=verifier)
         print("=== Dual-agent interaction finished ===")
     except Exception as e:

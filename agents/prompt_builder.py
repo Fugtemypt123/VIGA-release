@@ -44,8 +44,7 @@ class PromptBuilder:
             {"type": "text", "text": f"Full code: {prompts['argument'].get('full_code', '')}"},
         ]
         if 'image' in prompts['execution']:
-            for text, image in zip(prompts['execution']['text'], prompts['execution']['image']):
-                content.append({"type": "text", "text": text})
+            for image in prompts['execution']['image']:
                 content.append({"type": "image_url", "image_url": {"url": get_image_base64(image)}})
                 content.append({"type": "text", "text": f"Current scene render image loaded from local path: {image}"})
         else:
