@@ -15,7 +15,7 @@ tool_configs = [
         "type": "function",
         "function": {
             "name": "initialize_viewpoint",
-            "description": "Adds a viewpoint to observe the listed objects. The viewpoints are added to the four corners of the bounding box of the listed objects. This tool returns the positions and rotations of the four viewpoint cameras, as well as the rendered images of the four cameras. You would better call this tool first before you can call the other tools.",
+            "description": "Adds a viewpoint to observe the listed objects. The viewpoints are added to the four corners of the bounding box of the listed objects. This tool returns the positions and rotations of the four viewpoint cameras, as well as the rendered images of the four cameras. You can use these information to set the camera to a good initial position and orientation.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -198,45 +198,22 @@ class GetSceneInfo:
 class Investigator3D:
     def __init__(self, save_dir: str, blender_path: str):
         self.blender_path = blender_path          # Save path first
-        self._load_blender_file()                 # Then load file
+        bpy.ops.wm.open_mainfile(filepath=str(self.blender_path))
         self.base = Path(save_dir)
         self.base.mkdir(parents=True, exist_ok=True)
-        # self.cam = self._get_or_create_cam()
         self.target = None
         self.radius = 5.0
         self.theta = 0.0
         self.phi = 0.0
         self.count = 0
 
-    def _load_blender_file(self):
-        # current_file = bpy.data.filepath
-        # if current_file != self.blender_path:
-        bpy.ops.wm.open_mainfile(filepath=str(self.blender_path))
-        self.cam = self._get_or_create_cam()
-
-    def _get_or_create_cam(self):
-        # Use existing camera if available, otherwise create with fixed starting positions
-        # Add a new camera in the scene
-        bpy.ops.object.camera_add()
-        cam = bpy.context.active_object
-        cam.name = "InvestigatorCamera"
-        cam.location = (0, 0, 5)
-        cam.rotation_euler = (math.radians(60), 0, 0)
-        for existing_cam in bpy.data.objects:
-            if existing_cam.type == 'CAMERA':
-                cam.location = existing_cam.location
-                cam.rotation_euler = existing_cam.rotation_euler
-                break
-        return cam
-
     def _render(self):
-        bpy.context.scene.camera = self.cam
         bpy.context.scene.render.engine = 'CYCLES'
         bpy.context.scene.render.filepath = str(self.base / f"{self.count+1}.png")
         bpy.ops.render.render(write_still=True)
         out = bpy.context.scene.render.filepath
         self.count += 1
-        camera_parameters = str({"position": list(self.cam.matrix_world.translation), "rotation": list(self.cam.rotation_euler)})
+        camera_parameters = str({"position": list(bpy.context.scene.camera.location), "rotation": list(bpy.context.scene.camera.rotation_euler)})
         return {"image_path": out, "camera_parameters": camera_parameters}
 
     def focus_on_object(self, object_name: str) -> dict:
@@ -246,18 +223,18 @@ class Investigator3D:
         self.target = obj
         # track-to
         constraint = None
-        for c in self.cam.constraints:
+        for c in bpy.context.scene.camera.constraints:
             if c.type == 'TRACK_TO':
                 constraint = c
                 break
         if not constraint:
-            constraint = self.cam.constraints.new('TRACK_TO')
+            constraint = bpy.context.scene.camera.constraints.new('TRACK_TO')
         constraint.target = obj
         constraint.track_axis = 'TRACK_NEGATIVE_Z'
         constraint.up_axis = 'UP_Y'
-        self.radius = (self.cam.matrix_world.translation - obj.matrix_world.translation).length
-        self.theta = math.atan2(*(self.cam.matrix_world.translation[i] - obj.matrix_world.translation[i] for i in (1,0)))
-        self.phi = math.asin((self.cam.matrix_world.translation.z - obj.matrix_world.translation.z)/self.radius)
+        self.radius = (bpy.context.scene.camera.matrix_world.translation - obj.matrix_world.translation).length
+        self.theta = math.atan2(*(bpy.context.scene.camera.matrix_world.translation[i] - obj.matrix_world.translation[i] for i in (1,0)))
+        self.phi = math.asin((bpy.context.scene.camera.matrix_world.translation.z - obj.matrix_world.translation.z)/self.radius)
         return self._render()
 
     def zoom(self, direction: str) -> dict:
@@ -282,12 +259,12 @@ class Investigator3D:
         x = self.radius * math.cos(self.phi) * math.cos(self.theta)
         y = self.radius * math.cos(self.phi) * math.sin(self.theta)
         z = self.radius * math.sin(self.phi)
-        self.cam.matrix_world.translation = (t.x+x, t.y+y, t.z+z)
+        bpy.context.scene.camera.matrix_world.translation = (t.x+x, t.y+y, t.z+z)
         return self._render()
 
     def set_camera(self, location: list, rotation_euler: list) -> dict:
-        self.cam.location = location
-        self.cam.rotation_euler = rotation_euler
+        bpy.context.scene.camera.location = location
+        bpy.context.scene.camera.rotation_euler = rotation_euler
 
     def initialize_viewpoint(self, object_names: list) -> dict:
         try:
@@ -343,29 +320,24 @@ class Investigator3D:
             ]
 
             viewpoints = {'image': [], 'text': []}
-            previous_cam_info = {'location': self.cam.location, 'rotation': self.cam.rotation_euler}
+            previous_cam_info = {'location': bpy.context.scene.camera.location, 'rotation': bpy.context.scene.camera.rotation_euler}
             
             for i, pos in enumerate(camera_positions):
-                self.cam.location = pos
-                self.cam.rotation_euler = (math.radians(60), 0, math.radians(45))
+                bpy.context.scene.camera.location = pos
+                bpy.context.scene.camera.rotation_euler = (math.radians(60), 0, math.radians(45))
                 
-                direction = center - self.cam.location
-                self.cam.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
-                logging.info(f"Viewpoint {i+1}: location={self.cam.location}, rotation={self.cam.rotation_euler}")
-                
+                direction = center - bpy.context.scene.camera.location
+                bpy.context.scene.camera.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
                 render_result = self._render()
-                logging.info(f"Render result: {render_result}")
                 
-                camera_parameters = str({"position": list(self.cam.location), "rotation": list(self.cam.rotation_euler)})
+                camera_parameters = str({"position": list(bpy.context.scene.camera.location), "rotation": list(bpy.context.scene.camera.rotation_euler)})
                 
                 viewpoints['image'].append(render_result['image_path'])
                 viewpoints['text'].append(f"[Viewpoint {i+1}] Camera parameters: {camera_parameters}")
                 
-                logging.info(f"Viewpoint {i+1}: position={self.cam.location}, rotation={self.cam.rotation_euler}")
-                
             # Restore original camera position
-            self.cam.location = previous_cam_info['location']
-            self.cam.rotation_euler = previous_cam_info['rotation']
+            bpy.context.scene.camera.location = previous_cam_info['location']
+            bpy.context.scene.camera.rotation_euler = previous_cam_info['rotation']
             
             return {'status': 'success', 'output': viewpoints}
                 

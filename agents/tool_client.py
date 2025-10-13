@@ -81,7 +81,7 @@ class ExternalToolClient:
                     if "initialize" in tool_names:
                         initialize_result = await asyncio.wait_for(session.call_tool("initialize", {"args": self.args}), timeout=30)
                         initialize_result = json.loads(initialize_result.content[0].text)
-                        print("initialize_result for server", server_name, initialize_result)
+                        # print("initialize_result for server", server_name, initialize_result)
                         tool_configs = initialize_result['output']['tool_configs']
                         self.tool_configs[server_name] = tool_configs
                         

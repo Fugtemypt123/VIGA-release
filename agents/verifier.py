@@ -81,16 +81,21 @@ class VerifierAgent:
         tool_call_id = message['assistant'].tool_calls[0].id
         tool_call_name = message['assistant'].tool_calls[0].function.name
         tool_response = []
+        user_response = []
+        
         if 'image' in message['user']:
+            tool_response = ["The next user message contains the image result of the tool call."]
             for text, image in zip(message['user']['text'], message['user']['image']):
-                tool_response.append({"type": "text", "text": text})
-                tool_response.append({"type": "image_url", "image_url": {"url": get_image_base64(image)}})
-                tool_response.append({"type": "text", "text": f"Image loaded from local path: {image}"})
+                user_response.append({"type": "text", "text": text})
+                user_response.append({"type": "image_url", "image_url": {"url": get_image_base64(image)}})
+                user_response.append({"type": "text", "text": f"Image loaded from local path: {image}"})
         else:
             for text in message['user']['text']:
                 tool_response.append({"type": "text", "text": text})
             
         self.memory.append({"role": "tool", "content": tool_response, "name": tool_call_name, "tool_call_id": tool_call_id})
+        if user_response:
+            self.memory.append({"role": "user", "content": user_response})
     
     def _save_memory(self):
         """Save the memory to the file"""
