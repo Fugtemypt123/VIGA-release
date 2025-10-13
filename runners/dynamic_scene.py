@@ -76,7 +76,8 @@ def load_dynamic_scene_dataset(base_path: str, task_name: str, test_id: Optional
         
         # Check for assets directory
         assets_path = task_path / "assets"
-        assets_dir = str(assets_path) if assets_path.exists() else None
+        os.makedirs(assets_path, exist_ok=True)
+        assets_dir = str(assets_path)
         
         task_config = {
             "task_name": task,

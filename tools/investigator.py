@@ -206,6 +206,9 @@ class Investigator3D:
         self.theta = 0.0
         self.phi = 0.0
         self.count = 0
+        
+    def reload_scene(self):
+        bpy.ops.wm.open_mainfile(filepath=str(self.blender_path))
 
     def _render(self):
         bpy.context.scene.render.engine = 'CYCLES'
@@ -524,6 +527,18 @@ def set_camera(location: list, rotation_euler: list) -> dict:
         return {"status": "success", "output": {"text": ["Successfully set the camera with the given location and rotation"]}}
     except Exception as e:
         logging.error(f"set_camera failed: {e}")
+        return {"status": "error", "output": {"text": [str(e)]}}
+    
+@mcp.tool()
+def reload_scene():
+    global _investigator
+    if _investigator is None:
+        return {"status": "error", "output": {"text": ["Investigator3D not initialized. Call initialize_investigator first."]}}
+    try:
+        _investigator.reload_scene()
+        return {"status": "success", "output": {"text": ["Successfully reloaded the scene"]}}
+    except Exception as e:
+        logging.error(f"reload_scene failed: {e}")
         return {"status": "error", "output": {"text": [str(e)]}}
 
 
