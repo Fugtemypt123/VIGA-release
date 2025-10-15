@@ -508,14 +508,10 @@ def set_keyframe(frame_number: int) -> dict:
     if _investigator is None:
         return {"status": "error", "output": {"text": ["Investigator3D not initialized. Call initialize_investigator first."]}}
     try:
-        result = _investigator.set_keyframe(frame_number)
-        if result.get("status") == "success":
-            return {"status": "success", "output": {"text": ["Successfully set the keyframe"], "image": [result.get("output", {}).get("image", [])], "text": [f"Camera parameters: {result.get('output', {}).get('camera_parameters', {})}"]}}
-        else:
-            return {"status": "error", "output": {"text": [result.get('output', {}).get('text', ["Failed to set the keyframe"])]}}
+        return _investigator.set_keyframe(frame_number)
     except Exception as e:
         logging.error(f"Set keyframe failed: {e}")
-        return {"status": "error", "output": {"text": [str(e)]}}
+        return {"status": "error", "output": {"text": [str(e)]}, "status": "error"}
     
 @mcp.tool()
 def set_camera(location: list, rotation_euler: list) -> dict:

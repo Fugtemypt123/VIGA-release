@@ -43,10 +43,18 @@ class VerifierAgent:
         user_message = self.prompt_builder.build_prompt("verifier", "user", user_message)
         self.memory.extend(user_message)
         self._save_memory()
+        result = None
         
         for i in range(self.config.get("max_rounds")):
             # Prepare chat args
-            memory = ([self.memory[0]] + self.memory[-self.config.get("memory_length")+1:]) if len(self.memory) > self.config.get("memory_length") else self.memory
+            if len(self.memory) > self.config.get("memory_length"):
+                if self.memory[-self.config.get("memory_length")+1]['role'] == 'tool':
+                    memory = [self.memory[0]] + self.memory[-self.config.get("memory_length"):]
+                else:
+                    memory = [self.memory[0]] + self.memory[-self.config.get("memory_length")+1:]
+            else:
+                memory = self.memory
+            
             tool_configs = self.tool_client.tool_configs
             tool_configs = [x for v in tool_configs.values() for x in v]
             chat_args = {"model": self.config.get("model"), "messages": memory, "tools": tool_configs, **self.init_chat_args}
@@ -65,9 +73,15 @@ class VerifierAgent:
             self._save_memory()
 
             if tool_call.function.name == "end":
-                return tool_response
+                result = tool_response
+                break
+            
+        print("\n=== Finish verification process ===\n")
         
-        return {"status": "error", "output": {"text": ["No valid response, you are on your own."]}}
+        if result:
+            return result
+        else:
+            return {"status": "error", "output": {"text": ["No valid response, you are on your own."]}}
     
     def _update_memory(self, message: Dict):
         """Update the memory with the new message"""
@@ -83,7 +97,7 @@ class VerifierAgent:
         user_response = []
         
         if 'image' in message['user']:
-            tool_response = ["The next user message contains the image result of the tool call."]
+            tool_response = [{"type": "text", "text": "The next user message contains the image result of the tool call."}]
             for text, image in zip(message['user']['text'], message['user']['image']):
                 user_response.append({"type": "text", "text": text})
                 user_response.append({"type": "image_url", "image_url": {"url": get_image_base64(image)}})
