@@ -153,8 +153,6 @@ def run_static_scene_task(task_config: Dict, args) -> tuple:
     
     if task_config["target_description"]:
         cmd.extend(["--target-description", task_config["target_description"]])
-        
-    print("cmd:", cmd)
 
     try:
         result = subprocess.run(cmd, check=False)  # 1 hour timeout
