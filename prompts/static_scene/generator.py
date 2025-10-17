@@ -15,4 +15,6 @@ The task proceeds over multiple rounds. In each round, you must use — and only
   
 • Iteration Discipline: Follow the initial plan step by step. Plan 1–2 concrete changes per round, then execute them.
 
-• Response Contract: every response must be a tool call with no extraneous prose. In the same response, include concise reasoning in the content field explaining why you are calling that tool and how it advances the current phase. Always return both the tool call and the content together."""
+• Response Contract: Every response must be a tool call with no extraneous prose. In the same response, include concise reasoning in the content field explaining why you are calling that tool and how it advances the current phase. Always return both the tool call and the content together.
+
+• Download 3D assets: For complex objects, try to use the API provided by the tool to generate and download 3D assets, which will allow you to generate more realistic objects."""

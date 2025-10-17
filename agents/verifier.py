@@ -62,11 +62,13 @@ class VerifierAgent:
             # Generate response
             response = self.client.chat.completions.create(**chat_args)
             message = response.choices[0].message
-            if not message.tool_calls:
-                continue
             
-            tool_call = message.tool_calls[0]
-            tool_response = await self.tool_client.call_tool(tool_call.function.name, json.loads(tool_call.function.arguments))
+            # Handle tool call
+            if not message.tool_calls:
+                tool_response = {'text': ['Each return message must contain a tool call. Your previous message did not contain a tool call. Please reconsider.']}
+            else:
+                tool_call = message.tool_calls[0]
+                tool_response = await self.tool_client.call_tool(tool_call.function.name, json.loads(tool_call.function.arguments))
                 
             # Update and save memory
             self._update_memory({"assistant": message, "user": tool_response})
@@ -97,7 +99,6 @@ class VerifierAgent:
         user_response = []
         
         if 'image' in message['user']:
-            tool_response = [{"type": "text", "text": "The next user message contains the image result of the tool call."}]
             for text, image in zip(message['user']['text'], message['user']['image']):
                 user_response.append({"type": "text", "text": text})
                 user_response.append({"type": "image_url", "image_url": {"url": get_image_base64(image)}})
@@ -105,7 +106,9 @@ class VerifierAgent:
         else:
             for text in message['user']['text']:
                 tool_response.append({"type": "text", "text": text})
-            
+        if 'image' in message['user']:
+            tool_response.append[{"type": "text", "text": "The next user message contains the image result of the tool call."}]
+        
         self.memory.append({"role": "tool", "content": tool_response, "name": tool_call_name, "tool_call_id": tool_call_id})
         if user_response:
             self.memory.append({"role": "user", "content": user_response})

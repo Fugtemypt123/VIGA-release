@@ -64,18 +64,19 @@ class GeneratorAgent:
             # Generate response
             response = self.client.chat.completions.create(**chat_args)
             message = response.choices[0].message
+            
+            # Handle tool call
             if not message.tool_calls:
-                continue
-            
-            tool_call = message.tool_calls[0]
-            tool_arguments = json.loads(tool_call.function.arguments)
-            tool_response = await self.tool_client.call_tool(tool_call.function.name, tool_arguments)
-            
-            # If the tool is execute_and_evaluate, run the verifier
-            if tool_call.function.name == "execute_and_evaluate":
-                verifier_result = await self.verifier.run({"argument": tool_arguments, "execution": tool_response, "init_plan": self.init_plan})
-                tool_response['verifier_result'] = verifier_result
-                
+                tool_response = {'text': ['Each return message must contain a tool call. Your previous message did not contain a tool call. Please reconsider.']}
+            else:
+                tool_call = message.tool_calls[0]
+                tool_arguments = json.loads(tool_call.function.arguments)
+                tool_response = await self.tool_client.call_tool(tool_call.function.name, tool_arguments)
+                # If the tool is execute_and_evaluate, run the verifier
+                if tool_call.function.name == "execute_and_evaluate":
+                    verifier_result = await self.verifier.run({"argument": tool_arguments, "execution": tool_response, "init_plan": self.init_plan})
+                    tool_response['verifier_result'] = verifier_result
+                    
             # Update and save memory
             self._update_memory({"assistant": message, "user": tool_response})
             self._save_memory()
@@ -99,7 +100,6 @@ class GeneratorAgent:
         user_response = []
         
         if 'image' in message['user']:
-            tool_response = [{"type": "text", "text": "The next user message contains the image result of the tool call."}]
             for text, image in zip(message['user']['text'], message['user']['image']):
                 user_response.append({"type": "text", "text": text})
                 user_response.append({"type": "image_url", "image_url": {"url": get_image_base64(image)}})
@@ -111,6 +111,8 @@ class GeneratorAgent:
             tool_response.append({"type": "text", "text": "The following information is what the verifier agent returns to you: (1) Visual difference analysis between the current scene and the target scene (2) Suggested code modifications to follow."})
             for text in message['user']['verifier_result']['text']:
                 tool_response.append({"type": "text", "text": text})
+        if 'image' in message['user']:
+            tool_response.append[{"type": "text", "text": "The next user message contains the image result of the tool call."}]
         
         self.memory.append({"role": "tool", "content": tool_response, "name": tool_call_name, "tool_call_id": tool_call_id})
         if user_response:

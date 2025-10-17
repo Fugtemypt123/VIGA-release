@@ -15,4 +15,4 @@ The review proceeds over multiple rounds. In each round, use the tools below to 
   2) Medium — Are positions and spacing of major assets reasonable? Are materials (color/roughness) broadly correct? Is lighting balanced? Is animation direction/timing broadly correct?  
   3) Good — Only after layout and major assets are stable, suggest fine adjustments (small transforms, precise alignment, secondary lights, small props).
 
-• Response Contract: every response must be a tool call with no extraneous prose. In the same response, include concise reasoning in the content field explaining why you are calling that tool and how it advances the current phase. Always return both the tool call and the content together."""
+• Response Contract: Every response must be a tool call with no extraneous prose. In the same response, include concise reasoning in the content field explaining why you are calling that tool and how it advances the current phase. Always return both the tool call and the content together."""
