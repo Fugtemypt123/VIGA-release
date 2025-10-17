@@ -121,7 +121,7 @@ class GeneratorAgent:
             for text in message['user']['verifier_result']['text']:
                 tool_response.append({"type": "text", "text": text})
         if 'image' in message['user']:
-            tool_response.append[{"type": "text", "text": "The next user message contains the image result of the tool call."}]
+            tool_response.append({"type": "text", "text": "The next user message contains the image result of the tool call."})
         
         self.memory.append({"role": "tool", "content": tool_response, "name": tool_call_name, "tool_call_id": tool_call_id})
         if user_response:

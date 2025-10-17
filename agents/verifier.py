@@ -109,7 +109,7 @@ class VerifierAgent:
         user_response = []
         
         if 'image' in message['user']:
-            tool_response.append[{"type": "text", "text": "The next user message contains the image result of the tool call."}]
+            tool_response.append({"type": "text", "text": "The next user message contains the image result of the tool call."})
             for text, image in zip(message['user']['text'], message['user']['image']):
                 user_response.append({"type": "text", "text": text})
                 user_response.append({"type": "image_url", "image_url": {"url": get_image_base64(image)}})
