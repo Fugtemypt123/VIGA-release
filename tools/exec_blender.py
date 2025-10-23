@@ -59,7 +59,7 @@ class Executor:
         self.blender_script = blender_script
         self.script_path = Path(script_save)
         self.render_path = Path(render_save)
-        self.blend_path = blender_save
+        self.blender_save = blender_save
         self.gpu_devices = gpu_devices  # e.g.: "0,1" or "0"
         self.count = 0
 
@@ -73,8 +73,8 @@ class Executor:
             "--python", self.blender_script,
             "--", script_path, render_path
         ]
-        if self.blend_path:
-            cmd.append(self.blend_path)
+        if self.blender_save:
+            cmd.append(self.blender_save)
         cmd_str = " ".join(cmd)
         
         # Set environment variables to control GPU devices
@@ -123,7 +123,8 @@ class Executor:
             
         # Execute Blender
         success, stdout, stderr = self._execute_blender(str(code_file), str(render_file))
-        if not success or not os.path.exists(render_file):
+        # Check if render_file is empty or not exist
+        if not success or not os.path.exists(render_file) or len(os.listdir(render_file)) == 0:
             return {"status": "error", "output": {"text": ['Error: ' + (stderr or stdout)]}}
         return {"status": "success", "output": {"image": stdout, "text": [f"Render from camera {x}" for x in range(len(stdout))]}}
 

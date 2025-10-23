@@ -19,6 +19,24 @@ prompts_dict = {
             'generator': dynamic_scene_generator_system,
             'verifier': dynamic_scene_verifier_system
         }
+    },
+    'autopresent': {
+        'system': {
+            'generator': autopresent_generator_system,
+            'verifier': autopresent_verifier_system
+        }
+    },
+    'blendergym': {
+        'system': {
+            'generator': blendergym_generator_system,
+            'verifier': blendergym_verifier_system
+        }
+    },
+    'design2code': {
+        'system': {
+            'generator': design2code_generator_system,
+            'verifier': design2code_verifier_system
+        }
     }
 }
 

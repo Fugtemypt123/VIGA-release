@@ -5,18 +5,75 @@ import sys
 from pathlib import Path
 import logging
 from mcp.server.fastmcp import FastMCP
+import subprocess
 import json
 import traceback
 from typing import Optional, Dict, Any
 
-# Import Executor from exec_blender
-try:
-    from .exec_blender import Executor
-except ImportError:
-    # If running as standalone
-    import sys
-    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-    from exec_blender import Executor
+# Local lightweight Executor for running Blender with our verifier script
+class Executor:
+    def __init__(self,
+                 blender_command: str,
+                 blender_file: str,
+                 blender_script: str,
+                 script_save: str,
+                 render_save: str,
+                 blender_save: Optional[str] = None,
+                 gpu_devices: Optional[str] = None):
+        self.blender_command = blender_command
+        self.blender_file = blender_file
+        self.blender_script = blender_script
+        self.script_path = Path(script_save)
+        self.render_path = Path(render_save)
+        self.blender_save = blender_save
+        self.gpu_devices = gpu_devices
+        self.count = 0
+
+        self.script_path.mkdir(parents=True, exist_ok=True)
+        self.render_path.mkdir(parents=True, exist_ok=True)
+
+    def next_run_dir(self) -> Path:
+        self.count += 1
+        run_dir = self.render_path / f"{self.count}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        # Clean old images if any
+        for p in run_dir.glob("*"):
+            try:
+                p.unlink()
+            except Exception:
+                pass
+        return run_dir
+
+    def _execute_blender(self, code_file: Path, run_dir: Path) -> Dict[str, Any]:
+        cmd = [
+            self.blender_command,
+            "--background", self.blender_file,
+            "--python", self.blender_script,
+            "--", str(code_file), str(run_dir)
+        ]
+        if self.blender_save:
+            cmd.append(self.blender_save)
+
+        env = os.environ.copy()
+        if self.gpu_devices:
+            env["CUDA_VISIBLE_DEVICES"] = self.gpu_devices
+
+        try:
+            # Propagate render directory to scripts
+            env["RENDER_DIR"] = str(run_dir)
+            proc = subprocess.run(" ".join(cmd), shell=True, check=True, capture_output=True, text=True, env=env)
+            imgs = sorted([str(p) for p in run_dir.glob("*") if p.suffix.lower() in [".png", ".jpg", ".jpeg"]])
+            return {"status": "success", "output": {"image": imgs, "text": [proc.stdout]}}
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Blender failed: {e.stderr}")
+            return {"status": "error", "output": {"text": [e.stderr or e.stdout]}}
+
+    def execute(self, full_code: str) -> Dict[str, Any]:
+        run_dir = self.next_run_dir()
+        code_file = self.script_path / f"{self.count}.py"
+        with open(code_file, "w") as f:
+            f.write(full_code)
+        return self._execute_blender(code_file, run_dir)
 
 # tool config for agent (only the function w/ @mcp.tools)
 tool_configs = [
@@ -149,8 +206,8 @@ _investigator = None
 # ======================
 
 class Investigator3D:
-    def __init__(self, save_dir: str, blender_path: str, blender_command: str):
-        self.blender_background = blender_path  # Initial blender file path
+    def __init__(self, save_dir: str, blender_path: str, blender_command: str, blender_script: str, gpu_devices: str):
+        self.blender_file = blender_path
         self.blender_command = blender_command
         self.base = Path(save_dir)
         self.base.mkdir(parents=True, exist_ok=True)
@@ -159,10 +216,11 @@ class Investigator3D:
         self.executor = Executor(
             blender_command=blender_command,
             blender_file=blender_path,
-            blender_script="data/dynamic_scene/pipeline_render_script.py",  # Default script
+            blender_script=blender_script,  # Default script
             script_save=str(self.base / "scripts"),
             render_save=str(self.base / "renders"),
-            blender_save=str(self.base / "current_scene.blend")
+            blender_save=str(self.base / "current_scene.blend"),
+            gpu_devices=gpu_devices
         )
         
         # State variables
@@ -228,23 +286,28 @@ with open("/tmp/scene_info.json", "w") as f:
 print("Scene info extracted successfully")
 '''
 
-    def _generate_render_script(self, additional_operations: str = "") -> str:
-        """Generate script to render current scene"""
-        return f'''import bpy
-import math
+    def _generate_render_script(self) -> str:
+        """Generate script to render current scene once into RENDER_DIR/1.png"""
+        return '''import bpy, os
 
-{additional_operations}
+render_dir = os.environ.get("RENDER_DIR", "/tmp")
 
-# Set render engine to cycles
+# Basic render settings
 bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.render.image_settings.file_format = 'PNG'
+bpy.context.scene.render.resolution_x = 512
+bpy.context.scene.render.resolution_y = 512
 
-# Render the scene (the pipeline script will handle the actual rendering)
-print("Render script executed")
+# Single render
+bpy.context.scene.render.filepath = os.path.join(render_dir, "1.png")
+bpy.ops.render.render(write_still=True)
+
+print("Render completed to", bpy.context.scene.render.filepath)
 '''
 
     def _generate_camera_focus_script(self, object_name: str) -> str:
         """Generate script to focus camera on object"""
-        return f'''import bpy
+        return f'''import bpy, os
 import math
 
 # Get target object
@@ -282,12 +345,21 @@ constraint.target = target_obj
 constraint.track_axis = 'TRACK_NEGATIVE_Z'
 constraint.up_axis = 'UP_Y'
 
-print(f"Camera focused on object '{object_name}'")
+# Render after focus
+render_dir = os.environ.get("RENDER_DIR", "/tmp")
+bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.render.image_settings.file_format = 'PNG'
+bpy.context.scene.render.resolution_x = 512
+bpy.context.scene.render.resolution_y = 512
+bpy.context.scene.render.filepath = os.path.join(render_dir, "1.png")
+bpy.ops.render.render(write_still=True)
+
+print(f"Camera focused on object '{object_name}' and rendered")
 '''
 
     def _generate_camera_set_script(self, location: list, rotation_euler: list) -> str:
         """Generate script to set camera position and rotation"""
-        return f'''import bpy
+        return f'''import bpy, os
 
 # Get camera
 camera = bpy.context.scene.camera
@@ -304,12 +376,21 @@ if not camera:
 camera.location = {location}
 camera.rotation_euler = {rotation_euler}
 
-print(f"Camera set to location {location} and rotation {rotation_euler}")
+# Render after setting camera
+render_dir = os.environ.get("RENDER_DIR", "/tmp")
+bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.render.image_settings.file_format = 'PNG'
+bpy.context.scene.render.resolution_x = 512
+bpy.context.scene.render.resolution_y = 512
+bpy.context.scene.render.filepath = os.path.join(render_dir, "1.png")
+bpy.ops.render.render(write_still=True)
+
+print(f"Camera set to location {location} and rotation {rotation_euler} and rendered")
 '''
 
     def _generate_visibility_script(self, show_objects: list, hide_objects: list) -> str:
-        """Generate script to set object visibility"""
-        return f'''import bpy
+        """Generate script to set object visibility and render once"""
+        return f'''import bpy, os
 
 show_list = {show_objects}
 hide_list = {hide_objects}
@@ -323,12 +404,21 @@ for obj in bpy.data.objects:
         obj.hide_viewport = False
         obj.hide_render = False
 
-print("Visibility updated: show", show_list, ", hide", hide_list)
+# Render after visibility update
+render_dir = os.environ.get("RENDER_DIR", "/tmp")
+bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.render.image_settings.file_format = 'PNG'
+bpy.context.scene.render.resolution_x = 512
+bpy.context.scene.render.resolution_y = 512
+bpy.context.scene.render.filepath = os.path.join(render_dir, "1.png")
+bpy.ops.render.render(write_still=True)
+
+print("Visibility updated and rendered: show", show_list, ", hide", hide_list)
 '''
 
     def _generate_camera_move_script(self, target_obj_name: str, radius: float, theta: float, phi: float) -> str:
         """Generate script to move camera around target object"""
-        return f'''import bpy
+        return f'''import bpy, os
 import math
 
 # Get target object
@@ -353,12 +443,21 @@ z = {radius} * math.sin({phi})
 new_pos = (target_pos.x + x, target_pos.y + y, target_pos.z + z)
 camera.matrix_world.translation = new_pos
 
-print("Camera moved to position:", new_pos)
+# Render after moving
+render_dir = os.environ.get("RENDER_DIR", "/tmp")
+bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.render.image_settings.file_format = 'PNG'
+bpy.context.scene.render.resolution_x = 512
+bpy.context.scene.render.resolution_y = 512
+bpy.context.scene.render.filepath = os.path.join(render_dir, "1.png")
+bpy.ops.render.render(write_still=True)
+
+print("Camera moved to position and rendered:", new_pos)
 '''
 
     def _generate_keyframe_script(self, frame_number: int) -> str:
         """Generate script to set frame number"""
-        return f'''import bpy
+        return f'''import bpy, os
 
 scene = bpy.context.scene
 current_frame = scene.frame_current
@@ -367,12 +466,21 @@ current_frame = scene.frame_current
 target_frame = max(scene.frame_start, min(scene.frame_end, {frame_number}))
 scene.frame_set(target_frame)
 
-print("Changed to frame", target_frame, "(was", current_frame, ")")
+# Render after frame change
+render_dir = os.environ.get("RENDER_DIR", "/tmp")
+bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.render.image_settings.file_format = 'PNG'
+bpy.context.scene.render.resolution_x = 512
+bpy.context.scene.render.resolution_y = 512
+bpy.context.scene.render.filepath = os.path.join(render_dir, "1.png")
+bpy.ops.render.render(write_still=True)
+
+print("Changed to frame", target_frame, "(was", current_frame, ") and rendered")
 '''
 
     def _generate_viewpoint_script(self, object_names: list) -> str:
         """Generate script to initialize viewpoints around objects"""
-        return f'''import bpy
+        return f'''import bpy, os
 import math
 from mathutils import Vector
 
@@ -438,7 +546,8 @@ if not camera:
 original_location = camera.location.copy()
 original_rotation = camera.rotation_euler.copy()
 
-# Set up viewpoints (the actual rendering will be handled by the pipeline)
+# Set up viewpoints and render each
+render_dir = os.environ.get("RENDER_DIR", "/tmp")
 for i, pos in enumerate(camera_positions):
     camera.location = pos
     camera.rotation_euler = (math.radians(60), 0, math.radians(45))
@@ -446,27 +555,30 @@ for i, pos in enumerate(camera_positions):
     # Look at center
     direction = Vector((center_x, center_y, center_z)) - camera.location
     camera.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+    # Render per viewpoint
+    bpy.context.scene.render.engine = 'CYCLES'
+    bpy.context.scene.render.image_settings.file_format = 'PNG'
+    bpy.context.scene.render.resolution_x = 512
+    bpy.context.scene.render.resolution_y = 512
+    bpy.context.scene.render.filepath = os.path.join(render_dir, str(i+1)+".png")
+    bpy.ops.render.render(write_still=True)
 
 # Restore original position
 camera.location = original_location
 camera.rotation_euler = original_rotation
 
-print("Viewpoints initialized for", len(objects), "objects")
+print("Viewpoints initialized and rendered for", len(objects), "objects")
 '''
 
     def _execute_script(self, script_code: str, description: str = "") -> dict:
         """Execute a blender script and return results"""
         try:
-            result = self.executor.execute(
-                thought=description,
-                code_edition="",
-                full_code=script_code
-            )
+            result = self.executor.execute(full_code=script_code)
             
             # Update blender_background to the saved blend file
             if result.get("status") == "success":
-                self.blender_background = str(self.base / "current_scene.blend")
-                self.executor.blender_file = self.blender_background
+                if self.executor.blender_save:
+                    self.executor.blender_file = self.executor.blender_save
                 
             return result
         except Exception as e:
@@ -479,7 +591,6 @@ print("Viewpoints initialized for", len(objects), "objects")
         result = self._execute_script(render_script, "Render current scene")
         
         if result.get("status") == "success":
-            self.count += 1
             # The executor handles the actual rendering and returns image paths
             images = result.get("output", {}).get("image", [])
             if images:
@@ -525,12 +636,15 @@ print("Viewpoints initialized for", len(objects), "objects")
         result = self._execute_script(focus_script, f"Focus camera on object {object_name}")
         
         if result.get("status") == "success":
-            # For now, set default values for radius, theta, phi
-            # In a more complete implementation, we'd extract these from the script execution
+            # default orbit params
             self.radius = 5.0
             self.theta = 0.0
             self.phi = 0.0
-            return self._render()
+            images = result.get("output", {}).get("image", [])
+            return {
+                "image_path": images[0] if images else None,
+                "camera_parameters": "Focus completed"
+            }
         else:
             raise ValueError(f"Failed to focus on object {object_name}")
 
@@ -572,7 +686,8 @@ print("Viewpoints initialized for", len(objects), "objects")
         result = self._execute_script(move_script, f"Move camera around {self.target}")
         
         if result.get("status") == "success":
-            return self._render()
+            images = result.get("output", {}).get("image", [])
+            return {"image_path": images[0] if images else None, "camera_parameters": "Move completed"}
         else:
             return {"image_path": None, "camera_parameters": "Camera move failed"}
 
@@ -586,19 +701,7 @@ print("Viewpoints initialized for", len(objects), "objects")
         try:
             script = self._generate_viewpoint_script(object_names)
             result = self._execute_script(script, f"Initialize viewpoints for objects: {object_names}")
-            
-            if result.get("status") == "success":
-                # For now, return a simplified response
-                # The actual viewpoint rendering would need to be handled differently
-                return {
-                    'status': 'success',
-                    'output': {
-                        'image': [],
-                        'text': [f"Viewpoints initialized for objects: {object_names}"]
-                    }
-                }
-            else:
-                return result
+            return result
         except Exception as e:
             return {'status': 'error', 'output': {'text': [str(e)]}}
 
@@ -607,15 +710,7 @@ print("Viewpoints initialized for", len(objects), "objects")
         try:
             script = self._generate_keyframe_script(frame_number)
             result = self._execute_script(script, f"Set frame to {frame_number}")
-            
-            if result.get("status") == "success":
-                render_result = self._render()
-                return {
-                    'status': 'success',
-                    'output': {'image': [render_result['image_path']], 'text': [f"Camera parameters: {render_result['camera_parameters']}"]}
-                }
-            else:
-                return result
+            return result
         except Exception as e:
             return {'status': 'error', 'output': {'text': [str(e)]}}
 
@@ -627,7 +722,8 @@ def initialize(args: dict) -> dict:
     global _investigator
     try:
         save_dir = args.get("output_dir") + "/investigator/"
-        _investigator = Investigator3D(save_dir, str(args.get("blender_file")), str(args.get("blender_command")))
+        blender_script = os.path.dirname(args.get("blender_script")) + "/verifier_script.py"
+        _investigator = Investigator3D(save_dir, str(args.get("blender_file")), str(args.get("blender_command")), blender_script, str(args.get("gpu_devices")))
         return {"status": "success", "output": {"text": ["Investigator3D initialized successfully"], "tool_configs": tool_configs}}
     except Exception as e:
         return {"status": "error", "output": {"text": [str(e)]}}
@@ -773,42 +869,14 @@ def set_camera(location: list, rotation_euler: list) -> dict:
         return {"status": "error", "output": {"text": [str(e)]}}
     
 @mcp.tool()
-def reload_scene(script_path: str) -> dict:
+def reload_scene() -> dict:
     global _investigator
     if _investigator is None:
         return {"status": "error", "output": {"text": ["Investigator3D not initialized. Call initialize first."]}}
 
-    if script_path:
-        if not os.path.exists(script_path):
-            return {"status": "error", "output": {"text": [f"script not found: {script_path}"]}}
-        with open(script_path, "r", encoding="utf-8") as f:
-            script_code = f.read()
-    else:
-        return {"status": "error", "output": {"text": ["script_path is required"]}}
-
-    try:
-        # Reload the blender_background file
-        _investigator.blender_background = str(_investigator.executor.blender_file)
-        _investigator.executor.blender_file = _investigator.blender_background
-        
-        # Execute the script using the executor
-        result = _investigator.executor.execute(
-            thought="Reload scene with new script",
-            code_edition="",
-            full_code=script_code
-        )
-        
-        if result.get("status") == "success":
-            # Update blender_background to the new save file
-            _investigator.blender_background = str(_investigator.base / "current_scene.blend")
-            _investigator.executor.blender_file = _investigator.blender_background
-            return {"status": "success", "output": {"text": ["Scene reloaded successfully"]}}
-        else:
-            return result
-            
-    except Exception as e:
-        tb = traceback.format_exc(limit=12)
-        return {"status": "error", "output": {"text": [repr(e), tb]}}
+    # Reload the blender_background file
+    _investigator.executor.blender_file = _investigator.blender_file
+    return {"status": "success", "output": {"text": ["Scene reloaded successfully"]}}
 
 # ======================
 # Entry point and testing
@@ -832,8 +900,10 @@ def test_tools():
     # Set test paths (read from environment variables)
     blender_file = os.getenv("BLENDER_FILE", "output/static_scene/20251018_012341/christmas1/blender_file.blend")
     test_save_dir = os.getenv("THOUGHT_SAVE", "output/test/investigator/")
-    script_path = os.getenv("SCRIPT_PATH", "output/static_scene/20251018_012341/christmas1/scripts/34.py")
-
+    blender_command = os.getenv("BLENDER_COMMAND", "utils/blender/infinigen/blender/blender")
+    blender_script = os.getenv("BLENDER_SCRIPT", "data/static_scene/verifier_script.py")
+    gpu_devices = os.getenv("GPU_DEVICES", "0,1,2,3,4,5,6,7")
+    
     # Check if blender file exists
     if not os.path.exists(blender_file):
         print(f"⚠ Blender file not found: {blender_file}")
@@ -844,14 +914,19 @@ def test_tools():
 
     # Test 1: Initialize investigation tool
     print("\n1. Testing initialize...")
-    args = {"output_dir": test_save_dir, "blender_file": blender_file}
+    args = {"output_dir": test_save_dir, "blender_file": blender_file, "blender_command": blender_command, "blender_script": blender_script, "gpu_devices": gpu_devices}
     result = initialize(args)
     print(f"Result: {result}")
         
     # Test 2: Get scene info
     print("\n2. Testing get_scene_info...")
     scene_info_result = get_scene_info()
-    print(f"Result: {scene_info_result}")
+    # print(f"Result: {scene_info_result}")
+    
+    # Test 3: Reload scene
+    print("\n3. Testing reload_scene...")
+    reload_result = reload_scene()
+    # print(f"Result: {reload_result}")
     
     # Extract object list from scene info for later tests
     object_names = []
@@ -860,16 +935,13 @@ def test_tools():
         if scene_info_text:
             import json
             try:
-                scene_info = json.loads(scene_info_text[0])
+                scene_info_text = scene_info_text[0].replace("'", '"')
+                scene_info = json.loads(scene_info_text)
+                print(scene_info)
                 object_names = [obj["name"] for obj in scene_info.get("objects", [])]
                 print(f"Found {len(object_names)} objects: {object_names}")
-            except (json.JSONDecodeError, KeyError, TypeError):
-                print("Could not parse scene info, using empty object list")
-    
-    # Test 3: Reload scene
-    print("\n3. Testing reload_scene...")
-    reload_result = reload_scene(script_path=script_path)
-    print(f"Result: {reload_result}")
+            except Exception as e:
+                print(f"Error parsing scene info: {e}")
         
     # Test 4: Initialize viewpoint
     print("\n4. Testing initialize_viewpoint...")
