@@ -1,6 +1,6 @@
 from .autopresent import *
 from .blendergym import *
-from .blendergym_hard import *
+from .blenderstudio import *
 from .design2code import *
 from .static_scene import *
 from .dynamic_scene import *
