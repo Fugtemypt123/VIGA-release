@@ -224,13 +224,13 @@ class MeshyAPI:
         data = resp.json()
         return data.get("result") or data.get("id")
 
-    def download_model_url(self, file_url: str, filename: str) -> str:
+    def download_model_url(self, file_url: str, file_name: str) -> str:
         """
         Download file from model_urls direct link to local
         """
         r = requests.get(file_url, stream=True)
         r.raise_for_status()
-        output_path = os.path.join(self.save_dir, filename)
+        output_path = os.path.join(self.save_dir, file_name)
         with open(output_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 if chunk:
@@ -452,7 +452,7 @@ def download_meshy_asset(object_name: str, description: str) -> dict:
             return {"status": "error", "output": "No downloadable model_urls found"}
         
         # 5) Download model to local
-        result_path = _meshy_api.download_model_url(file_url, f"{object_name}_0.glb")
+        result_path = _meshy_api.download_model_url(file_url, f"{object_name}.glb")
         print(f"[Meshy] Downloading Meshy asset to: {result_path}")
         
         return {'status': 'success', 'output': {'path': result_path, 'model_url': file_url}}
@@ -512,7 +512,7 @@ def download_meshy_asset_from_image(object_name: str, image_path: str, prompt: s
 
         # 4) Download model to local persistent directory
         # Handle extensionless direct links: default .glb
-        result_path = _meshy_api.download_model_url(file_url, f"{object_name}_0.glb")
+        result_path = _meshy_api.download_model_url(file_url, f"{object_name}.glb")
         print(f"[Meshy] Downloading Image-to-3D model to: {result_path}")
 
         return {'status': 'success', 'output': {'path': result_path, 'model_url': file_url}}
