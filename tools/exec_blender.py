@@ -145,9 +145,12 @@ class Executor:
         # Execute Blender
         success, stdout, stderr = self._execute_blender(str(code_file), str(render_file))
         # Check if render_file is empty or not exist
-        if not success or not os.path.exists(render_file) or len(os.listdir(render_file)) == 0:
+        if not success:
             return {"status": "error", "output": {"text": ['Error: ' + (stderr or stdout)]}}
-        return {"status": "success", "output": {"image": stdout, "text": [f"Render from camera {x}" for x in range(len(stdout))]}}
+        elif len(os.listdir(render_file)) == 0:
+            return {"status": "success", "output": {"text": ['Code Executed Successfully, but no images were generated. Please make sure you have added a camera in your code.']}}
+        else:
+            return {"status": "success", "output": {"image": stdout, "text": [f"Render from camera {x}" for x in range(len(stdout))]}}
 
 
 

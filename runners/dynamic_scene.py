@@ -231,7 +231,7 @@ def main():
     # Blender parameters
     parser.add_argument("--blender-command", default="utils/blender/infinigen/blender/blender", help="Blender command path")
     parser.add_argument("--blender-file", default="data/dynamic_scene/empty_scene.blend", help="Empty blender file for dynamic scenes")
-    parser.add_argument("--blender-script", default="data/dynamic_scene/pipeline_render_script.py", help="Blender execution script")
+    parser.add_argument("--blender-script", default="data/dynamic_scene/generator_script.py", help="Blender execution script")
     parser.add_argument("--blender-save", default=f"data/dynamic_scene/empty_scene.blend", help="Save blender file")
     
     # Tool server scripts (comma-separated)
