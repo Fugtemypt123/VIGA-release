@@ -16,8 +16,8 @@ tool_configs = [
     {
         "type": "function",
         "function": {
-            "name": "execute_and_evaluate",
-            "description": "Execute code modifications and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.\nReturns either:\n  (1) On error: detailed error information; or \n  (2) On success: a clear render (you must add a camera in your code) and further modification suggestions from a separate verifier agent.",
+            "name": "execute_and_evaluate_code",
+            "description": "Execute code and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.\nReturns either:\n  (1) On error: detailed error information; or \n  (2) On success: a clear render (you must add a camera in your code) and further modification suggestions from a separate verifier agent.\nImportant: the effects of previously executed code remain active and are not cleared when new code is executed.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -25,19 +25,40 @@ tool_configs = [
                         "type": "string",
                         "description": "Analyze the current state and provide a clear plan for the required changes. Consider scene representation consistency and infinigen optimization opportunities."
                     },
-                    "code_edition": {
-                        "type": "string", 
-                        "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on scene consistency and use infinigen functions when appropriate."
-                    },
-                    "full_code": {
+                    "code": {
                         "type": "string",
-                        "description": "Merge your code changes into the full code with proper formatting. Ensure consistent scene representation."
+                        "description": "Executable Python code, using libraries such as bpy and infinigen. Ensure consistent scene representation."
                     }
                 },
-                "required": ["thought", "code_edition", "full_code"]
+                "required": ["thought", "code"]
             }
         }
-    }
+    },
+    # {
+    #     "type": "function",
+    #     "function": {
+    #         "name": "execute_and_evaluate_edition",
+    #         "description": "Execute code modifications and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.\nReturns either:\n  (1) On error: detailed error information; or \n  (2) On success: a clear render (you must add a camera in your code) and further modification suggestions from a separate verifier agent.",
+    #         "parameters": {
+    #             "type": "object",
+    #             "properties": {
+    #                 "thought": {
+    #                     "type": "string",
+    #                     "description": "Analyze the current state and provide a clear plan for the required changes. Consider scene representation consistency and infinigen optimization opportunities."
+    #                 },
+    #                 "code_edition": {
+    #                     "type": "string", 
+    #                     "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on scene consistency and use infinigen functions when appropriate."
+    #                 },
+    #                 "full_code": {
+    #                     "type": "string",
+    #                     "description": "Merge your code changes into the full code with proper formatting. Ensure consistent scene representation."
+    #                 }
+    #             },
+    #             "required": ["thought", "code_edition", "full_code"]
+    #         }
+    #     }
+    # }
 ]
 
 mcp = FastMCP("blender-executor")
@@ -108,11 +129,11 @@ class Executor:
             return full_code[len("```python"):-len("```")]
         return full_code
 
-    def execute(self, thought: str, code_edition: str, full_code: str) -> Dict:
+    def execute(self, thought: str, code: str) -> Dict:
         self.count += 1
         code_file = self.script_path / f"{self.count}.py"
         render_file = self.render_path / f"{self.count}"
-        code = self._parse_code(full_code)
+        code = self._parse_code(code)
         
         # File operations
         with open(code_file, "w") as f:
@@ -164,7 +185,7 @@ def initialize(args: dict) -> dict:
         return {"status": "error", "output": {"text": [str(e)]}}
 
 @mcp.tool()
-def execute_and_evaluate(thought: str, code_edition: str, full_code: str) -> dict:
+def execute_and_evaluate_code(thought: str, code: str) -> dict:
     """
     Execute the passed Blender Python script code and return base64 encoded rendered image.
     Need to call initialize_executor first for initialization.
@@ -173,7 +194,7 @@ def execute_and_evaluate(thought: str, code_edition: str, full_code: str) -> dic
     if _executor is None:
         return {"status": "error", "output": {"text": ["Executor not initialized. Call initialize_executor first."]}}
     try:
-        result = _executor.execute(thought, code_edition, full_code)
+        result = _executor.execute(thought, code)
         return result
     except Exception as e:
         return {"status": "error", "output": {"text": [str(e)]}}
@@ -306,7 +327,7 @@ bpy.ops.ptcache.free_bake_all()
 bpy.ops.ptcache.bake_all(bake=True)
 
 print("Scene ready: press Play to watch the ball roll down the slope.")"""
-        exec_res = execute_and_evaluate(thought="", code_edition="", full_code=sample_code)
+        exec_res = execute_and_evaluate_code(thought="", code=sample_code)
         print("[test:exec_script]", json.dumps(exec_res, ensure_ascii=False))
         
     else:
