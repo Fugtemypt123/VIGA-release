@@ -790,14 +790,14 @@ def move(direction: str) -> dict:
     return _investigator.move_camera(direction)
 
 @mcp.tool()
-def initialize_viewpoint(object_names: list) -> dict:
+def initialize_viewpoint(object_names: list = []) -> dict:
     global _investigator
     if _investigator is None:
         return {"status": "error", "output": {"text": ["Investigator3D not initialized. Call initialize first."]}}
     return _investigator.initialize_viewpoint(object_names)
 
 @mcp.tool()
-def investigate(operation: str, object_name: str = None, direction: str = None) -> dict:
+def investigate(operation: str = '', object_name: str = '', direction: str = '') -> dict:
     if operation == "focus":
         if not object_name:
             return {"status": "error", "output": {"text": ["object_name is required for focus"]}}
@@ -821,14 +821,14 @@ def set_visibility(show_objects: list = [], hide_objects: list = []) -> dict:
     return _investigator.set_visibility(show_objects, hide_objects)
         
 @mcp.tool()
-def set_keyframe(frame_number: int) -> dict:
+def set_keyframe(frame_number: int = 1) -> dict:
     global _investigator
     if _investigator is None:
         return {"status": "error", "output": {"text": ["Investigator3D not initialized. Call initialize first."]}}
     return _investigator.set_keyframe(frame_number)
     
 @mcp.tool()
-def set_camera(location: list, rotation_euler: list) -> dict:
+def set_camera(location: list = [0, 0, 0], rotation_euler: list = [0, 0, 0]) -> dict:
     global _investigator
     if _investigator is None:
         return {"status": "error", "output": {"text": ["Investigator3D not initialized. Call initialize first."]}}

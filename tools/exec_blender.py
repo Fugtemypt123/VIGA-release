@@ -265,7 +265,7 @@ def initialize(args: dict) -> dict:
         return {"status": "error", "output": {"text": [str(e)]}}
 
 @mcp.tool()
-def execute_and_evaluate(thought: str, code_edit: str, full_code: str) -> dict:
+def execute_and_evaluate(thought: str = '', code_edit: str = '', full_code: str = '') -> dict:
     """
     Execute the passed Blender Python script code and return base64 encoded rendered image.
     Need to call initialize_executor first for initialization.

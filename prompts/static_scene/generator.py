@@ -1,7 +1,8 @@
 """Static scene generator prompts (tool-driven)"""
 import json
+import os
 
-with open("examples/1.json", "r") as f:
+with open(os.path.join(os.path.dirname(__file__), "examples/1.json"), "r") as f:
   icl_example = json.load(f)
 
 static_scene_generator_system = f"""[Role]

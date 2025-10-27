@@ -1,0 +1,207 @@
+[
+  {
+    "role": "system",
+    "content": "[Role]\nYou are BlenderGymAgent — an expert agent that edits Blender scenes via Python with dependency-aware steps (lighting first, then geometry/shape keys) to match a target visual reference.\n\n[Response Format]\nEach round must include exactly one tool call and concise reasoning (why this change; how it advances). Emit runnable delta code only.\n\n[Guiding Principles]\n• First make the scene observable (enable/boost main light), then refine subject features.\n• Coarse→Fine: 1) activate ceiling light; 2) adjust to correct exposure; 3) modify character BellyShrink in increments to match silhouette; 4) stop when negligible diff.\n• Keep camera/objects fixed other than the specified edits."
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "type": "text",
+        "text": "Task: Starting from a dim scene with the character under blankets, turn on the ceiling light and adjust the character's belly silhouette to match the highlighted reference."
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "/mnt/data/render1.png"
+        },
+        "text": "Start image (dark)"
+      },
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "/mnt/data/visprompt1.png"
+        },
+        "text": "Target reference (bright room; belly shape emphasized)"
+      },
+      {
+        "type": "text",
+        "text": "You have the scene with helper code already run (lamps white; BellySag=5, BellyShrink=0; ceiling energy=0). Apply incremental edits to reach the goal."
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": "CoT: Initialize plan — we first need visibility. I'll power on the ceiling light to medium strength, then refine to target brightness. Only after the room is bright will we tune the character's belly silhouette using the BellyShrink key in small increments.",
+    "tool_calls": [
+      {
+        "id": "call_litshape_init_001",
+        "function": {
+          "name": "initialize_plan",
+          "arguments": "{\"overall_description\":\"Reveal scene by enabling ceiling light, then shape the character belly silhouette.\",\"inputs\":\"/mnt/data/render1.png (start), /mnt/data/visprompt1.png (target)\",\"primary_controls\":\"light_on_ceilling.data.energy, Key.BellyShrink\",\"constraints\":\"Do not change camera or other shape keys.\"}"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "name": "initialize_plan",
+    "tool_call_id": "call_litshape_init_001",
+    "content": [
+      {
+        "type": "text",
+        "text": "Plan initialized successfully"
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": "CoT: Round 1 — Switch on the ceiling light at a safe mid value (100) to make objects clearly visible before geometry tweaks.",
+    "tool_calls": [
+      {
+        "id": "call_litshape_code_001",
+        "function": {
+          "name": "execute_and_evaluate_code",
+          "arguments": "{\"thought\":\"Enable primary light for visibility.\",\"code\":\"import bpy\\nlight_on_ceilling = bpy.data.objects['light_on_ceilling']\\nlight_on_ceilling.data.energy = 100\\nlight_on_ceilling.data.color = (1,1,1)\\nbpy.context.view_layer.update()\"}"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "name": "execute_and_evaluate_code",
+    "tool_call_id": "call_litshape_code_001",
+    "content": [
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "https://example.com/blendergym_light_shape/round1.png"
+        }
+      },
+      {
+        "type": "text",
+        "text": "Visual difference: Room is brighter but still underexposed compared to target. Edit suggestion: increase ceiling energy to 200 to match the target exposure."
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": "CoT: Round 2 — Raise the ceiling light to 200 to achieve the bright, even illumination seen in the reference.",
+    "tool_calls": [
+      {
+        "id": "call_litshape_code_002",
+        "function": {
+          "name": "execute_and_evaluate_code",
+          "arguments": "{\"thought\":\"Match target exposure with stronger key light.\",\"code\":\"import bpy\\nlight_on_ceilling = bpy.data.objects['light_on_ceilling']\\nlight_on_ceilling.data.energy = 200\\nbpy.context.view_layer.update()\"}"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "name": "execute_and_evaluate_code",
+    "tool_call_id": "call_litshape_code_002",
+    "content": [
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "https://example.com/blendergym_light_shape/round2.png"
+        }
+      },
+      {
+        "type": "text",
+        "text": "Visual difference: Exposure now matches the target closely. Character belly silhouette is still flatter than reference. Edit suggestion: increase BellyShrink toward 3; try a mid value first (e.g., 2) and evaluate."
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": "CoT: Round 3 — Begin shaping the belly silhouette by increasing BellyShrink to 2 (mid value) for controlled change.",
+    "tool_calls": [
+      {
+        "id": "call_litshape_code_003",
+        "function": {
+          "name": "execute_and_evaluate_code",
+          "arguments": "{\"thought\":\"Incremental morphing to avoid overshoot.\",\"code\":\"import bpy\\nkeys = bpy.data.shape_keys['Key'].key_blocks\\nkeys['BellyShrink'].value = 2\\nbpy.context.view_layer.update()\"}"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "name": "execute_and_evaluate_code",
+    "tool_call_id": "call_litshape_code_003",
+    "content": [
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "https://example.com/blendergym_light_shape/round3.png"
+        }
+      },
+      {
+        "type": "text",
+        "text": "Visual difference: Belly volume increased but still less than the circled reference. Edit suggestion: raise BellyShrink to 3."
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": "CoT: Round 4 — Finalize by setting BellyShrink to 3 to match the reference silhouette.",
+    "tool_calls": [
+      {
+        "id": "call_litshape_code_004",
+        "function": {
+          "name": "execute_and_evaluate_code",
+          "arguments": "{\"thought\":\"Apply target morph value.\",\"code\":\"import bpy\\nkeys = bpy.data.shape_keys['Key'].key_blocks\\nkeys['BellyShrink'].value = 3\\nbpy.context.view_layer.update()\"}"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "name": "execute_and_evaluate_code",
+    "tool_call_id": "call_litshape_code_004",
+    "content": [
+      {
+        "type": "image_url",
+        "image_url": {
+          "url": "https://example.com/blendergym_light_shape/round4.png"
+        }
+      },
+      {
+        "type": "text",
+        "text": "Visual difference: Character silhouette and scene brightness match the target. No further edits required."
+      }
+    ]
+  },
+  {
+    "role": "assistant",
+    "content": "CoT: Lighting and character shape now align with the target. Ending the process.",
+    "tool_calls": [
+      {
+        "id": "call_litshape_end_001",
+        "function": {
+          "name": "end",
+          "arguments": "{}"
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "name": "end",
+    "tool_call_id": "call_litshape_end_001",
+    "content": [
+      {
+        "type": "text",
+        "text": "Process ended."
+      }
+    ]
+  }
+]
