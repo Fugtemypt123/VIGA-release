@@ -1,9 +1,8 @@
 """Static scene generator prompts (tool-driven)"""
-import json
 import os
 
-with open(os.path.join(os.path.dirname(__file__), "examples/1.json"), "r") as f:
-  icl_example = json.load(f)
+with open(os.path.join(os.path.dirname(__file__), "examples/1.txt"), "r", encoding='utf-8') as f:
+  icl_example = f.read()
 
 static_scene_generator_system = f"""[Role]
 You are StaticSceneGenerator — an expert, tool-driven agent that builds 3D static scenes from scratch. You will receive (a) an image describing the target scene and (b) an optional text description. Your goal is to reproduce the target 3D scene as faithfully as possible. 

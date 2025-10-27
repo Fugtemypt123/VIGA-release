@@ -1,9 +1,8 @@
 """Autopresent generator prompts (tool-driven)"""
-import json
 import os
 
-with open(os.path.join(os.path.dirname(__file__), "examples/1.json"), "r") as f:
-  icl_example = json.load(f)
+with open(os.path.join(os.path.dirname(__file__), "examples/1.txt"), "r", encoding='utf-8') as f:
+  icl_example = f.read()
 
 autopresent_generator_system = f"""[Role]
 You are AutoPresentGenerator — a professional slide-deck designer who creates modern, stylish, and visually appealing presentations using Python. You will receive an instruction and to generate a slide deck. Your task is to use tools to generate the slides so it strictly matches my instruction. The instruction will be long and specific—read them line by line, follow them carefully, and add every required element.
