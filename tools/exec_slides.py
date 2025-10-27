@@ -10,25 +10,25 @@ tool_configs = [
     {
         "type": "function",
         "function": {
-            "name": "execute_and_evaluate",
-            "description": "Execute code modifications and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.",
+            "name": "execute_and_evaluate_code",
+            "description": "Execute Python code for slide generation and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.\nReturns either:\n  (1) On error: detailed error information; or \n  (2) On success: a rendered slide image and further modification suggestions from a separate verifier agent.\nImportant: The execution environment cannot read files generated in previous runs. Therefore, each response must output the complete, standalone Python code that generates the entire slide from scratch. If you want to make small changes relative to the previous version, use code_edit parameter to structure your reasoning before producing the final script: First, pinpoint the exact lines to modify in the previous script. Then provide a unified-style mini diff using the following format (no extra commentary inside the block):\n-: [lines to remove]\n+: [lines to add]\n. After the diff, apply those changes and output the full, updated Python code (not just the patch).",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "thought": {
                         "type": "string",
-                        "description": "Analyze the current state and provide a clear plan for the required changes. Consider scene representation consistency and infinigen optimization opportunities."
+                        "description": "Analyze the current state and provide a clear plan for the required changes. Consider slide design, layout, typography, and visual hierarchy optimization opportunities."
                     },
-                    "code_edition": {
+                    "code_edit": {
                         "type": "string", 
-                        "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on scene consistency and use infinigen functions when appropriate."
+                        "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on slide design and python-pptx library usage."
                     },
                     "full_code": {
                         "type": "string",
-                        "description": "Merge your code changes into the full code with proper formatting. Ensure consistent scene representation."
+                        "description": "Merge your code changes into the full code with proper formatting. Ensure proper Python code using python-pptx library."
                     }
                 },
-                "required": ["thought", "code_edition", "full_code"]
+                "required": ["thought", "full_code"]
             }
         }
     }
@@ -43,6 +43,7 @@ class SlidesExecutor:
         self.task_dir = Path(task_dir)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.count = 0
 
     def _execute_slide_code(self, code_path: str) -> str:
         generate_dir = "utils/slides"
@@ -57,9 +58,10 @@ class SlidesExecutor:
             logging.error(f"PPTX compilation failed: {e.stderr}")
             return f"Error: {e.stderr}"
 
-    def execute(self, code: str, round: int) -> dict:
+    def execute(self, code: str) -> dict:
         try:
-            round_dir = self.output_dir / f"{round}"
+            self.count += 1
+            round_dir = self.output_dir / f"{self.count}"
             round_dir.mkdir(exist_ok=True)
             code_path = round_dir / "refine.py"
             runned_code_path = round_dir / "runned_code.py"
@@ -103,18 +105,19 @@ def initialize(args: dict) -> dict:
         return {"status": "error", "output": str(e)}
 
 @mcp.tool()
-def exec_script(code: str, round: int) -> dict:
+def execute_and_evaluate_code(thought: str = '', code_edit: str = '', full_code: str = '') -> dict:
     """
     Compile and render PPTX from Python code.
     Args:
-        code: str - Python code that generates a .pptx
-        round: int - round index
+        thought: Analysis of current state and plan for changes
+        code_edit: Code modifications in diff format
+        full_code: Complete Python code that generates a .pptx
     """
     global _executor
     if _executor is None:
         return {"status": "error", "output": "Executor not initialized. Call initialize_executor first."}
     try:
-        result = _executor.execute(code, round)
+        result = _executor.execute(full_code)
         return result
     except Exception as e:
         return {"status": "error", "output": str(e)}
@@ -157,7 +160,7 @@ def test_specific_file():
     # Execute code
     try:
         print("Executing code...")
-        result = executor.execute(code_content, 1)
+        result = executor.execute(code_content)
         
         if result["status"] == "success":
             print("✅ Code executed successfully!")

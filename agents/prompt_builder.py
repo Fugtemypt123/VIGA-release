@@ -41,12 +41,19 @@ class PromptBuilder:
     def _build_user_prompt(self, prompts: Dict) -> List[Dict]:
         with open('logs/prompts.json', 'w') as f:
             json.dump(prompts, f, indent=4, ensure_ascii=False)
-        content = [
-            {"type": "text", "text": f"Initial plan: {prompts.get('init_plan', '')}"},
-            {"type": "text", "text": f"Thought: {prompts['argument'].get('thought', '')}"},
-            {"type": "text", "text": f"Code edition: {prompts['argument'].get('code_edition', '')}"},
-            {"type": "text", "text": f"Full code: {prompts['argument'].get('full_code', '')}"},
-        ]
+        if prompts['argument'].get('code_edit', '') != '':
+            content = [
+                {"type": "text", "text": f"Initial plan: {prompts.get('init_plan', '')}"},
+                {"type": "text", "text": f"Thought: {prompts['argument'].get('thought', '')}"},
+                {"type": "text", "text": f"Code edit: {prompts['argument'].get('code_edit', '')}"},
+                {"type": "text", "text": f"Full code: {prompts['argument'].get('full_code', '')}"},
+            ]
+        else:
+            content = [
+                {"type": "text", "text": f"Initial plan: {prompts.get('init_plan', '')}"},
+                {"type": "text", "text": f"Thought: {prompts['argument'].get('thought', '')}"},
+                {"type": "text", "text": f"Code: {prompts['argument'].get('code', '')}"},
+            ]
         if 'image' in prompts['execution']:
             for text, image in zip(prompts['execution']['text'], prompts['execution']['image']):
                 content.append({"type": "image_url", "image_url": {"url": get_image_base64(image)}})

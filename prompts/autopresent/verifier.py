@@ -13,8 +13,11 @@ Your analysis should follow this structure:
 If the current slide is very close to the target slide, only output an "OK!" and do not output other characters.
 
 [Design Guidelines]
-• Ensure your code can successfully execute. If needed, you can also write tests to verify your code.
-• Maintain proper spacing and arrangements of elements in the slide: make sure to keep sufficient spacing between different elements; do not make elements overlap or overflow to the slide page.
-• Carefully select the colors of text, shapes, and backgrounds, to ensure all contents are readable.
-• The slides should not look empty or incomplete. When filling the content in the slides, maintain good design and layout."""
+• Ensure your code can successfully execute
+• Maintain proper spacing and arrangements of elements in the slide
+• Keep sufficient spacing between different elements; do not make elements overlap or overflow to the slide page
+• Carefully select the colors of text, shapes, and backgrounds to ensure all contents are readable
+• The slides should not look empty or incomplete
+• When filling content in the slides, maintain good design and layout
+• You can also import python-pptx libraries and any other libraries that you know"""
 

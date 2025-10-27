@@ -129,6 +129,7 @@ class GeneratorAgent:
         # Add initial plan
         if tool_call_name == "initialize_plan":
             self.init_plan = "\n".join(message['user']['plan'])
+            self.memory[1]['content'].append({"type": "text", "text": f"Initial plan: {self.init_plan}"})
     
     def _save_memory(self):
         """Save the memory to the file"""

@@ -19,25 +19,25 @@ tool_configs = [
     {
         "type": "function",
         "function": {
-            "name": "execute_and_evaluate",
-            "description": "Execute code modifications and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.",
+            "name": "execute_and_evaluate_code",
+            "description": "Execute HTML/CSS code and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.\nReturns either:\n  (1) On error: detailed error information; or \n  (2) On success: a screenshot of the rendered HTML page and further modification suggestions from a separate verifier agent.\nImportant: The execution environment cannot read files generated in previous runs. Therefore, each response must output the complete, standalone HTML/CSS code that generates the entire page from scratch. If you want to make small changes relative to the previous version, use code_edit parameter to structure your reasoning before producing the final script: First, pinpoint the exact lines to modify in the previous script. Then provide a unified-style mini diff using the following format (no extra commentary inside the block):\n-: [lines to remove]\n+: [lines to add]\n. After the diff, apply those changes and output the full, updated HTML/CSS code (not just the patch).",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "thought": {
                         "type": "string",
-                        "description": "Analyze the current state and provide a clear plan for the required changes. Consider scene representation consistency and infinigen optimization opportunities."
+                        "description": "Analyze the current state and provide a clear plan for the required changes. Consider HTML structure, CSS styling, and responsive design optimization opportunities."
                     },
-                    "code_edition": {
+                    "code_edit": {
                         "type": "string", 
-                        "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on scene consistency and use infinigen functions when appropriate."
+                        "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on HTML structure and CSS styling."
                     },
                     "full_code": {
                         "type": "string",
-                        "description": "Merge your code changes into the full code with proper formatting. Ensure consistent scene representation."
+                        "description": "Merge your code changes into the full code with proper formatting. Ensure proper HTML string."
                     }
                 },
-                "required": ["thought", "code_edition", "full_code"]
+                "required": ["thought", "full_code"]
             }
         }
     }
@@ -56,6 +56,7 @@ class HTMLExecutor:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.browser_command = browser_command
+        self.count = 0
         
     def _save_html_file(self, html_code: str, filename: str = "index.html") -> str:
         """Save HTML code to a temporary file."""
@@ -128,26 +129,17 @@ class HTMLExecutor:
             logging.warning(f"Image optimization failed: {e}")
             return image_path
     
-    def execute(self, html_code: str, round_num: int) -> Dict:
+    def execute(self, html_code: str) -> Dict:
         """Execute HTML code and generate screenshot."""
         try:
-            # Save HTML file
-            html_path = self._save_html_file(html_code, f"round_{round_num}.html")
-            
-            # Generate output path
-            output_path = self.output_dir / f"round_{round_num}.png"
-            
-            # Take screenshot
+            self.count += 1
+            html_path = self._save_html_file(html_code, f"{self.count}.html")
+            output_path = self.output_dir / f"{self.count}.png"
             success, message = self._take_screenshot(html_path, str(output_path))
-            
             if not success:
                 return {"status": "error", "output": message}
-            
-            # Optimize image
             optimized_path = self._optimize_image(str(output_path))
-            
             return {"status": "success", "output": [optimized_path]}
-            
         except Exception as e:
             logging.error(f"HTML execution failed: {e}")
             return {"status": "error", "output": str(e)}
@@ -168,13 +160,13 @@ def initialize(args: dict) -> dict:
         return {"status": "error", "output": str(e)}
 
 @mcp.tool()
-def exec_script(code: str, round: int) -> dict:
+def execute_and_evaluate_code(thought: str = '', code_edit: str = '', full_code: str = '') -> dict:
     """
-    Execute HTML code and generate screenshot.
+    Execute HTML/CSS code and generate screenshot.
     
     Args:
+        thought: Analysis of current state and plan for changes
         code: The HTML/CSS code to execute
-        round: Round number for file naming
     """
     global _executor
     if _executor is None:
@@ -182,23 +174,12 @@ def exec_script(code: str, round: int) -> dict:
             "status": "error", 
             "output": "HTML executor not initialized. Call initialize_executor first."
         }
-    
     try:
-        result = _executor.execute(code, round)
+        result = _executor.execute(full_code)
         return result
     except Exception as e:
         return {"status": "error", "output": str(e)}
 
-# @mcp.tool()
-# def cleanup_executor() -> dict:
-#     """Clean up the HTML executor and temporary files."""
-#     global _executor
-#     try:
-#         if _executor:
-#             _executor = None
-#         return {"status": "success", "output": "HTML executor cleaned up"}
-#     except Exception as e:
-#         return {"status": "error", "output": str(e)}
     
 def test_execute_test_html(test_html_path: Optional[str] = None,
                            output_dir: Optional[str] = None,
@@ -236,7 +217,7 @@ def test_execute_test_html(test_html_path: Optional[str] = None,
 
         # Run executor directly
         executor = HTMLExecutor(output_dir=output_dir, browser_command=browser_command)
-        result = executor.execute(html_code=html_code, round_num=1)
+        result = executor.execute(html_code)
 
         # Attach some helpful information
         output = {
