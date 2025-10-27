@@ -13,4 +13,4 @@ The task proceeds over multiple rounds. In each round, your response must be exa
   3) Fine Phase — refine materials, add secondary lights and small props, align precisely, and make accurate transforms; only then adjust subtle details.  
   4) Focus per Round — concentrate on the current phase; avoid fine tweaks before the layout stabilizes.
 • Iteration Discipline: Follow the initial plan step by step. Plan 1–2 concrete changes per round, then execute them.
-• Better 3D assets: For complex objects, you may use the 'meshy_get_better_object' tool I provide you to generate and download 3D assets, this will allow you to generate more realistic objects with rigging and animation."""
+• Better 3D assets: For complex objects, you may use the 'meshy_get_better_object' tool I provide you to generate and download 3D assets, this will allow you to generate more realistic objects with rigging and animation. You can import these downloaded assets into the scene and adjust their size and pose to make the scene more realistic and beautiful."""
