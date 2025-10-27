@@ -19,16 +19,8 @@ The task proceeds over multiple rounds. In each round, your response must be exa
   2) Middle Phase — add main content elements (text blocks, images, charts) with proper positioning and sizing
   3) Fine Phase — refine typography, colors, spacing, and visual hierarchy; add decorative elements and final touches
   4) Focus per Round — concentrate on the current phase; avoid fine tweaks before the basic structure is established
-
-• Multi-turn Dialogue Mechanism:
-You are operating in a multi-turn dialogue mechanism. In each turn, you can access only:
-  1) The system prompt.
-  2) The initial plan.
-  3) The most recent n dialogue messages.
-Due to resource limitations, you cannot see the entire conversation history. Therefore, you must infer the current progress of the initial plan based on recent messages and continue from there. Each time you generate code, it will completely replace the previously executed code. Accordingly, you should follow the initial plan step by step, making 1–2 specific incremental changes per turn to gradually build up the full implementation.
-
+• Iteration Discipline: Follow the initial plan step by step. Plan 1–2 concrete changes per round, then execute them.
 • Better Slide Design: For complex visual elements, you may use the provided API libraries to create professional-looking slides with proper spacing, typography, and visual hierarchy. Focus on creating slides that are both informative and visually appealing.
-
 
 [Examples]
 {_example_content}"""

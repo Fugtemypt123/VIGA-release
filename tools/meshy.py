@@ -101,15 +101,12 @@ class MeshyAPI:
     def check_previous_asset(self, object_name: str, is_animated: bool = False, is_rigged: bool = False) -> Optional[str]:
         if not self.previous_assets_dir:
             return None
+        extensions = [".glb"]
+        prefix = ""
         if is_animated:
-            extensions = [".glb"]
             prefix = "animated_"
         elif is_rigged:
-            extensions = [".fbx"]
             prefix = "rigged_"
-        else:
-            extensions = [".glb", ".gltf", ".fbx", ".obj", ".zip"]
-            prefix = ""
         matching_files = self.find_matching_files(object_name, extensions, prefix)
         if matching_files:
             matched_file = matching_files[0]
@@ -286,7 +283,7 @@ def download_meshy_asset(object_name: str, description: str) -> dict:
         final_task = refine_task
 
         model_urls = (final_task or {}).get("model_urls", {}) or {}
-        candidate_keys = ["glb", "fbx", "obj", "zip"]
+        candidate_keys = ["glb"]
         file_url = None
         for k in candidate_keys:
             if model_urls.get(k):
@@ -341,7 +338,7 @@ def download_meshy_asset_from_image(object_name: str, image_path: str, prompt: s
         final_task = preview_task
 
         model_urls = (final_task or {}).get("model_urls", {}) or {}
-        candidate_keys = ["glb", "fbx", "obj", "zip"]
+        candidate_keys = ["glb"]
         file_url = None
         for k in candidate_keys:
             if model_urls.get(k):
@@ -392,11 +389,11 @@ def create_rigged_character(model_url: str, object_name: str) -> dict:
             return {"status": "error", "output": f"Rigging failed: {rig_task.get('status')}"}
 
         result = rig_task.get("result", {})
-        rigged_model_url = result.get("rigged_character_fbx_url")
+        rigged_model_url = result.get("rigged_character_glb_url")
         if not rigged_model_url:
             return {"status": "error", "output": "No rigged model URL found in result"}
 
-        local_path = _meshy_api.download_model_url(rigged_model_url, f"rigged_{object_name}.fbx")
+        local_path = _meshy_api.download_model_url(rigged_model_url, f"rigged_{object_name}.glb")
         logging.info(f"[Meshy] Downloading rigged model to: {local_path}")
 
         return {
