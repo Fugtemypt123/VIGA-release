@@ -23,7 +23,7 @@ class PromptManager:
             from . import prompts_dict
             self.prompts = prompts_dict
     
-    def get_system_prompt(self, mode: str, agent_type: str, level: Optional[str] = None) -> str:
+    def get_system_prompt(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None) -> str:
         """Get system prompt for specified mode, agent type, and optional level."""
         self._ensure_prompts_loaded()
         if mode not in self.prompts:
@@ -41,12 +41,16 @@ class PromptManager:
             if level not in system_prompts:
                 raise ValueError(f"Level {level} not supported for mode {mode}")
             return system_prompts[level]
+        elif isinstance(system_prompts, dict) and task_name:
+            if task_name not in system_prompts:
+                raise ValueError(f"Task name {task_name} not supported for mode {mode}")
+            return system_prompts[task_name]
         elif isinstance(system_prompts, str):
             return system_prompts
         else:
             raise ValueError(f"Invalid system prompt format for mode {mode}, agent {agent_type}")
     
-    def get_format_prompt(self, mode: str, agent_type: str, level: Optional[str] = None) -> str:
+    def get_format_prompt(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None) -> str:
         """Get format prompt for specified mode, agent type, and optional level."""
         self._ensure_prompts_loaded()
         if mode not in self.prompts:
@@ -124,8 +128,8 @@ class PromptManager:
     def get_all_prompts(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None) -> Dict[str, Any]:
         """Get all prompts for a given configuration in a single call."""
         return {
-            'system': self.get_system_prompt(mode, agent_type, level),
-            'format': self.get_format_prompt(mode, agent_type, level),
+            'system': self.get_system_prompt(mode, agent_type, task_name, level),
+            'format': self.get_format_prompt(mode, agent_type, task_name, level),
             'hints': self.get_hints(mode, agent_type, task_name, level),
             'api_library': self.get_api_library(mode),
             'tool_example': self.get_tool_example(mode)

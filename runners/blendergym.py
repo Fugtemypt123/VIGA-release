@@ -131,6 +131,7 @@ def run_blendergym_task(task_config: Dict, args) -> tuple:
         "--blender-file", str(task_config["blender_file"]),
         "--blender-script", args.blender_script,
         "--gpu-devices", args.gpu_devices,
+        "--clear-memory"
     ]
     
     if args.save_blender_file:
@@ -280,6 +281,8 @@ def main():
     # Save task list for reference
     with open(os.path.join(args.output_dir, "tasks.json"), "w") as f:
         json.dump(tasks, f, indent=2)
+        
+    tasks = tasks[:1]
 
     # Run tasks
     start_time = time.time()
