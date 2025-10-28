@@ -46,7 +46,7 @@ class MeshyAPI:
             raise ValueError("Meshy API key is required. Set MESHY_API_KEY environment variable or pass api_key parameter.")
         self.base_url = "https://api.meshy.ai"
         self.headers = {"Authorization": f"Bearer {self.api_key}"}
-        self.save_dir = save_dir
+        self.save_dir = previous_assets_dir
         self.previous_assets_dir = previous_assets_dir
         os.makedirs(self.save_dir, exist_ok=True)
         if self.previous_assets_dir:
