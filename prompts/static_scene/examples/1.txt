@@ -239,30 +239,5 @@
         "text": "The next user message may contain a render result."
       }
     ]
-  },
-  {
-    "role": "assistant",
-    "content": "The scene meets requirements (table + chair from code, laptop from meshy, plausible layout/scale). No further changes needed; I will end the process.",
-    "tool_calls": [
-      {
-        "id": "call_end_001",
-        "function": {
-          "name": "end",
-          "arguments": "{}"
-        },
-        "type": "function"
-      }
-    ]
-  },
-  {
-    "role": "tool",
-    "name": "end",
-    "tool_call_id": "call_end_001",
-    "content": [
-      {
-        "type": "text",
-        "text": "Process ended."
-      }
-    ]
   }
 ]

@@ -43,7 +43,8 @@ class VerifierAgent:
         print("Build user message...")
         user_message = self.prompt_builder.build_prompt("verifier", "user", user_message)
         print("Extend memory...")
-        self.memory = self.system_prompt + user_message
+        self.memory.extend(user_message)
+        # self.memory = self.system_prompt + user_message
         print("Save memory...")
         self._save_memory()
         result = None

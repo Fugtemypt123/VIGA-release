@@ -708,7 +708,7 @@ print("Viewpoints initialized and rendered for", len(objects), "objects")
     def move_camera(self, direction: str) -> dict:
         """Move camera around target object"""
         if not self.target:
-            raise ValueError("No target object set. Call focus first.")
+            return {"status": "error", "output": {"text": ["No target object set. Call focus first."]}}
         step = self.radius
         theta_step = step / (self.radius*math.cos(self.phi)) if math.cos(self.phi) != 0 else 0.1
         phi_step = step / self.radius
@@ -863,7 +863,7 @@ def test_tools():
     print("=" * 50)
 
     # Set test paths (read from environment variables)
-    blender_file = os.getenv("BLENDER_FILE", "output/static_scene/20251026_080047/christmas1/blender_file.blend")
+    blender_file = os.getenv("BLENDER_FILE", "output/static_scene/20251017_124749/christmas1/blender_file.blend")
     test_save_dir = os.getenv("THOUGHT_SAVE", "output/test/")
     blender_command = os.getenv("BLENDER_COMMAND", "utils/blender/infinigen/blender/blender")
     blender_script = os.getenv("BLENDER_SCRIPT", "data/static_scene/verifier_script.py")
