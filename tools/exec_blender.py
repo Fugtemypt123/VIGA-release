@@ -192,7 +192,7 @@ print("Scene info extracted successfully")
         if not success:
             return {"status": "error", "output": {"text": ['Error: ' + (stderr or stdout)]}}
         elif len(os.listdir(render_file)) == 0:
-            return {"status": "success", "output": {"text": ['Code Executed Successfully, but no images were generated. Please make sure you have added a camera in your code (just modify the camera pose and other information, do not render the image in the code).']}}
+            return {"status": "success", "output": {"text": ['The code executed successfully, but no image was generated. Please check and make sure that:\n(1) you have added the camera in the code (just modify the camera pose and other information, do not render the image in the code).\n(2) You may need to handle errors in the code. The following is the return message for reference. Please check if there are any errors and fix them: ' + (stderr or stdout)]}}
         else:
             return {"status": "success", "output": {"image": stdout, "text": [f"Render from camera {x}" for x in range(len(stdout))], 'require_verifier': True}}
 
@@ -321,6 +321,9 @@ def main():
         print("[test:get_scene_info]")
         scene_info_res = get_scene_info()
         print("[test:get_scene_info]", json.dumps(scene_info_res, ensure_ascii=False))
+        code = """x = (math.radians(60), 0, math.radians(45))"""
+        exec_res = execute_and_evaluate(thought="", full_code=code)
+        print("[test:exec_script]", json.dumps(exec_res, ensure_ascii=False))
         raise NotImplementedError
 
         # Note: The new blender file has a default Camera at position around (7,-6,4), facing direction (0,0,0)
