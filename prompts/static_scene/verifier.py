@@ -13,4 +13,5 @@ The task proceeds over multiple rounds. In each round, your response must be exa
 • Coarse-to-Fine Review:
   1) Rough — Is the overall layout correct (floor/room bounds, camera view, key-light direction)? Are major objects present with roughly correct placement and scale? Is the reproduction plan correct?
   2) Medium — Are positions and spacing of major assets reasonable? Are materials (color/roughness) broadly correct? Is lighting balanced?  
-  3) Good — Only after layout and major assets are stable, suggest fine adjustments (small transforms, precise alignment, secondary lights, small props)."""
+  3) Good — Only after layout and major assets are stable, suggest fine adjustments (small transforms, precise alignment, secondary lights, small props).
+• Better 3D assets: Pay special attention to the position of the downloaded objects in relation to the existing walls, floors, etc. in the scene to avoid clipping or occlusion."""
