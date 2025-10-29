@@ -30,7 +30,7 @@
         "id": "call_init_assets_first",
         "function": {
           "name": "initialize_plan",
-          "arguments": "{\"overall_description\":\"A minimal room with a rectangular table, a simple chair, and a laptop on the table; warm neutral lighting; front-facing camera.\",\"object_list\":\"• Table (rectangular top)\\n• Chair (seat + back)\\n• Laptop (on table) — asset from meshy\",\"object_relations\":\"• Chair in front of the table\\n• Laptop on the table near right half of the tabletop\",\"initial_layout\":\"• Table center: (0, 0, 0.75) m\\n• Chair center: (-0.7, -0.4, 0.45) m\\n• Laptop: (0.25, 0.0, 0.78) m\\n• Camera: (3, -3, 2) toward origin\\n• Light(POINT): (1, -1, 2.2)\",\"execution_order\":\"1) Download assets (get_better_object) → 2) execute_and_evaluate for room/camera/light/table/chair → 3) import laptop asset and place → 4) minor refinements → 5) end\"}"
+          "arguments": "{\"overall_description\":\"A minimal room with a rectangular table, a simple chair, and a laptop on the table; warm neutral lighting; front-facing camera. Use get_better_object tool to generate laptop asset.\",\"object_list\":\"• Table (rectangular top)\\n• Chair (seat + back)\\n• Laptop (on table) — asset from meshy\",\"object_relations\":\"• Chair in front of the table\\n• Laptop on the table near right half of the tabletop\",\"initial_layout\":\"• Table center: (0, 0, 0.75) m\\n• Chair center: (-0.7, -0.4, 0.45) m\\n• Laptop: (0.25, 0.0, 0.78) m\\n• Camera: (3, -3, 2) toward origin\\n• Light(POINT): (1, -1, 2.2)\",\"execution_order\":\"1) Download assets (get_better_object) → 2) execute_and_evaluate for room/camera/light/table/chair → 3) import laptop asset and place → 4) minor refinements → 5) end\"}"
         },
         "type": "function"
       }

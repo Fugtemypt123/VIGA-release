@@ -17,7 +17,7 @@ tool_configs = [
         "type": "function",
         "function": {
             "name": "get_better_object",
-            "description": "A low-level preparation tool used to download, cache, and register external 3D assets before any scene editing or code execution.\nThis tool is responsible for retrieving high-quality assets from the meshy library based on natural language descriptions, saving them locally, and making their paths available for later use.\n📌 It does not place or modify assets in the scene. It only prepares them.\n⚠️ All external assets must be obtained through this tool first. execute_and_evaluate must not be used to implicitly create or fetch assets.\n✅ Example use cases:\n“Download a modern laptop asset.”\n“Fetch a potted plant asset for later placement.”\n“Prepare a table and chair set before arranging them in the scene.”",
+            "description": "enerate high-quality 3D assets, save them locally, and provide their paths for later use.\nYou may provide either text or image as the reference:\n– If the target 3D asset in the reference image is clear and unobstructed, use reference_type=\"image\".\n– Otherwise, use reference_type=\"text\".",
             "parameters": {
                 "type": "object",
                 "properties": {

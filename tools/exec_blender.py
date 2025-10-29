@@ -17,21 +17,21 @@ tool_configs = [
         "type": "function",
         "function": {
             "name": "execute_and_evaluate",
-            "description": "A mid- to high-level scene editing tool used to execute Blender Python code for layout, camera, lighting, primitive geometry creation, and placement of pre-downloaded assets.\nThis tool operates within the scene, without downloading any new assets. It can:\nAdd and modify basic primitives (e.g., cube, plane, sphere).\nPlace or transform assets that were already downloaded with get_better_asset.\nAdjust lighting, camera, materials, and object transforms.\n⚠️ This tool must not be used to fetch or create new assets from external sources.\n✅ Example use cases:\n“Place the downloaded laptop on the table.”\n“Create a floor plane and set up camera and lights.”\n“Fine-tune object rotation and scale.”",
+            "description": "Execute code modifications and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.\nReturns either:\n  (1) On error: detailed error information; or \n  (2) On success: a clear render (you must add a camera in your code) and further modification suggestions from a separate verifier agent.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "thought": {
                         "type": "string",
-                        "description": "Analyze the current state and provide a clear plan for the code you will write."
+                        "description": "Analyze the current state and provide a clear plan for the code you will write. Consider the background, camera, lighting, and position of the objects in the scene."
                     },
-                    "code_edit": {
+                    "code_edition": {
                         "type": "string", 
-                        "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\n"
+                        "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on scene consistency and use infinigen functions when appropriate."
                     },
                     "full_code": {
                         "type": "string",
-                        "description": "Merge your code changes into the full code with proper formatting."
+                        "description": "Merge your code changes into the full code with proper formatting. Ensure consistent scene representation."
                     }
                 },
                 "required": ["thought", "full_code"]
