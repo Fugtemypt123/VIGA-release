@@ -38,7 +38,7 @@ class VerifierAgent:
         print("\n=== Running verifier agent ===\n")
         
         # Reload scene if needed
-        if "reload_scene" in self.tool_client.tool_configs:
+        if "reload_scene" in self.tool_client.tool_to_server:
             print("Reload scene...")
             await self.tool_client.call_tool("reload_scene", {})
         print("Build user message...")
