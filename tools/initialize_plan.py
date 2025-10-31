@@ -31,3 +31,9 @@ def initialize_plan(overall_description: str, detailed_plan: str) -> dict:
     """
     output_text = f"{detailed_plan}\nPlease follow the plan carefully."
     return {"status": "success", "output": {"plan": [output_text], "text": ["Plan initialized successfully"]}}
+
+def main():
+    mcp.run()
+
+if __name__ == "__main__":
+    main()
