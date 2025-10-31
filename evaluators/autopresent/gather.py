@@ -20,6 +20,10 @@ def gather_results(test_id: str, slide_name: str = 'all'):
     round1_ref_eval_result = {'match': 0, 'text': 0, 'color': 0, 'position': 0}
     round1_ref_free_eval_result = {'text': 0, 'image': 0, 'layout': 0, 'color': 0}
     round1_count = 0
+
+    last_round_ref_eval_result = {'match': 0, 'text': 0, 'color': 0, 'position': 0}
+    last_round_ref_free_eval_result = {'text': 0, 'image': 0, 'layout': 0, 'color': 0}
+    last_round_count = 0
     
     fail_num = 0
     total_num = 0
@@ -42,6 +46,11 @@ def gather_results(test_id: str, slide_name: str = 'all'):
             best_round_ref_free_eval = None
             best_round_num = None
             
+            # Track last available round statistics
+            last_round_ref_eval = None
+            last_round_ref_free_eval = None
+            last_round_num = None
+
             # Check rounds from 1 to 10
             for round_num in range(1, 11):
                 round_dir = os.path.join(slide_dir, str(round_num))
@@ -78,6 +87,11 @@ def gather_results(test_id: str, slide_name: str = 'all'):
                         round_ref_free_eval['image'] = current_ref_free_eval_result['image']['score'] * 20
                         round_ref_free_eval['layout'] = current_ref_free_eval_result['layout']['score'] * 20
                         round_ref_free_eval['color'] = current_ref_free_eval_result['color']['score'] * 20
+
+                    # Update last round statistics
+                    last_round_num = round_num
+                    last_round_ref_eval = round_ref_eval.copy()
+                    last_round_ref_free_eval = round_ref_free_eval.copy()
                     
                     # Collect Round 1 statistics
                     if round_num == 1:
@@ -104,13 +118,23 @@ def gather_results(test_id: str, slide_name: str = 'all'):
             # Use the best round results if found
             if best_round_num is not None:
                 print(f"Using round {best_round_num} for {name} slide_{slide_num} (score: {best_round_score:.4f})")
-                
+
                 # Add to overall results
                 for key in ref_eval_result:
                     ref_eval_result[key] += best_round_ref_eval[key]
                 for key in ref_free_eval_result:
                     ref_free_eval_result[key] += best_round_ref_free_eval[key]
-            else:
+
+            # Collect last round statistics if available
+            if last_round_num is not None and last_round_ref_eval is not None and last_round_ref_free_eval is not None:
+                print(f"Using last available round {last_round_num} for {name} slide_{slide_num}")
+                for key in last_round_ref_eval_result:
+                    last_round_ref_eval_result[key] += last_round_ref_eval[key]
+                for key in last_round_ref_free_eval_result:
+                    last_round_ref_free_eval_result[key] += last_round_ref_free_eval[key]
+                last_round_count += 1
+
+            if best_round_num is None and last_round_num is None:
                 fail_num += 1
                 print(f"Warning: No evaluation results found for {name} slide_{slide_num}")
                     
@@ -130,6 +154,13 @@ def gather_results(test_id: str, slide_name: str = 'all'):
         for key in round1_ref_free_eval_result.keys():
             round1_ref_free_eval_result[key] = round1_ref_free_eval_result[key] / round1_count
 
+    # Calculate last round averages
+    if last_round_count > 0:
+        for key in last_round_ref_eval_result.keys():
+            last_round_ref_eval_result[key] = last_round_ref_eval_result[key] / last_round_count
+        for key in last_round_ref_free_eval_result.keys():
+            last_round_ref_free_eval_result[key] = last_round_ref_free_eval_result[key] / last_round_count
+
     # Print results
     print(f"Test ID: {test_id}")
     print(f"Success rate: {(total_num - fail_num) / total_num:.4f}")
@@ -147,7 +178,10 @@ def gather_results(test_id: str, slide_name: str = 'all'):
     # Print Round 1 specific results
     print(f"\n=== Round 1 Statistics ===")
     print(f"Round 1 slides count: {round1_count}")
-    print(f"Round 1 Success rate: {round1_count / total_num:.4f}")
+    if total_num > 0:
+        print(f"Round 1 Success rate: {round1_count / total_num:.4f}")
+    else:
+        print("Round 1 Success rate: N/A (no slides processed)")
     if round1_count > 0:
         print(f"Round 1 ref-based evaluation results: {round1_ref_eval_result}")
         print(f"Round 1 ref-free evaluation results: {round1_ref_free_eval_result}")
@@ -169,6 +203,24 @@ def gather_results(test_id: str, slide_name: str = 'all'):
             print("Performance remained the same")
     else:
         print("No Round 1 data available")
+
+    print(f"\n=== Last Round Statistics ===")
+    print(f"Last round slides count: {last_round_count}")
+    if total_num > 0:
+        print(f"Last round success rate: {last_round_count / total_num:.4f}")
+    else:
+        print("Last round success rate: N/A (no slides processed)")
+    if last_round_count > 0:
+        print(f"Last round ref-based evaluation results: {last_round_ref_eval_result}")
+        print(f"Last round ref-free evaluation results: {last_round_ref_free_eval_result}")
+
+        last_round_overall_score = (last_round_ref_eval_result['match'] + last_round_ref_eval_result['text'] + 
+                                    last_round_ref_eval_result['color'] + last_round_ref_eval_result['position'] + 
+                                    last_round_ref_free_eval_result['text'] + last_round_ref_free_eval_result['image'] + 
+                                    last_round_ref_free_eval_result['layout'] + last_round_ref_free_eval_result['color']) / 8 * (last_round_count / total_num)
+        print(f"Last round overall score: {last_round_overall_score:.4f}")
+    else:
+        print("No last round data available")
     
     return ref_eval_result, ref_free_eval_result, overall_score
 
