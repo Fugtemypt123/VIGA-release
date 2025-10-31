@@ -13,7 +13,7 @@ import asyncio
 import signal
 from pathlib import Path
 from typing import List, Dict, Optional
-from _api_keys import OPENAI_API_KEY
+from utils._api_keys import OPENAI_API_KEY
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import torch

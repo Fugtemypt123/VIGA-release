@@ -62,8 +62,11 @@ def main():
                 "data/autopresent/examples", slide_name, page_dir, f"baseline/{args.model_name.replace('-', '_')}.py"
             )
             pptx_path = output_path.replace(".py", ".pptx")
-            # if os.path.exists(pptx_path):
-            #     continue
+            if os.path.exists(pptx_path) and not args.cover_all:
+                print(f"Slide deck already exists: {pptx_path}")
+                continue
+            else:
+                print(f"Creating slide deck: {pptx_path}")
 
             slide_command = [
                 "python", "runners/autopresent_baseline/create_slide.py",
@@ -135,8 +138,10 @@ if __name__ == "__main__":
                         help="Use the library to create the slide deck.")
     parser.add_argument("--model_name", type=str, default="gpt-4o", 
                         help="Model name to use.")
-    parser.add_argument("--max-workers", type=int, default=8,
+    parser.add_argument("--max-workers", type=int, default=1,
                         help="Maximum number of slide generation workers to run in parallel.")
+    parser.add_argument("--cover_all", action="store_true",
+                        help="Cover all slides in the slide deck.")
     args = parser.parse_args()
 
     main()

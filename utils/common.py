@@ -49,6 +49,12 @@ def get_image_base64(image_path: str) -> str:
     image.save(img_byte_array, format=save_format)
     img_byte_array.seek(0)
     base64enc_image = base64.b64encode(img_byte_array.read()).decode('utf-8')
+    if base64enc_image.startswith("/9j/"):
+        mime_subtype = 'jpeg'
+    elif base64enc_image.startswith("iVBOR"):
+        mime_subtype = 'png'
+    elif base64enc_image.startswith("UklGR"):
+        mime_subtype = 'webp'
     return f"data:image/{mime_subtype};base64,{base64enc_image}"
 
 
@@ -130,3 +136,23 @@ def get_scene_info(task_name: str, blender_file_path: str) -> str:
         except Exception:
             # Suppress any cleanup errors to avoid shutdown issues
             pass
+        
+def extract_code_pieces(text: str, concat: bool = True) -> list[str]:
+    """Extract code pieces from a text string.
+    Args:
+        text: str, model prediciton text.
+    Rets:
+        code_pieces: list[str], code pieces in the text.
+    """
+    code_pieces = []
+    while "```python" in text:
+        st_idx = text.index("```python") + 10
+        # end_idx = text.index("```", st_idx)
+        if "```" in text[st_idx:]:
+            end_idx = text.index("```", st_idx)
+        else: 
+            end_idx = len(text)
+        code_pieces.append(text[st_idx:end_idx].strip())
+        text = text[end_idx+3:].strip()
+    if concat: return '\n\n'.join(code_pieces)
+    return code_pieces

@@ -1,9 +1,13 @@
 import os
 import argparse
 import subprocess
-from utils import encode_image, extract_code_pieces
 from openai import OpenAI
-from _api_keys import OPENAI_API_KEY, OPENAI_BASE_URL, CLAUDE_API_KEY, CLAUDE_BASE_URL, GEMINI_API_KEY, GEMINI_BASE_URL
+import sys
+
+# add runners directory to sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from utils.common import get_image_base64, extract_code_pieces
+from utils._api_keys import OPENAI_API_KEY, OPENAI_BASE_URL, CLAUDE_API_KEY, CLAUDE_BASE_URL, GEMINI_API_KEY, GEMINI_BASE_URL
 
 SYSTEM_MESSAGE = """You are an expert presentation slides designer who creates modern, fashionable, and stylish slides using Python code. Your job is to generate the required PPTX slide by writing and executing a Python script. Make sure to follow the guidelines below and do not skip any of them:
 1. Ensure your code can successfully execute. If needed, you can also write tests to verify your code.
@@ -55,7 +59,7 @@ def main():
         media_dir = os.path.join(args.example_dir, "media")
         image_paths = [os.path.join(media_dir, f) for f in os.listdir(media_dir) if f.endswith(".jpg")]
         for ip in image_paths:
-            image_url = f"data:image/jpeg;base64,{encode_image(ip)}"
+            image_url = get_image_base64(ip)
             messages += [{
                 "role": "user",
                 "content": [
