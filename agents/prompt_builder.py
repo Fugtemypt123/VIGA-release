@@ -31,6 +31,24 @@ class PromptBuilder:
     def _build_system_prompt(self, prompts: Dict) -> List[Dict]:
         """Build generator prompt for static_scene mode using prompt manager."""
         content = []
+        
+        if self.config.get("init_code_path"):
+            with open(self.config.get("init_code_path"), 'r') as f:
+                content.append({"type": "text", "text": f"Initial code: {f.read()}"})
+                
+        if self.config.get("init_image_path"):
+            if os.path.isdir(self.config.get("init_image_path")):
+                if 'render1.png' in os.listdir(self.config.get("init_image_path")):
+                    content.append({"type": "image_url", "image_url": {"url": get_image_base64(os.path.join(self.config.get("init_image_path"), 'render1.png'))}})
+                    content.append({"type": "text", "text": f"Initial image loaded from local path: {os.path.join(self.config.get('init_image_path'), 'render1.png')}"})
+                else:
+                    for i, file in enumerate(os.listdir(self.config.get("init_image_path"))):
+                        content.append({"type": "image_url", "image_url": {"url": get_image_base64(os.path.join(self.config.get("init_image_path"), file))}})
+                        content.append({"type": "text", "text": f"Initial image {i+1} loaded from local path: {os.path.join(self.config.get('init_image_path'), file)}"})
+            else:
+                content.append({"type": "image_url", "image_url": {"url": get_image_base64(self.config.get("init_image_path"))}})
+                content.append({"type": "text", "text": f"Initial image loaded from local path: {self.config.get('init_image_path')}"})
+
         if self.config.get("target_image_path"):
             if os.path.isdir(self.config.get("target_image_path")):
                 if 'visprompt1.png' in os.listdir(self.config.get("target_image_path")):
@@ -52,23 +70,6 @@ class PromptBuilder:
             
         if self.config.get("target_description"):
             content.append({"type": "text", "text": f"Task description: {self.config.get('target_description')}"})
-            
-        if self.config.get("init_image_path"):
-            if os.path.isdir(self.config.get("init_image_path")):
-                if 'render1.png' in os.listdir(self.config.get("init_image_path")):
-                    content.append({"type": "image_url", "image_url": {"url": get_image_base64(os.path.join(self.config.get("init_image_path"), 'render1.png'))}})
-                    content.append({"type": "text", "text": f"Initial image loaded from local path: {os.path.join(self.config.get('init_image_path'), 'render1.png')}"})
-                else:
-                    for i, file in enumerate(os.listdir(self.config.get("init_image_path"))):
-                        content.append({"type": "image_url", "image_url": {"url": get_image_base64(os.path.join(self.config.get("init_image_path"), file))}})
-                        content.append({"type": "text", "text": f"Initial image {i+1} loaded from local path: {os.path.join(self.config.get('init_image_path'), file)}"})
-            else:
-                content.append({"type": "image_url", "image_url": {"url": get_image_base64(self.config.get("init_image_path"))}})
-                content.append({"type": "text", "text": f"Initial image loaded from local path: {self.config.get('init_image_path')}"})
-            
-        if self.config.get("init_code_path"):
-            with open(self.config.get("init_code_path"), 'r') as f:
-                content.append({"type": "text", "text": f"Initial code: {f.read()}"})
         
         if self.config.get("resource_dir"):
             for file in os.listdir(os.path.join(self.config.get("resource_dir"), "media")):
