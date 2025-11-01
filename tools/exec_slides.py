@@ -11,24 +11,24 @@ tool_configs = [
         "type": "function",
         "function": {
             "name": "execute_and_evaluate",
-            "description": "Execute Python code for slide generation and trigger verifier evaluation. This tool combines code execution with automatic verification. Always use this tool when you want to execute your code changes.\nReturns either:\n  (1) On error: detailed error information; or \n  (2) On success: a rendered slide image and further modification suggestions from a separate verifier agent. You should follow the verifier's suggestions to refine the slide.\nImportant: The execution environment cannot read files generated in previous runs. Therefore, each response must output the complete, standalone Python code that generates the entire slide from scratch. If you want to make small changes relative to the previous version, use code_edit parameter to structure your reasoning before producing the final script: First, pinpoint the exact lines to modify in the previous script. Then provide a unified-style mini diff using the following format (no extra commentary inside the block):\n-: [lines to remove]\n+: [lines to add]\n. After the diff, apply those changes and output the full, updated Python code (not just the patch).",
+            "description": "Execute Python code for slide generation and trigger verifier evaluation.\nReturns either:\n  (1) On error: detailed error information; or \n  (2) On success: a rendered slide image and further modification suggestions from a separate verifier agent. You should follow the verifier's suggestions to refine the slide.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "thought": {
                         "type": "string",
-                        "description": "Analyze the current state and provide a clear plan for the required changes. Consider slide design, layout, typography, and visual hierarchy optimization opportunities."
+                        "description": "Think step by step about the current state and reason about what code to write next. Describe your reasoning process clearly."
                     },
-                    "code_edit": {
-                        "type": "string", 
-                        "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on slide design and python-pptx library usage."
-                    },
-                    "full_code": {
+                    "code_diff": {
                         "type": "string",
-                        "description": "Merge your code changes into the full code with proper formatting. Ensure proper Python code using python-pptx library."
+                        "description": "Before outputting the final code, precisely list the line-level edits you will make. Use this minimal diff-like format ONLY:\n\n-: [lines to remove]\n+: [lines to add]\n\nRules:\n1) Show only the smallest necessary edits (avoid unrelated changes).\n2) Keep ordering: list removals first, then additions.\n3) Do not include commentary here—only the edit blocks.\n4) If starting from scratch, use `-: []` and put all new lines under `+: [...]`.\n5) Every line is a literal code line (no markdown, no fences)."
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "Provide the COMPLETE, UPDATED Python code AFTER applying the edits listed in `code_diff`. The full code must include both the modified lines and the unchanged lines to ensure a coherent, runnable script."
                     }
                 },
-                "required": ["thought", "full_code"]
+                "required": ["thought", "code_diff", "code"]
             }
         }
     }
@@ -99,19 +99,19 @@ def initialize(args: dict) -> dict:
         return {"status": "error", "output": {"text": [str(e)]}}
 
 @mcp.tool()
-def execute_and_evaluate(thought: str = '', code_edit: str = '', full_code: str = '') -> dict:
+def execute_and_evaluate(thought: str = '', code_diff: str = '', code: str = '') -> dict:
     """
     Compile and render PPTX from Python code.
     Args:
         thought: Analysis of current state and plan for changes
-        code_edit: Code modifications in diff format
+        code_diff: Code modifications in diff format
         full_code: Complete Python code that generates a .pptx
     """
     global _executor
     if _executor is None:
         return {"status": "error", "output": {"text": ["Executor not initialized. Call initialize_executor first."]}}
     try:
-        result = _executor.execute(full_code)
+        result = _executor.execute(code)
         return result
     except Exception as e:
         return {"status": "error", "output": {"text": [str(e)]}}

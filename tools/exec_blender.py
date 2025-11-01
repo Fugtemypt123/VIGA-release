@@ -11,7 +11,6 @@ from typing import Tuple, Dict
 from mcp.server.fastmcp import FastMCP
 import json
 
-# tool config for agent
 tool_configs = [
     {
         "type": "function",
@@ -23,18 +22,18 @@ tool_configs = [
                 "properties": {
                     "thought": {
                         "type": "string",
-                        "description": "Analyze the current state and provide a clear plan for the code you will write. Consider the background, camera, lighting, and position of the objects in the scene."
+                        "description": "Think step by step about the current scene and reason about what code to write next. Describe your reasoning process clearly."
                     },
-                    "code_edition": {
-                        "type": "string", 
-                        "description": "Provide your code modifications in the following format:\n-: [lines to remove]\n+: [lines to add]\nFocus on scene consistency and use infinigen functions when appropriate."
-                    },
-                    "full_code": {
+                    "code_diff": {
                         "type": "string",
-                        "description": "Merge your code changes into the full code with proper formatting. Ensure consistent scene representation."
+                        "description": "Before outputting the final code, precisely list the line-level edits you will make. Use this minimal diff-like format ONLY:\n\n-: [lines to remove]\n+: [lines to add]\n\nRules:\n1) Show only the smallest necessary edits (avoid unrelated changes).\n2) Keep ordering: list removals first, then additions.\n3) Do not include commentary here—only the edit blocks.\n4) If starting from scratch, use `-: []` and put all new lines under `+: [...]`.\n5) Every line is a literal code line (no markdown, no fences)."
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "Provide the COMPLETE, UPDATED Blender Python code AFTER applying the edits listed in `code_diff`. The full code must include both the modified lines and the unchanged lines to ensure a coherent, runnable script."
                     }
                 },
-                "required": ["thought", "full_code"]
+                "required": ["thought", "code_diff", "code"]
             }
         }
     },
@@ -267,7 +266,7 @@ def initialize(args: dict) -> dict:
         return {"status": "error", "output": {"text": [str(e)]}}
 
 @mcp.tool()
-def execute_and_evaluate(thought: str = '', code_edit: str = '', full_code: str = '') -> dict:
+def execute_and_evaluate(thought: str = '', code_diff: str = '', code: str = '') -> dict:
     """
     Execute the passed Blender Python script code and return base64 encoded rendered image.
     Need to call initialize_executor first for initialization.
@@ -276,7 +275,7 @@ def execute_and_evaluate(thought: str = '', code_edit: str = '', full_code: str 
     if _executor is None:
         return {"status": "error", "output": {"text": ["Executor not initialized. Call initialize_executor first."]}}
     try:
-        result = _executor.execute(full_code)
+        result = _executor.execute(code)
         return result
     except Exception as e:
         return {"status": "error", "output": {"text": [str(e)]}}

@@ -13,11 +13,12 @@ import asyncio
 import signal
 from pathlib import Path
 from typing import List, Dict, Optional
-from utils._api_keys import OPENAI_API_KEY
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import torch
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils._api_keys import OPENAI_API_KEY, MESHY_API_KEY, VA_API_KEY, OPENAI_BASE_URL
 
 def load_blendergym_dataset(base_path: str, task_name: str, test_id: Optional[str] = None) -> List[Dict]:
     """
@@ -235,8 +236,8 @@ def main():
     parser.add_argument("--save-blender-file", action="store_true", help="Save blender file")
     
     # Tool server scripts (comma-separated)
-    parser.add_argument("--generator-tools", default="tools/exec_blender.py,tools/generator_base.py", help="Comma-separated list of generator tool server scripts")
-    parser.add_argument("--verifier-tools", default="tools/verifier_base.py", help="Comma-separated list of verifier tool server scripts")
+    parser.add_argument("--generator-tools", default="tools/exec_blender.py,tools/generator_base.py,tools/initialize_plan.py", help="Comma-separated list of generator tool server scripts")
+    parser.add_argument("--verifier-tools", default="tools/verifier_base.py,tools/investigator.py", help="Comma-separated list of verifier tool server scripts")
     
     # Parallel execution parameters
     parser.add_argument("--max-workers", type=int, default=10, help="Maximum number of parallel workers")

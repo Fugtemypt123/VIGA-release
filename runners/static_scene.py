@@ -5,18 +5,15 @@ Loads static scene dataset and runs the dual-agent system for 3D static scene ge
 """
 import os
 import sys
-import json
 import time
 import argparse
 import subprocess
-import asyncio
-import signal
 from pathlib import Path
 from typing import List, Dict, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from _api_keys import OPENAI_API_KEY, MESHY_API_KEY, VA_API_KEY, OPENAI_BASE_URL
-import threading
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils._api_keys import OPENAI_API_KEY, MESHY_API_KEY, VA_API_KEY, OPENAI_BASE_URL
 
 def load_static_scene_dataset(base_path: str, task_name: str, test_id: Optional[str] = None) -> List[Dict]:
     """

@@ -74,3 +74,7 @@ if __name__ == "__main__":
         asyncio.run(main())
     except Exception as e:
         print(f"Error: {e}\n\n")
+        
+# 1. iterative example
+# 2. search with a commonsense prior (球不应该是穿透桌子的)
+# 3. video: 三个屏，prompt+代码+图片
