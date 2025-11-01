@@ -273,8 +273,6 @@ def main():
         
         print(f"Processing step {count+1}...")
         count += 1
-        if count > 2:
-            break
 
         # 计算滚动范围（如果开启滚动）
         max_scroll = 0
