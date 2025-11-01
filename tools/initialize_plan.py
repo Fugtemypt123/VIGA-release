@@ -59,7 +59,7 @@ def initialize(args: dict) -> dict:
     return {"status": "success", "output": {"text": ["Initialize plan completed"], "tool_configs": tool_configs}}
 
 @mcp.tool()
-def initialize_plan(overall_description: str, detailed_plan: str) -> dict:
+def initialize_plan(overall_description: str = '', detailed_plan: str = '') -> dict:
     """
     Store the detailed scene plan to a file and return the path.
     """
