@@ -24,6 +24,7 @@ from typing import Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 import imageio.v2 as imageio
+import numpy as np
 
 # 可选：代码高亮（若未安装 Pygments，会退化为无高亮的等宽绘制）
 try:
@@ -262,6 +263,8 @@ def main():
         
         print(f"Processing step {count+1}...")
         count += 1
+        if count > 2:
+            break
 
         # 计算滚动范围（如果开启滚动）
         max_scroll = 0
@@ -284,7 +287,7 @@ def main():
     # 写视频
     writer = imageio.get_writer(args.out, fps=args.fps, codec="libx264", quality=8)
     for im in frames:
-        writer.append_data(imageio.core.asarray(im))
+        writer.append_data(np.array(im))
     writer.close()
     print(f"[OK] 写出视频：{args.out}")
 
