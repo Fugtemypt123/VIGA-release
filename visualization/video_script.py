@@ -18,6 +18,7 @@ import os
 import json
 import math
 import argparse
+import io
 from pathlib import Path
 from typing import Tuple
 
@@ -44,6 +45,34 @@ SCROLL_MARGIN = 20
 DEFAULT_FONT = None        # 自动找系统等宽字体；也可自行设为具体 .ttf 路径
 MONO_FALLBACKS = ["Menlo.ttc", "Consolas.ttf", "DejaVuSansMono.ttf", "JetBrainsMono-Regular.ttf"]
 
+
+def measure_text_width(draw: ImageDraw.ImageDraw, text: str, font) -> int:
+    """Best-effort text width measurement compatible with newer Pillow versions."""
+    if hasattr(draw, "textlength"):
+        try:
+            return int(draw.textlength(text, font=font))
+        except Exception:
+            pass
+    if hasattr(font, "getlength"):
+        try:
+            return int(font.getlength(text))
+        except Exception:
+            pass
+    if hasattr(draw, "textbbox"):
+        try:
+            bbox = draw.textbbox((0, 0), text, font=font)
+            return max(0, bbox[2] - bbox[0])
+        except Exception:
+            pass
+    if hasattr(font, "getbbox"):
+        try:
+            bbox = font.getbbox(text)
+            return max(0, bbox[2] - bbox[0])
+        except Exception:
+            pass
+    return int(len(text) * (font.size if hasattr(font, "size") else 10) * 0.6)
+
+
 def find_mono_font():
     if DEFAULT_FONT and Path(DEFAULT_FONT).exists():
         return DEFAULT_FONT
@@ -65,7 +94,7 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_width: int):
         buf = ""
         for ch in para:
             test = buf + ch
-            w, _ = draw.textsize(test, font=font)
+            w = measure_text_width(draw, test, font)
             if w <= max_width:
                 buf = test
             else:
@@ -124,7 +153,7 @@ def render_left_panel(size: Tuple[int,int], thought: str, code: str, scroll_px: 
             style="native",
         )
         code_img_bytes = highlight(code, PythonLexer(), formatter)
-        code_img = Image.open(imageio.core.asarray(code_img_bytes)).convert("RGB")
+        code_img = Image.open(io.BytesIO(code_img_bytes)).convert("RGB")
         # 缩放到宽度适配
         ratio = max_text_w / code_img.width if code_img.width > 0 else 1.0
         new_h = max(1, int(code_img.height * ratio))
@@ -186,11 +215,11 @@ def compose_step_frame(total_size: Tuple[int,int], left_img: Image.Image, right_
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--steps", type=str, required=True, help="/home/shaofengyin/AgenticVerifier/output/static_scene/demo/20251028_133713/christmas1/generator_memory.json")
+    ap.add_argument("--steps", type=str, default="/home/shaofengyin/AgenticVerifier/output/static_scene/demo/20251028_133713/christmas1/generator_memory.json")
     ap.add_argument("--out", type=str, default="video.mp4")
     ap.add_argument("--width", type=int, default=1920)
     ap.add_argument("--height", type=int, default=1080)
-    ap.add_argument("--fps", type=int, default=30)
+    ap.add_argument("--fps", type=int, default=1)
     ap.add_argument("--step_duration", type=float, default=1.0, help="每步停留时长（秒）")
     ap.add_argument("--scroll_code", action="store_true", help="若代码过长则缓慢向下滚动")
     args = ap.parse_args()
@@ -200,6 +229,7 @@ def main():
     steps = json.loads(Path(args.steps).read_text(encoding="utf-8"))
     frames = []
     frames_per_step = max(1, int(args.fps * args.step_duration))
+    count = 0
 
     for i, complete_step in enumerate(steps, start=1):
         if 'tool_calls' not in complete_step:
@@ -213,10 +243,10 @@ def main():
             code = step.get("code", "").strip()
         else:
             code = step.get("full_code", "").strip()
-            
-        if i+2 >= len(steps):
+        if i+1 >= len(steps):
             continue
-        user_message = steps[i+2]
+        
+        user_message = steps[i+1]
         if user_message['role'] != 'user':
             continue
         if len(user_message['content']) < 3:
@@ -224,7 +254,14 @@ def main():
         if 'Image loaded from local path: ' not in user_message['content'][2]['text']:
             continue
         image_path = user_message['content'][2]['text'].split("Image loaded from local path: ")[1]
-        right_img = Image.open(image_path).convert("RGB")
+        image_name = image_path.split("/renders/")[-1]
+        right_img_path = os.path.join(args.renders_dir, image_name)
+        if not os.path.exists(right_img_path):
+            continue
+        right_img = Image.open(right_img_path).convert("RGB")
+        
+        print(f"Processing step {count+1}...")
+        count += 1
 
         # 计算滚动范围（如果开启滚动）
         max_scroll = 0
