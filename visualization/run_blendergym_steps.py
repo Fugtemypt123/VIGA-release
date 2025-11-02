@@ -314,35 +314,27 @@ def main():
         args.color_mgt_view, args.color_mgt_look
     )
     
-    # 处理每个脚本（按顺序执行，每一步基于前一步的 .blend 文件）
-    current_blend_file = str(initial_blend_file)
+    temp_executor = Executor(
+        blender_command=args.blender_command,
+        blender_file=str(initial_blend_file),
+        blender_script=args.blender_script,
+        script_save=str(scripts_dir),
+        render_save=str(render_dir),
+        blender_save=str(initial_blend_file),  # 保存为当前步骤的 .blend 文件
+        gpu_devices=args.gpu_devices
+    )
     
     for script_file in script_files:
-        step_num = script_file.stem
+        step_num = script_file.split('.')[0]
         if not step_num.isdigit():
-            logging.warning(f"Skipping non-numeric script: {script_file.name}")
+            logging.warning(f"Skipping non-numeric script: {script_file}")
             continue
         
-        logging.info(f"[Step {step_num}] Processing {script_file.name}...")
+        logging.info(f"[Step {step_num}] Processing {script_file}...")
         
         # 读取脚本内容
-        with open(script_file, "r") as f:
+        with open(os.path.join(scripts_dir, script_file), "r") as f:
             code = f.read()
-        
-        # 为当前步骤设置保存路径
-        step_blend_file = blender_save_dir / f"{step_num}.blend"
-        
-        # 创建 Executor，从前一步的 .blend 文件加载（第一步从初始文件加载）
-        temp_executor = Executor(
-            blender_command=args.blender_command,
-            blender_file=current_blend_file,
-            blender_script=args.blender_script,
-            script_save=str(scripts_dir),
-            render_save=str(render_dir),
-            blender_save=str(step_blend_file),  # 保存为当前步骤的 .blend 文件
-            gpu_devices=args.gpu_devices
-        )
-        temp_executor.count = int(step_num)
         
         # 执行脚本并保存 .blend 文件
         result = temp_executor.execute(code)
@@ -351,18 +343,10 @@ def main():
             # 即使失败也继续，但跳过渲染
             continue
         
-        # 检查保存的 .blend 文件
-        if not step_blend_file.exists():
-            logging.warning(f"[Step {step_num}] Blend file not found: {step_blend_file}")
-            continue
-        
-        # 更新当前 blend 文件为下一步的基础
-        current_blend_file = str(step_blend_file)
-        
         # 渲染图片
-        render_output = render_dir / f"step_{step_num}.png"
+        render_output = render_dir / f"{step_num}.png"
         success, output = render_blend_file(
-            args.blender_command, str(step_blend_file), str(render_output),
+            args.blender_command, str(initial_blend_file), str(render_output),
             render_script_content, args.gpu_devices
         )
         
@@ -371,7 +355,8 @@ def main():
         else:
             logging.error(f"[Step {step_num}] Render failed: {output}")
             
-        break
+        if int(step_num) > 10:
+            break
     
     logging.info("[OK] All steps processed and rendered.")
 
