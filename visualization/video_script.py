@@ -110,7 +110,7 @@ def render_left_panel(size: Tuple[int,int], thought: str, code: str, scroll_px: 
     draw = ImageDraw.Draw(img)
 
     font_path = find_mono_font()
-    font_thought = ImageFont.truetype(font_path, size=28) if font_path else ImageFont.load_default()
+    font_thought = ImageFont.truetype(font_path, size=48) if font_path else ImageFont.load_default()
     font_code   = ImageFont.truetype(font_path, size=24) if font_path else ImageFont.load_default()
     font_label  = ImageFont.truetype(font_path, size=22) if font_path else ImageFont.load_default()
 

@@ -22,21 +22,21 @@ class PromptBuilder:
         
         # Build the prompt based on mode
         if prompt_type == "system":
-            return self._build_system_prompt(prompts)
+            return self._build_system_prompt(prompts, agent_type)
         elif prompt_type == "user":
             return self._build_user_prompt(prompts)
         else:
             raise NotImplementedError(f"Mode {self.config.get('mode')} not implemented")
         
-    def _build_system_prompt(self, prompts: Dict) -> List[Dict]:
+    def _build_system_prompt(self, prompts: Dict, agent_type: str) -> List[Dict]:
         """Build generator prompt for static_scene mode using prompt manager."""
         content = []
         
-        if self.config.get("init_code_path"):
+        if self.config.get("init_code_path") and agent_type == "generator":
             with open(self.config.get("init_code_path"), 'r') as f:
                 content.append({"type": "text", "text": f"Initial code: {f.read()}"})
                 
-        if self.config.get("init_image_path"):
+        if self.config.get("init_image_path") and agent_type == "generator":
             if os.path.isdir(self.config.get("init_image_path")):
                 if 'render1.png' in os.listdir(self.config.get("init_image_path")):
                     content.append({"type": "image_url", "image_url": {"url": get_image_base64(os.path.join(self.config.get("init_image_path"), 'render1.png'))}})
