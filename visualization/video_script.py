@@ -223,6 +223,7 @@ def main():
     ap.add_argument("--step_duration", type=float, default=1.0, help="每步停留时长（秒）")
     ap.add_argument("--scroll_code", action="store_true", help="若代码过长则缓慢向下滚动")
     ap.add_argument("--fix_camera", action="store_true", help="固定相机位置和方向")
+    ap.add_argument("--animation", action="store_true", help="从video_path加载MP4文件并拼接（与fix_camera相同逻辑）")
     args = ap.parse_args()
     
     if os.path.exists(f'/home/shaofengyin/AgenticVerifier/output/static_scene/demo/{args.name}'):
@@ -235,8 +236,10 @@ def main():
         if os.path.exists(f'{base_path}/{task}/generator_memory.json'):
             traj_path = f'{base_path}/{task}/generator_memory.json'
     
-    if args.fix_camera:
+    if args.fix_camera or args.animation:
         image_path = os.path.dirname(traj_path) + '/video/renders'
+        if args.animation:
+            video_path = image_path  # 使用相同的路径
     
     args.renders_dir = Path(traj_path).parent / "renders"
     args.out = f'visualization/video/{args.name}_{task}.mp4'
@@ -264,7 +267,75 @@ def main():
         if i+1 >= len(traj):
             continue
         
-        if args.fix_camera:
+        if args.animation:
+            # 从 video_path 加载 MP4 文件
+            video_file_path = os.path.join(video_path, f'{code_count}.mp4')
+            if not os.path.exists(video_file_path):
+                print(f"Skipping step {code_count}: video file not found: {video_file_path}")
+                continue
+            print(f"Processing step {code_count} with video: {video_file_path}")
+            
+            # 读取视频的所有帧
+            try:
+                video_reader = imageio.get_reader(video_file_path)
+                video_frames = []
+                for frame in video_reader:
+                    video_frames.append(Image.fromarray(frame).convert("RGB"))
+                video_reader.close()
+                print(f"  Loaded {len(video_frames)} frames from video")
+            except Exception as e:
+                print(f"  Error reading video {video_file_path}: {e}")
+                continue
+            
+            # 计算这个步骤需要的帧数（根据 step_duration）
+            frames_per_step = max(1, int(args.fps * args.step_duration))
+            
+            # 计算滚动范围（如果开启滚动）
+            max_scroll = 0
+            if args.scroll_code:
+                tmp_left = render_left_panel((args.width//2, args.height), thought, code, 0)
+                max_scroll = args.height // 2
+            
+            # 处理视频帧数不足或过多的情况
+            num_video_frames = len(video_frames)
+            if num_video_frames == 0:
+                print(f"  Warning: Video has no frames, skipping")
+                continue
+            
+            # 如果视频帧数少于需要的帧数，重复最后一帧
+            if num_video_frames < frames_per_step:
+                last_frame = video_frames[-1]
+                # 重复最后一帧直到达到需要的帧数
+                while len(video_frames) < frames_per_step:
+                    video_frames.append(last_frame)
+                print(f"  Extended video from {num_video_frames} to {frames_per_step} frames by repeating last frame")
+            # 如果视频帧数多于需要的帧数，均匀采样
+            elif num_video_frames > frames_per_step:
+                indices = [int(i * (num_video_frames - 1) / (frames_per_step - 1)) for i in range(frames_per_step)]
+                video_frames = [video_frames[i] for i in indices]
+                print(f"  Sampled video from {num_video_frames} to {frames_per_step} frames")
+            
+            # 为视频的每一帧生成合成画面
+            for frame_idx, video_frame in enumerate(video_frames):
+                # 为每个视频帧创建对应的左侧面板
+                scroll_px = 0
+                if args.scroll_code and max_scroll > 0:
+                    # 根据帧索引计算滚动位置
+                    scroll_px = int(max_scroll * (frame_idx / max(1, len(video_frames) - 1)))
+                
+                left_img = render_left_panel((args.width//2, args.height), thought, code, scroll_px)
+                # 调整右侧视频帧大小以适应右半屏
+                half_w = args.width // 2
+                ratio = min(half_w / video_frame.width, args.height / video_frame.height)
+                new_w, new_h = max(1, int(video_frame.width * ratio)), max(1, int(video_frame.height * ratio))
+                right_img_resized = video_frame.resize((new_w, new_h), Image.BICUBIC)
+                
+                composed = compose_step_frame((args.width, args.height), left_img, right_img_resized)
+                frames.append(composed)
+            
+            continue  # 处理完视频后继续下一个步骤
+            
+        elif args.fix_camera:
             right_img_path = os.path.join(image_path, f'{code_count}.png')
             if not os.path.exists(right_img_path):
                 continue

@@ -257,7 +257,7 @@ def parse_args():
     ap.add_argument("--name", required=True, type=str, help="Output name (e.g., 20251028_133713)")
     ap.add_argument("--task", type=str, default="tofu17", help="Task name")
     ap.add_argument("--blender_command", type=str, default="utils/blender/infinigen/blender/blender", help="Blender command")
-    ap.add_argument("--blender_script", type=str, default="data/dynamic_scene/video_script.py", help="Blender execution script")
+    ap.add_argument("--blender_script", type=str, default="visualization/video_script.py", help="Blender execution script")
     ap.add_argument("--blender_save", type=str, default=None, help="Directory to save intermediate .blend files")
     ap.add_argument("--render_dir", type=str, default=None, help="Directory to save rendered videos")
     ap.add_argument("--cam_name", type=str, default="AgentFixedCam")
