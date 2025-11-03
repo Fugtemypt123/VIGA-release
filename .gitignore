@@ -8,6 +8,7 @@ _test
 test.py
 _examples
 _api_keys.py
+_path.py
 *.json
 *.jsonl
 output

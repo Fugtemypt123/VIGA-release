@@ -25,3 +25,5 @@ sudo apt install -y libreoffice unoconv
 # To verify the installation, run
 /usr/bin/python3 /usr/bin/unoconv --version
 ```
+
+Complete `utils/_api_keys.py` and `utils/_path.py` to your system setting.

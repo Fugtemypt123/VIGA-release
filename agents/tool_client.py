@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional, List
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from contextlib import AsyncExitStack
+from utils._path import path_to_cmd
 
 class ServerHandle:
     def __init__(self, path: str):
@@ -23,7 +24,7 @@ class ServerHandle:
     async def _runner(self):
         self.stack = AsyncExitStack()
         async with self.stack:
-            params = StdioServerParameters(command="python", args=[self.path])
+            params = StdioServerParameters(command=path_to_cmd[self.path], args=[self.path])
             stdio, write = await self.stack.enter_async_context(stdio_client(params))
             session = await self.stack.enter_async_context(ClientSession(stdio, write))
             await session.initialize()
