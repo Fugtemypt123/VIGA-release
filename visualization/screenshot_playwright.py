@@ -3,7 +3,7 @@ from pathlib import Path
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--url", default="http://0.0.0.0:8000/index.html", help="基础页面 URL，不带 dataset 参数")
+parser.add_argument("--url", default="http://0.0.0.0:8010/index.html", help="基础页面 URL，不带 dataset 参数")
 parser.add_argument("--dataset-start", type=int, default=1, help="起始 dataset 序号（包含）")
 parser.add_argument("--dataset-end", type=int, default=240, help="结束 dataset 序号（包含）")
 parser.add_argument("--pdf-dir", default="visualization/pdf", help="PDF 输出目录")

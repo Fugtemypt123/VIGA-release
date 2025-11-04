@@ -8,7 +8,7 @@ MCP-based agent library for dual-agent (Generator/Verifier) interactive framewor
 
 Since mcp-framework can decouple agents and tools, we highly recommend you to create different envs to run the framework.
 
-The official envs names are `[agent, blender, pptx, chrome]` for agent, exec_blender, exec_slides, exec_html. You can found the requirement under `requirements/`
+The official envs names are `[agent, blender, pptx, web]` for agent, exec_blender, exec_slides, exec_html. You can found the requirement under `requirements/`
 
 For blender, you need to further install executable `blender` and `infinigen` in the system:
 
@@ -24,6 +24,13 @@ For slide, you need to further install `unoconv` in the system:
 sudo apt install -y libreoffice unoconv
 # To verify the installation, run
 /usr/bin/python3 /usr/bin/unoconv --version
+```
+
+For web design, you need to install `google-chrome` in the system:
+
+```zsh
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt install ./google-chrome-stable_current_amd64.deb
 ```
 
 Complete `utils/_api_keys.py` and `utils/_path.py` to your system setting.
