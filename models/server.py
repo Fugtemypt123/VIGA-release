@@ -34,6 +34,9 @@ def build_command(
         str(gpu_memory_utilization),
         "--max-model-len",
         str(max_model_len),
+        "--enable-auto-tool-choice",
+        "--tool-call-parser",
+        "openai"
     ]
 
     if additional_args:
