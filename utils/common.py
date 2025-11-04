@@ -5,7 +5,7 @@ import io
 import base64
 from typing import Dict, List, Optional
 from openai import OpenAI
-from _api_keys import OPENAI_API_KEY, OPENAI_BASE_URL, CLAUDE_API_KEY, CLAUDE_BASE_URL, GEMINI_API_KEY, GEMINI_BASE_URL, QWEN_BASE_URL, MESHY_API_KEY, VA_API_KEY
+from utils._api_keys import OPENAI_API_KEY, OPENAI_BASE_URL, CLAUDE_API_KEY, CLAUDE_BASE_URL, GEMINI_API_KEY, GEMINI_BASE_URL, QWEN_BASE_URL, MESHY_API_KEY, VA_API_KEY
 
 def build_client(model_name: str):
     model_name = model_name.lower()

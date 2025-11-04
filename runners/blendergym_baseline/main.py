@@ -127,9 +127,9 @@ def run_blendergym_task(task_config: Dict, args) -> tuple:
     print(f"Saving code to {os.path.join(output_base, f'{output_name}.py')}")
         
     cmd = [
-        "utils/blender/infinigen/blender/blender",
+        "utils/Infinigen/blender/blender",
         "--background", task_config['blender_file'],
-        "--python", "data/blendergym/pipeline_render_script.py",
+        "--python", "data/blendergym/generator_script.py",
         "--", os.path.join(output_base, f"{output_name}.py"), os.path.join(output_base, f"{output_name}")
     ]
     subprocess.run(cmd, check=True)
@@ -201,7 +201,7 @@ def main():
     parser.add_argument("--model", default="gpt-4o", help="OpenAI vision model to use")
     
     # Parallel execution parameters
-    parser.add_argument("--max-workers", type=int, default=10, help="Maximum number of parallel workers")
+    parser.add_argument("--max-workers", type=int, default=8, help="Maximum number of parallel workers")
     parser.add_argument("--sequential", action="store_true", help="Run tasks sequentially instead of in parallel")
     
     available_gpu_devices = os.getenv("CUDA_VISIBLE_DEVICES")
