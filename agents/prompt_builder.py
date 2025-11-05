@@ -96,16 +96,20 @@ class PromptBuilder:
         system_memory = memory[:2]
         reverse_memory = memory[2:][::-1]
         chat_memory = []
-        for i in range(len(reverse_memory)):
+        i = 0
+        while i < len(reverse_memory):
             if reverse_memory[i]['role'] == 'tool' and reverse_memory[i]['name'] == 'undo-last-step':
                 # If role == user, skip 2+3=5 steps
                 if reverse_memory[i+2]['role'] == 'user':
-                    i = i + 5
+                    i += 5
                 else:
-                    i = i + 4
+                    i += 4
+            if i >= len(reverse_memory):
+                break
             chat_memory.append(reverse_memory[i])
             if len(chat_memory) >= self.config.get("memory_length"):
                 break
+            i += 1
         if chat_memory[-1]['role'] == 'tool':
             chat_memory.pop()
         all_memory = system_memory + chat_memory[::-1]
