@@ -269,6 +269,8 @@ for obj in bpy.data.objects:
         "scale": [round(x, 2) for x in obj.scale],
         "visible": not (obj.hide_viewport or obj.hide_render)
     }})
+    if len(scene_info["objects"]) >= 15:
+        break
 
 for mat in bpy.data.materials:
     scene_info["materials"].append({{
@@ -276,7 +278,9 @@ for mat in bpy.data.materials:
         "use_nodes": mat.use_nodes,
         "diffuse_color": [round(x, 2) for x in mat.diffuse_color],
     }})
-
+    if len(scene_info["materials"]) >= 5:
+        break
+        
 for light in [o for o in bpy.data.objects if o.type == 'LIGHT']:
     scene_info["lights"].append({{
         "name": light.name,
@@ -286,7 +290,9 @@ for light in [o for o in bpy.data.objects if o.type == 'LIGHT']:
         "location": [round(x, 2) for x in light.matrix_world.translation],
         "rotation": [round(x, 2) for x in light.rotation_euler]
     }})
-
+    if len(scene_info["lights"]) >= 5:
+        break
+        
 for cam in [o for o in bpy.data.objects if o.type == 'CAMERA']:
     scene = bpy.context.scene
     scene_info["cameras"].append({{
@@ -296,7 +302,9 @@ for cam in [o for o in bpy.data.objects if o.type == 'CAMERA']:
         "rotation": [round(x, 2) for x in cam.rotation_euler],
         "is_active": cam == scene.camera,
     }})
-
+    if len(scene_info["cameras"]) >= 3:
+        break
+        
 # Save to file for retrieval
 with open("{self.base}/tmp/scene_info.json", "w") as f:
     json.dump(scene_info, f)

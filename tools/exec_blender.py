@@ -140,6 +140,8 @@ for obj in bpy.data.objects:
         "scale": [round(x, 2) for x in obj.scale],
         "visible": not (obj.hide_viewport or obj.hide_render)
     }})
+    if len(scene_info["objects"]) >= 15:
+        break
 
 for mat in bpy.data.materials:
     scene_info["materials"].append({{
@@ -147,6 +149,8 @@ for mat in bpy.data.materials:
         "use_nodes": mat.use_nodes,
         "diffuse_color": [round(x, 2) for x in mat.diffuse_color],
     }})
+    if len(scene_info["materials"]) >= 5:
+        break
 
 for light in [o for o in bpy.data.objects if o.type == 'LIGHT']:
     scene_info["lights"].append({{
@@ -157,7 +161,9 @@ for light in [o for o in bpy.data.objects if o.type == 'LIGHT']:
         "location": [round(x, 2) for x in light.matrix_world.translation],
         "rotation": [round(x, 2) for x in light.rotation_euler]
     }})
-
+    if len(scene_info["lights"]) >= 5:
+        break
+        
 for cam in [o for o in bpy.data.objects if o.type == 'CAMERA']:
     scene = bpy.context.scene
     scene_info["cameras"].append({{
@@ -167,6 +173,8 @@ for cam in [o for o in bpy.data.objects if o.type == 'CAMERA']:
         "rotation": [round(x, 2) for x in cam.rotation_euler],
         "is_active": cam == scene.camera,
     }})
+    if len(scene_info["cameras"]) >= 3:
+        break
 
 # Save to file for retrieval
 with open("{self.render_path.parent}/tmp/scene_info.json", "w") as f:
@@ -309,9 +317,10 @@ def main():
         print("Running blender-executor tools test...")
         # Read args from environment for convenience
         args = {
+            "mode": "blenderstudio",
             "blender_command": os.getenv("BLENDER_COMMAND", "utils/Infinigen/blender/blender"),
-            "blender_file": os.getenv("BLENDER_FILE", "output/static_scene/20251104_162949/restroom5/blender_file.blend"),
-            "blender_script": os.getenv("BLENDER_SCRIPT", "data/static_scene/generator_script.py"),
+            "blender_file": os.getenv("BLENDER_FILE", "output/static_scene/20251105_012743/restroom5/blender_file.blend"),
+            "blender_script": os.getenv("BLENDER_SCRIPT", "data/blenderstudio/generator_script.py"),
             "output_dir": os.getenv("OUTPUT_DIR", "output/test/exec_blender"),
             "blender_save": os.getenv("BLENDER_SAVE", None),
             "gpu_devices": os.getenv("GPU_DEVICES", None),
@@ -319,15 +328,15 @@ def main():
         
         print("[test] initialize(...) with:", json.dumps({k:v for k,v in args.items() if k!="gpu_devices"}, ensure_ascii=False))
         init_res = initialize(args)
-        print("[test:init]", json.dumps(init_res, ensure_ascii=False))
+        print("[test:init]", init_res)
 
         # Test get_scene_info
         scene_info_res = get_scene_info()
         print("[test:get_scene_info]", json.dumps(scene_info_res, ensure_ascii=False))
-        code_fpath = 'output/static_scene/20251104_162949/restroom5/scripts/1.py'
+        code_fpath = 'data/blenderstudio/level3/attribute4/start.py'
         code = open(code_fpath, "r").read()
-        exec_res = execute_and_evaluate(thought="", code=code)
-        print("[test:exec_script]", json.dumps(exec_res, ensure_ascii=False))
+        # exec_res = execute_and_evaluate(thought="", code="")
+        # print("[test:exec_script]", json.dumps(exec_res, ensure_ascii=False))
         raise NotImplementedError
 
         # Note: The new blender file has a default Camera at position around (7,-6,4), facing direction (0,0,0)

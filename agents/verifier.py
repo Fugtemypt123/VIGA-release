@@ -92,7 +92,7 @@ class VerifierAgent:
         if result:
             return result
         else:
-            return {"status": "error", "output": {"text": ["No valid response, you are on your own."]}}
+            return {"text": ["No valid response, you are on your own."]}
     
     def _update_memory(self, message: Dict):
         """Update the memory with the new message"""
