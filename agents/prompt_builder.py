@@ -106,6 +106,8 @@ class PromptBuilder:
             chat_memory.append(reverse_memory[i])
             if len(chat_memory) >= self.config.get("memory_length"):
                 break
+        if chat_memory[-1]['role'] == 'tool':
+            chat_memory.pop()
         all_memory = system_memory + chat_memory[::-1]
         if self.config.get('explicit_comp'):
             target_image_message = []
