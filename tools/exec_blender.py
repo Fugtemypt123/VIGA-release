@@ -313,6 +313,12 @@ def undo_last_step() -> dict:
     global _executor
     if _executor is None:
         return {"status": "error", "output": {"text": ["Executor not initialized. Call initialize_executor first."]}}
+    render_path = _executor.render_path / f"{_executor.count}"
+    code_path = _executor.script_path / f"{_executor.count}.py"
+    if os.path.exists(code_path):
+        os.remove(code_path)
+    if os.path.exists(render_path):
+        os.rmdir(render_path)
     _executor.count -= 1
     render_path = _executor.render_path / f"{_executor.count}"
     if os.path.exists(render_path / "state.blend"):
