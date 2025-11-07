@@ -13,69 +13,27 @@ from typing import Dict, Any, List
 
 
 def aggregate_per_round_scores(scores_across_instances: Dict[str, Any], 
-                              penalty_factor: float = 2.0,
                               max_rounds: int = 10) -> Dict[str, Any]:
     """
     Aggregate per-round averages across all instances (rounds 1..10).
     
     Args:
         scores_across_instances: The intermediate scores structure
-        penalty_factor: Fixed penalty factor for missing earlier rounds
         max_rounds: Maximum number of rounds to consider
         
     Returns:
         Dictionary with per-round summary statistics
     """
-    per_round_values = {str(i): {'n_clip': [], 'pl': [], 'penalized_count': 0} for i in range(1, max_rounds + 1)}
+    per_round_values = {str(i): {'n_clip': [], 'pl': []} for i in range(1, max_rounds + 1)}
     
     for instance_scores in scores_across_instances['instance_details'].values():
-        # Collect available round indices for this instance
-        available_rounds = sorted(
-            [int(r) for r, v in instance_scores.items() if isinstance(v, dict) and 'avg_n_clip' in v and 'avg_pl' in v]
-        )
-        if not available_rounds:
-            continue
-        max_available_round = max(available_rounds)
-
         # Process each round
         for round_idx in range(1, max_rounds + 1):
             key = str(round_idx)
-            
-            # Case 1: round exists normally
+            # Only process rounds that exist
             if key in instance_scores and 'avg_n_clip' in instance_scores[key] and 'avg_pl' in instance_scores[key]:
                 per_round_values[key]['n_clip'].append(instance_scores[key]['avg_n_clip'])
                 per_round_values[key]['pl'].append(instance_scores[key]['avg_pl'])
-                continue
-
-            # Case 2: earlier round missing but later rounds exist -> apply fixed penalty
-            if round_idx < max_available_round:
-                # Find the next available later round to base the penalty on
-                later_rounds = [r for r in available_rounds if r > round_idx]
-                if not later_rounds:
-                    continue
-                next_round = min(later_rounds)
-                next_key = str(next_round)
-                base_n = instance_scores[next_key]['avg_n_clip']
-                base_pl = instance_scores[next_key]['avg_pl']
-                # Apply fixed penalty factor
-                per_round_values[key]['n_clip'].append(base_n * penalty_factor)
-                per_round_values[key]['pl'].append(base_pl * penalty_factor)
-                per_round_values[key]['penalized_count'] += 1
-                continue
-            
-            # Case 3: missing because process ended -> apply exponential decay
-            if round_idx > max_available_round:
-                # Find the last available round to base the decay on
-                last_round = max_available_round
-                last_key = str(last_round)
-                base_n = instance_scores[last_key]['avg_n_clip']
-                base_pl = instance_scores[last_key]['avg_pl']
-                # Calculate exponential decay: divide by 2 for each round after the last available
-                decay_factor = penalty_factor ** (round_idx - last_round)
-                per_round_values[key]['n_clip'].append(base_n / decay_factor)
-                per_round_values[key]['pl'].append(base_pl / decay_factor)
-                per_round_values[key]['penalized_count'] += 1
-                continue
 
     per_round_summary = {}
     for key, vals in per_round_values.items():
@@ -83,8 +41,7 @@ def aggregate_per_round_scores(scores_across_instances: Dict[str, Any],
             per_round_summary[key] = {
                 'avg_n_clip': sum(vals['n_clip']) / len(vals['n_clip']),
                 'avg_pl': sum(vals['pl']) / len(vals['pl']),
-                'num_instances': len(vals['n_clip']),
-                'num_penalized': int(vals['penalized_count'])
+                'num_instances': len(vals['n_clip'])
             }
 
     return per_round_summary
@@ -148,58 +105,37 @@ def compute_worst_scores(scores_across_instances: Dict[str, Any]) -> tuple:
     return worst_n_clip_list, worst_pl_list
 
 
-def compute_round1_averages_with_penalty(scores_across_instances: Dict[str, Any], 
-                                       task_type: str) -> tuple:
+def compute_round1_averages(scores_across_instances: Dict[str, Any]) -> tuple:
     """
-    Compute round 1 averages with task-specific penalty for missing round 1.
+    Compute round 1 averages from actual round 1 scores only.
     
     Args:
         scores_across_instances: The intermediate scores structure
-        task_type: Task type to determine penalty score
         
     Returns:
         tuple: (round1_n_clip_list, round1_pl_list)
     """
-    # Define penalty scores by task type
-    penalty_scores = {
-        'blendshape': 0.1,
-        'placement': 0.1,
-        'geometry': 1,
-        'lighting': 1,
-        'material': 1
-    }
-    
-    penalty_score = penalty_scores.get(task_type.lower(), 1.0)
-    
     round1_n_clip_list = []
     round1_pl_list = []
     
     for instance_scores in scores_across_instances['instance_details'].values():
-        # Check if round 1 exists
+        # Only include instances where round 1 exists
         if '1' in instance_scores and isinstance(instance_scores['1'], dict) and 'avg_n_clip' in instance_scores['1']:
-            # Round 1 exists, use actual scores
             round1_n_clip = instance_scores['1']['avg_n_clip']
             round1_pl = instance_scores['1']['avg_pl']
-        else:
-            # Round 1 missing, apply penalty score (pl penalty is 1/3 of clip penalty)
-            round1_n_clip = penalty_score
-            round1_pl = penalty_score / 3.0
-        
-        round1_n_clip_list.append(round1_n_clip)
-        round1_pl_list.append(round1_pl)
+            round1_n_clip_list.append(round1_n_clip)
+            round1_pl_list.append(round1_pl)
     
     return round1_n_clip_list, round1_pl_list
 
 
 def compute_overall_scores(intermediates: Dict[str, Any], 
-                          penalty_factor: float = 2.0,
                           max_rounds: int = 10) -> Dict[str, Any]:
     """
     Compute overall scores from intermediate scores.
     
     Args:
         intermediates: The intermediate scores loaded from JSON
-        penalty_factor: Fixed penalty factor for missing earlier rounds
         max_rounds: Maximum number of rounds to consider
         
     Returns:
@@ -212,7 +148,7 @@ def compute_overall_scores(intermediates: Dict[str, Any],
         
         # Aggregate per-round averages across all instances
         per_round_summary = aggregate_per_round_scores(
-            scores_across_instances, penalty_factor, max_rounds
+            scores_across_instances, max_rounds
         )
         
         # Compute last round scores if not already present
@@ -227,8 +163,8 @@ def compute_overall_scores(intermediates: Dict[str, Any],
             scores_across_instances['worst_n_clip'] = worst_n_clip_list
             scores_across_instances['worst_pl'] = worst_pl_list
         
-        # Compute round 1 averages with task-specific penalty
-        round1_n_clip_list, round1_pl_list = compute_round1_averages_with_penalty(scores_across_instances, task_type)
+        # Compute round 1 averages from actual round 1 scores only
+        round1_n_clip_list, round1_pl_list = compute_round1_averages(scores_across_instances)
         scores_across_instances['round1_n_clip'] = round1_n_clip_list
         scores_across_instances['round1_pl'] = round1_pl_list
         
@@ -269,8 +205,6 @@ def main():
     parser.add_argument('test_id', type=str, help='Test ID (e.g., 20250815_150016)')
     parser.add_argument('--output_file', type=str, default=None, 
                        help='Output file path (default: overall_scores.json in same directory)')
-    parser.add_argument('--missing_round_penalty_factor', type=float, default=2.0,
-                        help='Fixed penalty factor for missing earlier rounds.')
     parser.add_argument('--max_rounds', type=int, default=10,
                         help='Maximum number of rounds to consider.')
     
@@ -297,7 +231,6 @@ def main():
     print(f"Computing overall scores...")
     scores_across_tasks = compute_overall_scores(
         intermediates, 
-        args.missing_round_penalty_factor,
         args.max_rounds
     )
     

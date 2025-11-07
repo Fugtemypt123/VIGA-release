@@ -227,15 +227,9 @@ def main():
     parser.add_argument('test_id', type=str, help='Test ID (e.g., 20250815_150016)')
     parser.add_argument('--output_dir', type=str, default=None, 
                        help='Output directory for evaluation results (default: output/blendergym/{test_id}/)_evaluation)')
-    parser.add_argument('--missing_round_penalty_max', type=float, default=2.0,
-                        help='Max penalty factor for earliest rounds.')
-    parser.add_argument('--missing_round_penalty_min', type=float, default=1.0,
-                        help='Min penalty factor for latest rounds.')
     
     args = parser.parse_args()
     test_id = args.test_id
-    penalty_max = float(args.missing_round_penalty_max)
-    penalty_min = float(args.missing_round_penalty_min)
     MAX_ROUNDS = 10
     
     # Set up paths
@@ -310,46 +304,15 @@ def main():
                 except Exception as e:
                     print(f"    Error processing {task_type} instance: {e}")
 
-        # Aggregate per-round averages across all instances (rounds 1..9)
-        per_round_values = {str(i): {'n_clip': [], 'pl': [], 'penalized_count': 0} for i in range(1, 11)}
+        # Aggregate per-round averages across all instances (rounds 1..10)
+        per_round_values = {str(i): {'n_clip': [], 'pl': []} for i in range(1, 11)}
         for instance_scores in scores_across_instances['instance_details'].values():
-            # Collect available round indices for this instance
-            available_rounds = sorted(
-                [int(r) for r, v in instance_scores.items() if isinstance(v, dict) and 'avg_n_clip' in v and 'avg_pl' in v]
-            )
-            if not available_rounds:
-                continue
-            max_available_round = max(available_rounds)
-
             for round_idx in range(1, 11):
                 key = str(round_idx)
-                # Case 1: round exists normally
+                # Only process rounds that exist
                 if key in instance_scores and 'avg_n_clip' in instance_scores[key] and 'avg_pl' in instance_scores[key]:
                     per_round_values[key]['n_clip'].append(instance_scores[key]['avg_n_clip'])
                     per_round_values[key]['pl'].append(instance_scores[key]['avg_pl'])
-                    continue
-
-                # Case 2: earlier round missing but later rounds exist -> penalize
-                if round_idx < max_available_round:
-                    # Find the next available later round to base the penalty on
-                    later_rounds = [r for r in available_rounds if r > round_idx]
-                    if not later_rounds:
-                        continue
-                    next_round = min(later_rounds)
-                    next_key = str(next_round)
-                    base_n = instance_scores[next_key]['avg_n_clip']
-                    base_pl = instance_scores[next_key]['avg_pl']
-                    # Decaying penalty: higher for earlier rounds, lower for later rounds
-                    if MAX_ROUNDS > 1:
-                        t = (round_idx - 1) / (MAX_ROUNDS - 1)
-                    else:
-                        t = 0.0
-                    penalty_factor_round = penalty_max - t * (penalty_max - penalty_min)
-                    per_round_values[key]['n_clip'].append(base_n * penalty_factor_round)
-                    per_round_values[key]['pl'].append(base_pl * penalty_factor_round)
-                    per_round_values[key]['penalized_count'] += 1
-                    continue
-                # Case 3: missing because process ended (no later rounds) -> ignore
 
         per_round_summary = {}
         for key, vals in per_round_values.items():
@@ -357,8 +320,7 @@ def main():
                 per_round_summary[key] = {
                     'avg_n_clip': sum(vals['n_clip']) / len(vals['n_clip']),
                     'avg_pl': sum(vals['pl']) / len(vals['pl']),
-                    'num_instances': len(vals['n_clip']),
-                    'num_penalized': int(vals['penalized_count'])
+                    'num_instances': len(vals['n_clip'])
                 }
 
         # Store per-round aggregation in intermediates structure too
