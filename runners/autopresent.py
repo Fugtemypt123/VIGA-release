@@ -276,7 +276,7 @@ def main():
     # Main.py parameters
     parser.add_argument("--max-rounds", type=int, default=10, help="Maximum number of interaction rounds")
     parser.add_argument("--model", default="gpt-4o", help="OpenAI vision model to use")
-    parser.add_argument("--memory-length", type=int, default=12, help="Memory length")
+    parser.add_argument("--memory-length", type=int, default=24, help="Memory length")
     
     # Tool server scripts (comma-separated)
     parser.add_argument("--generator-tools", default="tools/exec_slides.py,tools/generator_base.py", help="Comma-separated list of generator tool server scripts")

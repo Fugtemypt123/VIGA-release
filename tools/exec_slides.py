@@ -120,7 +120,7 @@ def test_specific_file():
     """
     Test if specific file output/autopresent/20250817_172322/slide_11/1/refine.py can run normally
     """
-    test_file_path = "data/autopresent/examples/art_photos/slide_1/start.py"
+    test_file_path = "output/test/1/runned_code.py"
     
     print(f"Starting test file: {test_file_path}")
     print("=" * 60)
