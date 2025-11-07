@@ -43,6 +43,8 @@ def main():
     pl_penalty = 0.8
     
     for task_type, task_scores in scores.items():
+        if 'num_instances' not in task_scores:
+            continue
         missing_rounds = TASK_INSTANCE_COUNT_DICT[task_type] - task_scores['num_instances']
         task_scores['final_n_clip'] = (task_scores['avg_n_clip'] * task_scores['num_instances'] + n_clip_penalty * missing_rounds * TASK_SCALE_DICT[task_type]) / TASK_INSTANCE_COUNT_DICT[task_type]
         task_scores['final_pl'] = (task_scores['avg_pl'] * task_scores['num_instances'] + pl_penalty * missing_rounds * TASK_SCALE_DICT[task_type]) / TASK_INSTANCE_COUNT_DICT[task_type]
