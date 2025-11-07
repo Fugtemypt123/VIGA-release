@@ -164,7 +164,7 @@ def main():
     else:
         slides_list = [args.slide_name]
 
-    gather_results(args.model_name, args.slide_name)
+    gather_results(args.model_name.replace('-', '_').replace('.', '_'), args.slide_name)
 
 
 if __name__ == "__main__":
