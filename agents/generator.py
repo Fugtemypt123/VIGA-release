@@ -65,7 +65,7 @@ class GeneratorAgent:
             print("Handle tool call...")
             if not message.tool_calls:
                 self.memory.append({"role": "assistant", "content": message.content})
-                self.memory.append({"role": "user", "content": "Each return message must contain a tool call. Your previous message did not contain a tool call. Please reconsider."})
+                self.memory.append({"role": "user", "content": "Every single output must contain a 'tool_call' field. Your previous message did not contain a 'tool_call' field. Please reconsider."})
                 self._save_memory()
                 continue
             else:
