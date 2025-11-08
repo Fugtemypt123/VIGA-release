@@ -115,12 +115,12 @@ def run_blenderstudio_task(task_config: Dict, args) -> tuple:
     for image_path in os.listdir(task_config['target_image_path']):
         messages[1]["content"].append({"type": "image_url", "image_url": {"url": get_image_base64(os.path.join(task_config['target_image_path'], image_path))}})
     
-    client = build_client(args.model)
-    response = client.chat.completions.create(model=args.model, messages=messages)
+    client = build_client(args.model_name)
+    response = client.chat.completions.create(model=args.model_name, messages=messages)
     
     response_text = response.choices[0].message.content.strip()
     code_pieces = extract_code_pieces(response_text)
-    output_name = args.model.replace('-', '_').replace('.', '_')
+    output_name = args.model_name.replace('-', '_').replace('.', '_')
     
     with open(os.path.join(output_base, f"{output_name}.py"), "w") as f:
         f.write(code_pieces)
@@ -198,7 +198,7 @@ def main():
     
     # Task selection
     parser.add_argument("--task", choices=['all', 'level1', 'level2', 'level3'], default='all', help="Specific task to run")
-    parser.add_argument("--model", default="gpt-4o", help="OpenAI vision model to use")
+    parser.add_argument("--model-name", default="gpt-4o", help="OpenAI vision model to use")
     
     # Parallel execution parameters
     parser.add_argument("--max-workers", type=int, default=8, help="Maximum number of parallel workers")
