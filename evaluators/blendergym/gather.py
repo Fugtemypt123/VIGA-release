@@ -11,6 +11,22 @@ import argparse
 import json
 from typing import Dict, Any, List
 
+# Task instance counts for different task types
+TASK_INSTANCE_COUNT_DICT = {
+    'geometry': 50,
+    'material': 40,
+    'blendshape': 75,
+    'placement': 40,
+    'lighting': 35
+}
+
+TASK_SCALE_DICT = {
+    'geometry': 1.0,
+    'material': 1.0,
+    'blendshape': 0.1,
+    'placement': 0.1,
+    'lighting': 1.0
+}
 
 def aggregate_per_round_scores(scores_across_instances: Dict[str, Any], 
                               max_rounds: int = 10) -> Dict[str, Any]:
@@ -238,6 +254,21 @@ def main():
     print(f"Saving overall scores to: {output_path}")
     with open(output_path, 'w') as f:
         json.dump(scores_across_tasks, f, indent=4)
+        
+    n_clip_penalty = 2.0
+    pl_penalty = 1.0
+    
+    for task_type, task_scores in scores_across_tasks.items():
+        if 'num_instances' not in task_scores:
+            continue
+        missing_rounds = TASK_INSTANCE_COUNT_DICT[task_type] - task_scores['num_instances']
+        task_scores['final_n_clip'] = (task_scores['best_n_clip'] * task_scores['num_instances'] + n_clip_penalty * missing_rounds * TASK_SCALE_DICT[task_type]) / TASK_INSTANCE_COUNT_DICT[task_type]
+        task_scores['final_pl'] = (task_scores['best_pl'] * task_scores['num_instances'] + pl_penalty * missing_rounds * TASK_SCALE_DICT[task_type]) / TASK_INSTANCE_COUNT_DICT[task_type]
+        task_scores['failed_instances'] = missing_rounds
+        print(f"Task type: {task_type}, Final n_clip: {task_scores['final_n_clip']:.4f}, Final pl: {task_scores['final_pl']:.4f}")
+        
+    with open(output_path, 'w') as f:
+        json.dump(scores_across_tasks, f, indent=4)
     
     # Print summary
     print(f"\n=== Summary ===")
@@ -249,12 +280,9 @@ def main():
             print(f"\n{task_type.upper()}:")
             print(f"  Average best n_clip: {scores['best_n_clip']}")
             print(f"  Average best pl: {scores['best_pl']}")
-            print(f"  Average worst n_clip: {scores['worst_n_clip']}")
-            print(f"  Average worst pl: {scores['worst_pl']}")
-            print(f"  Average last round n_clip: {scores['last_round_n_clip']}")
-            print(f"  Average last round pl: {scores['last_round_pl']}")
-            print(f"  Average round 1 n_clip: {scores['round1_n_clip']}")
-            print(f"  Average round 1 pl: {scores['round1_pl']}")
+            print(f"  Final n_clip: {scores['final_n_clip']:.4f}")
+            print(f"  Final pl: {scores['final_pl']:.4f}")
+            print(f"  Failed instances: {scores['failed_instances']}")
             print(f"  Instances evaluated: {scores['num_instances']}")
         else:
             print(f"\n{task_type.upper()}: No valid scores")

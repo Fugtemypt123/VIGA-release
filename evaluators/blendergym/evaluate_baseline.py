@@ -18,11 +18,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Task instance counts for different task types
 TASK_INSTANCE_COUNT_DICT = {
-    'geometry': 45,
+    'geometry': 50,
     'material': 40,
     'blendshape': 75,
     'placement': 40,
-    'lighting': 40
+    'lighting': 35
 }
 
 # Global CLIP model/processor to share across threads
