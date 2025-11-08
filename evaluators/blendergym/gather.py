@@ -255,8 +255,8 @@ def main():
     with open(output_path, 'w') as f:
         json.dump(scores_across_tasks, f, indent=4)
         
-    n_clip_penalty = 2.0
-    pl_penalty = 1.0
+    n_clip_penalty = 1.0
+    pl_penalty = 0.8
     
     for task_type, task_scores in scores_across_tasks.items():
         if 'num_instances' not in task_scores:
