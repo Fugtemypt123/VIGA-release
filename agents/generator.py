@@ -77,13 +77,11 @@ class GeneratorAgent:
             elif self.config.get("no_tools"):
                 content = message.content
                 try:
-                    if '```json' in content:
-                        json_content = content.split('```json')[1].split('```')[0]
-                        json_content = json.loads(json_content)
-                        json_content = {'thought': str(json_content.get('thought', '')), 'code_diff': str(json_content.get('code_diff', '')), 'code': str(json_content.get('code', ''))}
+                    json_content = content.split('```json')[1].split('```')[0]
+                    json_content = json.loads(json_content)
+                    json_content = {'thought': str(json_content.get('thought', '')), 'code_diff': str(json_content.get('code_diff', '')), 'code': str(json_content.get('code', ''))}
                     tool_name = "execute_and_evaluate"
                     tool_response = await self.tool_client.call_tool("execute_and_evaluate", json_content)
-                    print(f"Tool response: {tool_response}")
                     
                     if tool_response.get('require_verifier', False):
                         verifier_result = await self.verifier.run({"argument": json_content, "execution": tool_response})

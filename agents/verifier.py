@@ -59,7 +59,10 @@ class VerifierAgent:
             memory = self.prompt_builder.build_memory(self.memory)
             tool_configs = self.tool_client.tool_configs
             tool_configs = [x for v in tool_configs.values() for x in v]
-            chat_args = {"model": self.config.get("model"), "messages": memory, "tools": tool_configs, "tool_choice": "auto", **self.init_chat_args}
+            if self.config.get("no_tools"):
+                chat_args = {"model": self.config.get("model"), "messages": memory, **self.init_chat_args}
+            else:
+                chat_args = {"model": self.config.get("model"), "messages": memory, "tools": tool_configs, "tool_choice": "auto", **self.init_chat_args}
             
             # Generate response
             print("Generate response...")
@@ -76,10 +79,9 @@ class VerifierAgent:
             elif self.config.get("no_tools"):
                 content = message.content
                 try:
-                    if '```json' in content:
-                        json_content = content.split('```json')[1].split('```')[0]
-                        json_content = json.loads(json_content)
-                        json_content = {'visual_difference': str(json_content.get('visual_difference', '')), 'edit_suggestion': str(json_content.get('edit_suggestion', ''))}
+                    json_content = content.split('```json')[1].split('```')[0]
+                    json_content = json.loads(json_content)
+                    json_content = {'visual_difference': str(json_content.get('visual_difference', '')), 'edit_suggestion': str(json_content.get('edit_suggestion', ''))}
                     tool_name = "end"
                     tool_response = await self.tool_client.call_tool("end", json_content)
                 except Exception as e:
