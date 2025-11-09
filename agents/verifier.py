@@ -4,7 +4,7 @@ from typing import Dict, Any
 from openai import OpenAI
 from agents.tool_client import ExternalToolClient
 from agents.prompt_builder import PromptBuilder
-from utils.common import get_image_base64
+from utils.common import get_image_base64, get_model_response
 
 class VerifierAgent:
     def __init__(self, args):
@@ -63,7 +63,7 @@ class VerifierAgent:
             
             # Generate response
             print("Generate response...")
-            response = self.client.chat.completions.create(**chat_args)
+            response = get_model_response(self.client, chat_args)
             message = response.choices[0].message
             
             # Handle tool call

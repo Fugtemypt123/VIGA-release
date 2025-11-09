@@ -5,7 +5,7 @@ from typing import Dict, Any
 from agents.tool_client import ExternalToolClient
 from agents.verifier import VerifierAgent
 from agents.prompt_builder import PromptBuilder
-from utils.common import get_image_base64
+from utils.common import get_image_base64, get_model_response
 
 class GeneratorAgent:
     def __init__(self, args, verifier: VerifierAgent):
@@ -58,7 +58,7 @@ class GeneratorAgent:
 
             # Generate response
             print("Generate response...")
-            response = self.client.chat.completions.create(**chat_args)
+            response = get_model_response(self.client, chat_args)
             message = response.choices[0].message
             
             # Handle tool call

@@ -5,7 +5,19 @@ import io
 import base64
 from typing import Dict, List, Optional
 from openai import OpenAI
+import time
 from utils._api_keys import OPENAI_API_KEY, OPENAI_BASE_URL, CLAUDE_API_KEY, CLAUDE_BASE_URL, GEMINI_API_KEY, GEMINI_BASE_URL, QWEN_BASE_URL, MESHY_API_KEY, VA_API_KEY
+
+def get_model_response(client: OpenAI, chat_args: Dict):
+    # repeat multiple time to avoid network errors
+    for i in range(3):
+        try:
+            response = client.chat.completions.create(**chat_args)
+            return response
+        except Exception as e:
+            print(f"Error getting model response: {e}")
+            time.sleep(1)
+    raise Exception("Failed to get model response")
 
 def build_client(model_name: str):
     model_name = model_name.lower()
