@@ -23,13 +23,17 @@ prompts_dict = {
     'autopresent': {
         'system': {
             'generator': autopresent_generator_system,
-            'verifier': autopresent_verifier_system
+            'verifier': autopresent_verifier_system,
+            'generator_no_tools': autopresent_generator_system_no_tools,
+            'verifier_no_tools': autopresent_verifier_system_no_tools
         }
     },
     'blendergym': {
         'system': {
             'generator': blendergym_generator_system,
-            'verifier': blendergym_verifier_system
+            'verifier': blendergym_verifier_system,
+            'generator_no_tools': blendergym_generator_system_no_tools,
+            'verifier_no_tools': blendergym_verifier_system_no_tools
         }
     },
     'design2code': {
@@ -40,8 +44,10 @@ prompts_dict = {
     },
     'blenderstudio': {
         'system': {
-            'generator': blendergym_generator_system,
-            'verifier': blendergym_verifier_system
+            'generator': blenderstudio_generator_system,
+            'verifier': blenderstudio_verifier_system,
+            'generator_no_tools': blenderstudio_generator_system_no_tools,
+            'verifier_no_tools': blenderstudio_verifier_system_no_tools
         }
     }
 }

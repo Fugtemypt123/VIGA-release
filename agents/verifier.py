@@ -68,22 +68,37 @@ class VerifierAgent:
             
             # Handle tool call
             print("Handle tool call...")
-            if not message.tool_calls:
+            if not message.tool_calls and not self.config.get("no_tools"):
                 self.memory.append({"role": "assistant", "content": message.content})
                 self.memory.append({"role": "user", "content": "Each return message must contain a tool call. Your previous message did not contain a tool call. Please reconsider."})
                 self._save_memory()
                 continue
+            elif self.config.get("no_tools"):
+                content = message.content
+                try:
+                    if '```json' in content:
+                        content = content.split('```json')[1].split('```')[0]
+                        content = json.loads(content)
+                    tool_name = "end"
+                    tool_response = await self.tool_client.call_tool("end", content)
+                except Exception as e:
+                    print(f"Error executing tool: {e}")
+                    self.memory.append({"role": "assistant", "content": content})
+                    self.memory.append({"role": "user", "content": f"Error executing tool: {e}. Please try again."})
+                    self._save_memory()
+                    continue
             else:
                 tool_call = message.tool_calls[0]
-                print(f"Call tool {tool_call.function.name}...")
-                tool_response = await self.tool_client.call_tool(tool_call.function.name, json.loads(tool_call.function.arguments))
+                tool_name = tool_call.function.name
+                print(f"Call tool {tool_name}...")
+                tool_response = await self.tool_client.call_tool(tool_name, json.loads(tool_call.function.arguments))
                 
             # Update and save memory
             print("Update and save memory...")
             self._update_memory({"assistant": message, "user": tool_response})
             self._save_memory()
 
-            if tool_call.function.name == "end":
+            if tool_name == "end":
                 result = tool_response
                 break
             

@@ -63,20 +63,42 @@ class GeneratorAgent:
             
             # Handle tool call
             print("Handle tool call...")
-            if not message.tool_calls:
-                self.memory.append({"role": "assistant", "content": message.content})
+            if not message.tool_calls and not self.config.get("no_tools"):
+                if message.content != '':
+                    self.memory.append({"role": "assistant", "content": message.content})
+                else:
+                    self.memory.append({"role": "assistant", "content": "No output"})
                 self.memory.append({"role": "user", "content": "Every single output must contain a 'tool_call' field. Your previous message did not contain a 'tool_call' field. Please reconsider."})
                 self._save_memory()
                 continue
+            elif self.config.get("no_tools"):
+                content = message.content
+                try:
+                    if '```json' in content:
+                        content = content.split('```json')[1].split('```')[0]
+                        content = json.loads(content)
+                    tool_name = "execute_and_evaluate"
+                    tool_response = await self.tool_client.call_tool("execute_and_evaluate", content)
+                    
+                    if tool_response.get('require_verifier', False):
+                        verifier_result = await self.verifier.run({"argument": content, "execution": tool_response})
+                        tool_response['verifier_result'] = verifier_result
+                except Exception as e:
+                    print(f"Error executing tool: {e}")
+                    self.memory.append({"role": "assistant", "content": content})
+                    self.memory.append({"role": "user", "content": f"Error executing tool: {e}. Please try again."})
+                    self._save_memory()
+                    continue
             else:
                 tool_call = message.tool_calls[0]
-                print(f"Call tool {tool_call.function.name}...")
+                tool_name = tool_call.function.name
+                print(f"Call tool {tool_name}...")
                 tool_arguments = json.loads(tool_call.function.arguments)
                 
                 with open(self.config.get("output_dir") + f"/_tool_call.json", "w") as f:
-                    json.dump({'name': tool_call.function.name, 'arguments': tool_arguments}, f, indent=4, ensure_ascii=False)
+                    json.dump({'name': tool_name, 'arguments': tool_arguments}, f, indent=4, ensure_ascii=False)
                     
-                tool_response = await self.tool_client.call_tool(tool_call.function.name, tool_arguments)
+                tool_response = await self.tool_client.call_tool(tool_name, tool_arguments)
                 # If the tool is execute_and_evaluate, run the verifier
                 if tool_response.get('require_verifier', False):
                     verifier_result = await self.verifier.run({"argument": tool_arguments, "execution": tool_response, "init_plan": self.init_plan})
@@ -87,7 +109,7 @@ class GeneratorAgent:
             self._update_memory({"assistant": message, "user": tool_response})
             self._save_memory()
             
-            if tool_call.function.name == "end":
+            if tool_name == "end":
                 break
         
         print("\n=== Finish generator process ===\n")

@@ -18,7 +18,7 @@ class PromptBuilder:
         """Generic method to build generator prompts based on mode and config."""
         # Get system prompt only (format/hints embedded in system)
         if not prompts:
-            prompts = prompt_manager.get_all_prompts(self.config.get("mode"), agent_type, self.config.get("task_name"), self.config.get("level"))
+            prompts = prompt_manager.get_all_prompts(self.config.get("mode"), agent_type, self.config.get("task_name"), self.config.get("level"), self.config.get("no_tools"))
         
         # Build the prompt based on mode
         if prompt_type == "system":
@@ -80,7 +80,8 @@ class PromptBuilder:
         return [{"role": "system", "content": prompts.get('system', '')}, {"role": "user", "content": content}]
     
     def _build_user_prompt(self, prompts: Dict) -> List[Dict]:
-        content = [{"type": "text", "text": f"Initial plan: {prompts.get('init_plan', '')}"}]
+        if prompts.get('init_plan'):
+            content = [{"type": "text", "text": f"Initial plan: {prompts.get('init_plan')}"}]
         for key, value in prompts['argument'].items():
             content.append({"type": "text", "text": f"{key}: {value}"})
         if 'image' in prompts['execution']:

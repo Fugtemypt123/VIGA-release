@@ -23,7 +23,7 @@ class PromptManager:
             from . import prompts_dict
             self.prompts = prompts_dict
     
-    def get_system_prompt(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None) -> str:
+    def get_system_prompt(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None, no_tools: Optional[bool] = False) -> str:
         """Get system prompt for specified mode, agent type, and optional level."""
         self._ensure_prompts_loaded()
         if mode not in self.prompts:
@@ -34,7 +34,10 @@ class PromptManager:
         if agent_type not in mode_prompts.get('system', {}):
             raise ValueError(f"Agent type {agent_type} not supported for mode {mode}")
         
-        system_prompts = mode_prompts['system'][agent_type]
+        if no_tools:
+            system_prompts = mode_prompts['system'][agent_type + '_no_tools']
+        else:
+            system_prompts = mode_prompts['system'][agent_type]
         
         # Handle level-specific prompts (for blendergym-hard)
         if isinstance(system_prompts, dict) and level:
@@ -125,10 +128,10 @@ class PromptManager:
         
         return self.prompts[mode].get('tool_example')
     
-    def get_all_prompts(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None) -> Dict[str, Any]:
+    def get_all_prompts(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None, no_tools: Optional[bool] = False) -> Dict[str, Any]:
         """Get all prompts for a given configuration in a single call."""
         return {
-            'system': self.get_system_prompt(mode, agent_type, task_name, level),
+            'system': self.get_system_prompt(mode, agent_type, task_name, level, no_tools),
             'format': self.get_format_prompt(mode, agent_type, task_name, level),
             'hints': self.get_hints(mode, agent_type, task_name, level),
             'api_library': self.get_api_library(mode),
