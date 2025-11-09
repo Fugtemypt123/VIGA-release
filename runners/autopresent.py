@@ -185,7 +185,8 @@ def run_autopresent_task(task_config: Dict, args) -> tuple:
         "--generator-tools", args.generator_tools,
         "--verifier-tools", args.verifier_tools,
         "--resource-dir", task_config["resource_dir"],
-        "--clear-memory"
+        "--clear-memory",
+        "--no-tools" if args.no_tools else ""
     ]
     
     print(f"Command: {' '.join(cmd)}")
@@ -287,6 +288,7 @@ def main():
     # Parallel execution parameters
     parser.add_argument("--max-workers", type=int, default=8, help="Maximum number of parallel workers")
     parser.add_argument("--sequential", action="store_true", help="Run tasks sequentially instead of in parallel")
+    parser.add_argument("--no-tools", action="store_true", help="Use no tools mode")
     
     args = parser.parse_args()
     
