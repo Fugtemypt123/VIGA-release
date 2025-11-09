@@ -16,7 +16,7 @@ class GeneratorAgent:
         
         # Initialize chat args
         self.init_chat_args = {}
-        if 'gpt' in self.config.get("model"):
+        if 'gpt' in self.config.get("model") and not self.config.get("no_tools"):
             self.init_chat_args['parallel_tool_calls'] = False
             
         # Initialize tool client
