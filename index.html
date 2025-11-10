@@ -77,7 +77,7 @@
     <script>
         // Configure datasets here. Use paths relative to the repository root as served by GitHub Pages.
         let DATASETS = [];
-        const DATA_ROOT = "output/blenderstudio/20251105_020300";
+        const DATA_ROOT = "output/autopresent/20251107_120502";
 
         const MAX_PROBE_ROUNDS = 300; // upper bound for probing rounds
 
@@ -167,10 +167,16 @@
 
         async function loadDatasets() {
             // const dirs = await listDatasetDirectories(DATA_ROOT);
-            const dirs_1 = await listDatasetDirectories(DATA_ROOT + "/level1");
-            const dirs_2 = await listDatasetDirectories(DATA_ROOT + "/level2");
-            const dirs_3 = await listDatasetDirectories(DATA_ROOT + "/level3");
-            DATASETS = dirs_1.concat(dirs_2).concat(dirs_3);
+            const dirs_1 = await listDatasetDirectories(DATA_ROOT + "/art_photos");
+            const dirs_2 = await listDatasetDirectories(DATA_ROOT + "/business");
+            const dirs_3 = await listDatasetDirectories(DATA_ROOT + "/design");
+            const dirs_4 = await listDatasetDirectories(DATA_ROOT + "/entrepreneur");
+            const dirs_5 = await listDatasetDirectories(DATA_ROOT + "/environment");
+            const dirs_6 = await listDatasetDirectories(DATA_ROOT + "/food");
+            const dirs_7 = await listDatasetDirectories(DATA_ROOT + "/marketing");
+            const dirs_8 = await listDatasetDirectories(DATA_ROOT + "/social_media");
+            const dirs_9 = await listDatasetDirectories(DATA_ROOT + "/technology");
+            DATASETS = dirs_1.concat(dirs_2).concat(dirs_3).concat(dirs_4).concat(dirs_5).concat(dirs_6).concat(dirs_7).concat(dirs_8).concat(dirs_9);
             return DATASETS;
         }
 
