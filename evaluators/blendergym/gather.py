@@ -265,7 +265,7 @@ def main():
         task_scores['final_n_clip'] = (task_scores['best_n_clip'] * task_scores['num_instances'] + n_clip_penalty * missing_rounds * TASK_SCALE_DICT[task_type]) / TASK_INSTANCE_COUNT_DICT[task_type]
         task_scores['final_pl'] = (task_scores['best_pl'] * task_scores['num_instances'] + pl_penalty * missing_rounds * TASK_SCALE_DICT[task_type]) / TASK_INSTANCE_COUNT_DICT[task_type]
         task_scores['failed_instances'] = missing_rounds
-        print(f"Task type: {task_type}, Final n_clip: {task_scores['final_n_clip']:.4f}, Final pl: {task_scores['final_pl']:.4f}")
+        print(f"Task type: {task_type}, Final n_clip: {task_scores['final_n_clip']}, Final pl: {task_scores['final_pl']}")
         
     with open(output_path, 'w') as f:
         json.dump(scores_across_tasks, f, indent=4)
@@ -280,8 +280,8 @@ def main():
             print(f"\n{task_type.upper()}:")
             print(f"  Average best n_clip: {scores['best_n_clip']}")
             print(f"  Average best pl: {scores['best_pl']}")
-            print(f"  Final n_clip: {scores['final_n_clip']:.4f}")
-            print(f"  Final pl: {scores['final_pl']:.4f}")
+            print(f"  Final n_clip: {scores['final_n_clip']}")
+            print(f"  Final pl: {scores['final_pl']}")
             print(f"  Failed instances: {scores['failed_instances']}")
             print(f"  Instances evaluated: {scores['num_instances']}")
         else:

@@ -215,12 +215,12 @@ print("Scene info extracted successfully")
         # Check if render_file is empty or not exist
         if not success:
             os.rmdir(render_file)
-            return {"status": "error", "output": {"text": ['Error: ' + (stderr or stdout)]}}
+            return {"status": "error", "output": {"text": ['Error: ' + (stderr + stdout)]}}
         elif len(os.listdir(render_file)) == 0:
             # copy blender save under render file
             if self.blender_save:
                 shutil.copy(self.blender_save, render_file / "state.blend")
-            return {"status": "success", "output": {"text": ['The code was executed, but no image was generated. Please check and make sure that:\n(1) you have added the camera in the code (just modify the camera pose and other information, do not render the image in the code).\n(2) You may need to handle errors in the code. The following is the return message for reference. Please check if there are any errors and fix them: ' + (stderr or stdout)]}}
+            return {"status": "success", "output": {"text": ['The code was executed, but no image was generated. Please check and make sure that:\n(1) you have added the camera in the code (just modify the camera pose and other information, do not render the image in the code).\n(2) You may need to handle errors in the code. The following is the return message for reference. Please check if there are any errors and fix them: ' + (stderr + stdout)]}}
         else:
             if self.blender_save:
                 shutil.copy(self.blender_save, render_file / "state.blend")
