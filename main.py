@@ -32,6 +32,7 @@ async def main():
     parser.add_argument("--clear-memory", action="store_true", help="Clear memory")
     parser.add_argument("--explicit-comp", action="store_true", help="Enable explicit completion")
     parser.add_argument("--no-tools", action="store_true", help="Use no tools mode")
+    parser.add_argument("--with-prior", action="store_true", help="Use with prior mode")
     
     # Execution parameters
     parser.add_argument("--blender-command", default="utils/blender/infinigen/blender/blender", help="Blender command path")

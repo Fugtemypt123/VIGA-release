@@ -23,9 +23,17 @@ class PromptManager:
             from . import prompts_dict
             self.prompts = prompts_dict
     
-    def get_system_prompt(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None, no_tools: Optional[bool] = False) -> str:
+    def get_system_prompt(self, config: Dict) -> str:
         """Get system prompt for specified mode, agent type, and optional level."""
         self._ensure_prompts_loaded()
+        
+        mode = config.get('mode')
+        agent_type = config.get('agent_type')
+        task_name = config.get('task_name')
+        level = config.get('level')
+        no_tools = config.get('no_tools')
+        with_prior = config.get('with_prior')
+        
         if mode not in self.prompts:
             raise ValueError(f"Mode {mode} not supported")
         
@@ -36,6 +44,8 @@ class PromptManager:
         
         if no_tools:
             system_prompts = mode_prompts['system'][agent_type + '_no_tools']
+        elif with_prior:
+            system_prompts = mode_prompts['system'][agent_type + '_with_prior']
         else:
             system_prompts = mode_prompts['system'][agent_type]
         
@@ -53,9 +63,13 @@ class PromptManager:
         else:
             raise ValueError(f"Invalid system prompt format for mode {mode}, agent {agent_type}")
     
-    def get_format_prompt(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None) -> str:
+    def get_format_prompt(self, config: Dict) -> str:
         """Get format prompt for specified mode, agent type, and optional level."""
         self._ensure_prompts_loaded()
+        mode = config.get('mode')
+        agent_type = config.get('agent_type')
+        level = config.get('level')
+        
         if mode not in self.prompts:
             return None
         
@@ -76,9 +90,14 @@ class PromptManager:
         else:
             return None
     
-    def get_hints(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None) -> Optional[str]:
+    def get_hints(self, config: Dict) -> Optional[str]:
         """Get hints for specified mode, agent type, task name, and optional level."""
         self._ensure_prompts_loaded()
+        mode = config.get('mode')
+        agent_type = config.get('agent_type')
+        task_name = config.get('task_name')
+        level = config.get('level')
+        
         if mode not in self.prompts:
             return None
         
@@ -112,45 +131,50 @@ class PromptManager:
         
         return None
     
-    def get_api_library(self, mode: str) -> Optional[str]:
+    def get_api_library(self, config: Dict) -> Optional[str]:
         """Get API library documentation for specified mode."""
         self._ensure_prompts_loaded()
+        mode = config.get('mode')
         if mode not in self.prompts:
             return None
         
         return self.prompts[mode].get('api_library')
     
-    def get_tool_example(self, mode: str) -> Optional[str]:
+    def get_tool_example(self, config: Dict) -> Optional[str]:
         """Get tool usage examples for specified mode."""
         self._ensure_prompts_loaded()
+        mode = config.get('mode')
         if mode not in self.prompts:
             return None
         
         return self.prompts[mode].get('tool_example')
     
-    def get_all_prompts(self, mode: str, agent_type: str, task_name: Optional[str] = None, level: Optional[str] = None, no_tools: Optional[bool] = False) -> Dict[str, Any]:
+    def get_all_prompts(self, config: Dict) -> Dict[str, Any]:
         """Get all prompts for a given configuration in a single call."""
         return {
-            'system': self.get_system_prompt(mode, agent_type, task_name, level, no_tools),
-            'format': self.get_format_prompt(mode, agent_type, task_name, level),
-            'hints': self.get_hints(mode, agent_type, task_name, level),
-            'api_library': self.get_api_library(mode),
-            'tool_example': self.get_tool_example(mode)
+            'system': self.get_system_prompt(config),
+            'format': self.get_format_prompt(config),
+            'hints': self.get_hints(config),
+            'api_library': self.get_api_library(config),
+            'tool_example': self.get_tool_example(config)
         }
     
-    def is_mode_supported(self, mode: str) -> bool:
+    def is_mode_supported(self, config: Dict) -> bool:
         """Check if a mode is supported."""
         self._ensure_prompts_loaded()
+        mode = config.get('mode')
         return mode in self.prompts
     
-    def get_supported_modes(self) -> List[str]:
+    def get_supported_modes(self, config: Dict) -> List[str]:
         """Get list of all supported modes."""
         self._ensure_prompts_loaded()
+        mode = config.get('mode')
         return list(self.prompts.keys())
     
-    def get_supported_agent_types(self, mode: str) -> List[str]:
+    def get_supported_agent_types(self, config: Dict) -> List[str]:
         """Get list of supported agent types for a given mode."""
         self._ensure_prompts_loaded()
+        mode = config.get('mode')
         if mode not in self.prompts:
             return []
         

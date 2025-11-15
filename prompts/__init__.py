@@ -11,7 +11,9 @@ prompts_dict = {
     'static_scene': {
         'system': {
             'generator': static_scene_generator_system,
-            'verifier': static_scene_verifier_system
+            'verifier': static_scene_verifier_system,
+            'generator_with_prior': static_scene_generator_system_with_prior,
+            'verifier_with_prior': static_scene_verifier_system_with_prior
         }
     },
     'dynamic_scene': {

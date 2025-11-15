@@ -142,6 +142,7 @@ def run_static_scene_task(task_config: Dict, args) -> tuple:
         "--assets-dir", task_config["assets_dir"],
         "--init-code-path", task_config["init_code_path"],
         "--init-image-path", task_config["init_image_path"],
+        "--with-prior",
         "--clear-memory",
     ]
     
