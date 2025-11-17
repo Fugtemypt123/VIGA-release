@@ -32,7 +32,8 @@ async def main():
     parser.add_argument("--clear-memory", action="store_true", help="Clear memory")
     parser.add_argument("--explicit-comp", action="store_true", help="Enable explicit completion")
     parser.add_argument("--no-tools", action="store_true", help="Use no tools mode")
-    parser.add_argument("--with-prior", action="store_true", help="Use with prior mode")
+    parser.add_argument("--init-setting", choices=["none", "minimal", "reasonable"], default="none", help="Setting for the static scene task")
+    parser.add_argument("--prompt-setting", choices=["none", "procedural", "scene_graph"], default="none", help="Setting for the prompt")
     
     # Execution parameters
     parser.add_argument("--blender-command", default="utils/blender/infinigen/blender/blender", help="Blender command path")

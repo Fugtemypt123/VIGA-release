@@ -252,8 +252,8 @@ def main():
     # Additional parameters
     parser.add_argument("--explicit-comp", action="store_true", help="Enable explicit completion")
     parser.add_argument("--text-only", action="store_true", help="Only use text as reference")
-    parser.add_argument("--setting", choices=["minimal", "reasonable"], default="minimal", help="Setting for the static scene task")
-    parser.add_argument("--with-prior", action="store_true", help="Enable with prior")
+    parser.add_argument("--init-setting", choices=["none", "minimal", "reasonable"], default="none", help="Setting for the static scene task")
+    parser.add_argument("--prompt-setting", choices=["none", "procedural", "scene_graph"], default="none", help="Setting for the prompt")
     
     args = parser.parse_args()
     

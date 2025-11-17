@@ -32,7 +32,7 @@ class PromptManager:
         task_name = config.get('task_name')
         level = config.get('level')
         no_tools = config.get('no_tools')
-        with_prior = config.get('with_prior')
+        prompt_setting = config.get('prompt_setting')
         
         if mode not in self.prompts:
             raise ValueError(f"Mode {mode} not supported")
@@ -44,8 +44,8 @@ class PromptManager:
         
         if no_tools:
             system_prompts = mode_prompts['system'][agent_type + '_no_tools']
-        elif with_prior:
-            system_prompts = mode_prompts['system'][agent_type + '_with_prior']
+        elif prompt_setting != 'none':
+            system_prompts = mode_prompts['system'][agent_type + '_' + prompt_setting]
         else:
             system_prompts = mode_prompts['system'][agent_type]
         

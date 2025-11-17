@@ -1,111 +1,30 @@
-# Procedural Generation Pipeline (Stage-by-Stage)
+# Procedural Instruction (Simplified, Relative-Position Version)
 
-## Stage A: Structural Initialization
+1. **Generate lounge set**  
+   - Call `get_better_object` to generate a **lounge set** (sofa, floor lamp, coffee table, round rug, snowman).  
+   - Place the lounge set near the **front side of the room**, centered horizontally and slightly closer to the viewer than the room center.
 
-1. **Establish coordinate origin and layout center**  
-   The coordinate origin is now placed at the geometric center of the room’s floor, corresponding to **(1.5, 1.5, 0)** in the old coordinate system.  
-   - **+X axis** → toward the lounge, clock, and small tree decorations  
-   - **+Y axis** → toward the viewer / sofa area  
-   - **+Z axis** → upward  
-   This ensures consistent right-handed alignment and intuitive spatial orientation.
+2. **Generate main Christmas tree**  
+   - Call `get_better_object` to generate a **main Christmas tree**.  
+   - Place it **behind the lounge**, toward the **left-rear corner** of the room, close to the back wall.
 
-2. **Build the basic room frame**  
-   Create four walls, a floor, and a ceiling.  
-   Add a ceiling lamp at the geometric center as the main light source.  
-   Keep the overall room scale within roughly **3 units** across each dimension.
+3. **Generate gift boxes**  
+   - Call `get_better_object` to generate several **gift boxes**.  
+   - Place them **under and around the main Christmas tree**, resting on the floor near the tree trunk.
 
-3. **Set up the camera**  
-   Position the camera to face the new coordinate origin, capturing the floor and two adjacent walls.
+4. **Generate fireplace**  
+   - Call `get_better_object` to generate a **fireplace**.  
+   - Place it **to the left of the main Christmas tree**, centered along the **left wall**, at approximately the same front–back depth as the tree.
 
----
+5. **Generate golden bells (above fireplace)**  
+   - Call `get_better_object` to generate **golden bells**.  
+   - Mount them **directly above the fireplace**, high on the left wall.
 
-## Stage B: Core Furniture Construction
+6. **Generate wall clock**  
+   - Call `get_better_object` to generate a **wall clock**.  
+   - Place it on the **front wall**, positioned **above and slightly to the left of the lounge**.
 
-Sequentially generate (use 'get_better_object' tool) and place the following objects:
-
----
-
-### 1. **Lounge Set**  
-Includes the sofa, floor lamp, coffee table, round rug, and snowman.
-
-- **Coordinates:** **(x ≈ 0.0, y ≈ 0.5, z ≈ 0.5)**  
-  *Position: centered horizontally, slightly toward the viewer, with its center slightly above the ground.*
-
----
-
-### 2. **Main Christmas Tree**
-
-- **Coordinates:** **(x ≈ −1.0, y ≈ −1.0, z ≈ 1.0)**  
-  *Position: located in the left–rear corner area, close to the back wall.*
-
----
-
-### 3. **Gift Boxes**
-
-Place multiple gift boxes beneath and around the main tree.
-
-- **Coordinates:** near **(x ≈ −1.0, y ≈ −1.0, z slightly < 1.0)**  
-  *Position: clustered at the left–rear corner under the tree.*
-
----
-
-### 4. **Fireplace**
-
-- **Coordinates:** **(x ≈ −1.3, y ≈ 0.0, z ≈ 1.0)**  
-  *Position: centered along the left wall, mid-depth of the room.*
-
----
-
-### 5. **Golden Bells (above fireplace)**
-
-- **Coordinates:** **(x ≈ −1.3, y ≈ 0.0, z ≈ 2.5)**  
-  *Position: mounted high on the left wall directly above the fireplace.*
-
----
-
-### 6. **Clock Above Lounge**
-
-- **Coordinates:** **(x ≈ −0.5, y ≈ 1.3, z ≈ 2.5)**  
-  *Position: on the front wall, upper-left region relative to the lounge.*
-
----
-
-### 7. **Small Tree Decorations Near the Clock**
-
-- **Small Tree 1**  
-  **Coordinates:** **(x ≈ 0.25, y ≈ 1.3, z ≈ 2.5)**  
-  *Position: front wall, upper-right of the clock.*
-
-- **Small Tree 2**  
-  **Coordinates:** **(x ≈ 1.0, y ≈ 1.3, z ≈ 2.5)**  
-  *Position: front wall, near the far-right upper corner.*
-
----
-
-### 8. **(Optional) Auxiliary Decorations**
-
-Add string lights along the tops of the walls and ceiling edges.  
-Add picture frames or other small ornaments to enhance realism.
-
----
-
-## Stage C: Lighting and Rendering
-
-1. **Add main light sources**  
-   Use the ceiling lamp for overall diffusion; complement it with warm lighting from the fireplace and string lights.
-
-2. **Adjust ambient lighting**  
-   Apply a warm, cozy color tone with soft shadows and subtle ambient occlusion.
-
-3. **Render and tone adjustments**  
-   Use warm white balance, slightly increase saturation,  
-   and enable soft diffusion for a festive atmosphere.
-
----
-
-## ✔ Notes for the model
-- Ensure all objects rest properly on their surfaces.  
-- Maintain consistent scale and avoid interpenetration.  
-- Keep coordinates within a reasonable centered range.  
-- Optimize for visual balance and spatial clarity.
-- If you can see the initial scene, it means there's a camera in the scene; do not modify the camera. If you cannot see the initial scene, it means there's no camera in the scene; you need to add one yourself to observe the scene.
+7. **Generate small tree decorations**  
+   - Call `get_better_object` to generate two **small decorative wall trees**.  
+   - Place **Tree 1** on the **front wall**, slightly **to the right of the wall clock**.  
+   - Place **Tree 2** further **rightward on the same wall**, near the **right-side upper area** of the room.

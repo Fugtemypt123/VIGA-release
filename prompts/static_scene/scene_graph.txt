@@ -1,61 +1,111 @@
-# 🎄 Scene Graph — Cozy Christmas Room
+# Procedural Generation Pipeline (Stage-by-Stage)
 
-## Scene Overview
-**Scene:** cozy_christmas_room  
-**Lighting:** warm_indoor_light (ceiling lamp + fireplace glow)  
-**Overall layout:** living room corner with red and wooden walls, decorated for Christmas  
+## Stage A: Structural Initialization
 
----
+1. **Establish coordinate origin and layout center**  
+   The coordinate origin is now placed at the geometric center of the room’s floor, corresponding to **(1.5, 1.5, 0)** in the old coordinate system.  
+   - **+X axis** → toward the lounge, clock, and small tree decorations  
+   - **+Y axis** → toward the viewer / sofa area  
+   - **+Z axis** → upward  
+   This ensures consistent right-handed alignment and intuitive spatial orientation.
 
-## 🏠 1. Room Structure
-- **Walls**
-  - Left wall: wooden vertical panels, framed picture hanging  
-  - Right wall: painted red, with a clock and Christmas tree decorations  
-- **Floor:** tiled beige floor  
-- **Ceiling:** round ceiling lamp (warm yellow light)
+2. **Build the basic room frame**  
+   Create four walls, a floor, and a ceiling.  
+   Add a ceiling lamp at the geometric center as the main light source.  
+   Keep the overall room scale within roughly **3 units** across each dimension.
 
----
-
-## 🎁 2. Objects and Spatial Relations
-
-| Object | Description | Position | Relations |
-|--------|--------------|-----------|------------|
-| **christmas_tree** | Green tree with red and gold ornaments, star topper, candy cane | left foreground | in front of wooden wall; left of fireplace; above round_carpet edge |
-| **giftboxes** | Two wrapped gifts (green and red with ribbons) | under the christmas_tree | below christmas_tree |
-| **round_carpet** | Red and white circular rug | center of room | below coffee_table |
-| **fireplace** | Brick fireplace with green garland and stockings, lit fire inside | back corner | behind table and sofa; below bells |
-| **coach** | Beige sofa with red snowflake pillow | right side | near red wall; left of lamp_table |
-| **table / coffee_table** | Wooden rectangular low table | center, on carpet | in front of coach; below snowman; holds mugs |
-| **snowman (on the coffee table)** | Small snowman figure with top hat | on coffee_table | surrounded by two mugs |
-| **clock** | Round wall clock showing ~10:10 | above sofa on red wall | near christmas_tree_decorations |
-| **bells** | Two golden bells tied with a red bow | on upper left wall | above fireplace |
-| **christmastree_decoration (on the wall)** | Two small Christmas tree wall ornaments | on right red wall | above sofa, right of clock |
+3. **Set up the camera**  
+   Position the camera to face the new coordinate origin, capturing the floor and two adjacent walls.
 
 ---
 
-## ✨ 3. Additional Decorative Elements
-- **string_lights:** multicolor bulbs hanging across both walls and ceiling corners  
-- **stockings:** two small stockings hanging from fireplace mantel  
-- **garland:** green with white border, draped over mantel  
-- **framed_picture:** rectangular frame with unreadable text on wooden wall above the tree  
+## Stage B: Core Furniture Construction
+
+Sequentially generate (use 'get_better_object' tool) and place the following objects:
 
 ---
 
-## 🧩 4. Simplified JSON Representation
+### 1. **Lounge Set**  
+Includes the sofa, floor lamp, coffee table, round rug, and snowman.
 
-```json
-{
-  "scene": "cozy_christmas_room",
-  "objects": [
-    {"name": "christmas_tree", "relations": {"left_of": "fireplace", "above": "giftboxes"}},
-    {"name": "giftboxes", "relations": {"below": "christmas_tree"}},
-    {"name": "round_carpet", "relations": {"below": "coffee_table"}},
-    {"name": "fireplace", "relations": {"behind": "coffee_table", "below": "bells"}},
-    {"name": "coach", "relations": {"right_of": "coffee_table"}},
-    {"name": "coffee_table", "relations": {"on": "round_carpet", "below": "snowman"}},
-    {"name": "snowman", "relations": {"on": "coffee_table"}},
-    {"name": "clock", "relations": {"above": "coach"}},
-    {"name": "bells", "relations": {"above": "fireplace"}},
-    {"name": "christmastree_decoration", "relations": {"right_of": "clock", "above": "coach"}}
-  ]
-}
+- **Coordinates:** **(x ≈ 0.0, y ≈ 0.5, z ≈ 0.5)**  
+  *Position: centered horizontally, slightly toward the viewer, with its center slightly above the ground.*
+
+---
+
+### 2. **Main Christmas Tree**
+
+- **Coordinates:** **(x ≈ −1.0, y ≈ −1.0, z ≈ 1.0)**  
+  *Position: located in the left–rear corner area, close to the back wall.*
+
+---
+
+### 3. **Gift Boxes**
+
+Place multiple gift boxes beneath and around the main tree.
+
+- **Coordinates:** near **(x ≈ −1.0, y ≈ −1.0, z slightly < 1.0)**  
+  *Position: clustered at the left–rear corner under the tree.*
+
+---
+
+### 4. **Fireplace**
+
+- **Coordinates:** **(x ≈ −1.3, y ≈ 0.0, z ≈ 1.0)**  
+  *Position: centered along the left wall, mid-depth of the room.*
+
+---
+
+### 5. **Golden Bells (above fireplace)**
+
+- **Coordinates:** **(x ≈ −1.3, y ≈ 0.0, z ≈ 2.5)**  
+  *Position: mounted high on the left wall directly above the fireplace.*
+
+---
+
+### 6. **Clock Above Lounge**
+
+- **Coordinates:** **(x ≈ −0.5, y ≈ 1.3, z ≈ 2.5)**  
+  *Position: on the front wall, upper-left region relative to the lounge.*
+
+---
+
+### 7. **Small Tree Decorations Near the Clock**
+
+- **Small Tree 1**  
+  **Coordinates:** **(x ≈ 0.25, y ≈ 1.3, z ≈ 2.5)**  
+  *Position: front wall, upper-right of the clock.*
+
+- **Small Tree 2**  
+  **Coordinates:** **(x ≈ 1.0, y ≈ 1.3, z ≈ 2.5)**  
+  *Position: front wall, near the far-right upper corner.*
+
+---
+
+### 8. **(Optional) Auxiliary Decorations**
+
+Add string lights along the tops of the walls and ceiling edges.  
+Add picture frames or other small ornaments to enhance realism.
+
+---
+
+## Stage C: Lighting and Rendering
+
+1. **Add main light sources**  
+   Use the ceiling lamp for overall diffusion; complement it with warm lighting from the fireplace and string lights.
+
+2. **Adjust ambient lighting**  
+   Apply a warm, cozy color tone with soft shadows and subtle ambient occlusion.
+
+3. **Render and tone adjustments**  
+   Use warm white balance, slightly increase saturation,  
+   and enable soft diffusion for a festive atmosphere.
+
+---
+
+## ✔ Notes for the model
+- Ensure all objects rest properly on their surfaces.  
+- Maintain consistent scale and avoid interpenetration.  
+- Keep coordinates within a reasonable centered range.  
+- Optimize for visual balance and spatial clarity.
+- If you can see the initial scene, it means there's a camera in the scene; do not modify the camera. If you cannot see the initial scene, it means there's no camera in the scene; you need to add one yourself to observe the scene.
