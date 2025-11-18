@@ -166,7 +166,39 @@ def load_task_description(task_dir: str) -> str:
     return ""
 
 
-def process_task_instance_reference_free(output_base_dir: str, task_dir: str, model_name: str = "gpt-4o"):
+def _get_best_round_map(intermediate_scores_path: str) -> dict:
+    """
+    Load the reference-based intermediate scores and determine the best (lowest) CLIP round per instance.
+    """
+    if not intermediate_scores_path or not os.path.exists(intermediate_scores_path):
+        return {}
+
+    with open(intermediate_scores_path, 'r') as f:
+        intermediates = json.load(f)
+
+    best_round_map = {}
+    for task_type, task_scores in intermediates.items():
+        instance_details = task_scores.get('instance_details', {})
+        for instance_name, rounds in instance_details.items():
+            best_round = None
+            best_clip = None
+            for round_id, round_scores in rounds.items():
+                if not isinstance(round_scores, dict):
+                    continue
+                if 'avg_n_clip' not in round_scores:
+                    continue
+                clip_val = round_scores['avg_n_clip']
+                if best_clip is None or clip_val < best_clip:
+                    best_clip = clip_val
+                    best_round = str(round_id)
+            if best_round is not None:
+                best_round_map[instance_name] = best_round
+
+    return best_round_map
+
+
+def process_task_instance_reference_free(output_base_dir: str, task_dir: str, model_name: str = "gpt-4o",
+                                         best_round_map=None):
     """
     Process a single task instance directory and compute reference-free metrics across rounds.
 
@@ -204,6 +236,16 @@ def process_task_instance_reference_free(output_base_dir: str, task_dir: str, mo
 
     if not round_dirs:
         return task_dir, {}, {}
+
+    target_round = None
+    if best_round_map:
+        target_round = best_round_map.get(task_dir)
+
+    if target_round:
+        if target_round in round_dirs:
+            round_dirs = [target_round]
+        else:
+            print(f"Warning: target round {target_round} missing for {task_dir}, evaluating all rounds instead.")
 
     for round_dir in round_dirs:
         round_path = os.path.join(renders_dir, round_dir)
@@ -301,6 +343,8 @@ def main():
                        help='GPT model to use for evaluation')
     parser.add_argument('--max_workers', type=int, default=9,
                        help='Maximum number of parallel workers')
+    parser.add_argument('--best_round_source', type=str, default=None,
+                       help='Path to intermediate_scores.json to restrict evaluation to best CLIP rounds')
     
     args = parser.parse_args()
     test_id = args.test_id
@@ -337,6 +381,11 @@ def main():
             tasks_by_type[task_type].append((task_dir, task_number))
     
     print(f"Grouped tasks by type: {list(tasks_by_type.keys())}")
+
+    best_round_map = {}
+    if args.best_round_source:
+        best_round_map = _get_best_round_map(args.best_round_source)
+        print(f"Loaded {len(best_round_map)} best-round entries from {args.best_round_source}")
     
     scores_across_tasks = {}
     intermediates = {}
@@ -361,7 +410,13 @@ def main():
         max_workers = min(args.max_workers, (os.cpu_count() or 4))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
-                executor.submit(process_task_instance_reference_free, output_base_dir, task_dir, args.model_name)
+                executor.submit(
+                    process_task_instance_reference_free,
+                    output_base_dir,
+                    task_dir,
+                    args.model_name,
+                    best_round_map
+                )
                 for task_dir, _ in task_instances
             ]
 
