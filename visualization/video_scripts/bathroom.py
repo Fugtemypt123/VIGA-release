@@ -179,6 +179,11 @@ def setup_render(output_path, frames, fps):
 
     # 引擎（这里仍使用 Cycles，设备由 enable_gpu_for_cycles 控制）
     scene.render.engine = "CYCLES"
+    
+    scene.render.resolution_x = 1080
+    scene.render.resolution_y = 1080
+    scene.render.resolution_percentage = 100
+    scene.render.use_motion_blur = False
 
     scene.render.image_settings.file_format = "FFMPEG"
     ffmpeg = scene.render.ffmpeg
