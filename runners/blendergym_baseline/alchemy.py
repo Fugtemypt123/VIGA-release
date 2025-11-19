@@ -150,7 +150,7 @@ def load_blendergym_dataset(base_path: str, task_name: str, test_id: Optional[st
         
     current_task_dirs: List[str] = []
     if test_id is not None:
-        current_task_path = Path(f"output/blendergym/{test_id}")
+        current_task_path = Path(f"output/blendergym/alchemy/{test_id}/blendergym")
         for task in task_list:
             for task_dir in current_task_path.glob(f"{task}*"):
                 scores_path = task_dir / "scores.json"
