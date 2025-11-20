@@ -15,7 +15,14 @@ FIXED_ROT_EULER = (
     0.0
 )
 
+# 物理 / 动画真实存在的帧区间，固定 1–300
+BASE_ANIM_FRAMES = 300
+
+# 想要“导出的视频帧数”
+# - 若 < BASE_ANIM_FRAMES：在 1–300 中等距抽帧渲染
+# - 若 >= BASE_ANIM_FRAMES：按 300 帧逐帧渲染
 TARGET_TOTAL_FRAMES = 300
+
 FPS = 30
 OUTPUT_PATH = "//table.mp4"
 # ==============================
@@ -94,18 +101,19 @@ def ensure_camera():
 
 def animate_camera(camera):
     """
+    在真实动画帧 1–BASE_ANIM_FRAMES 内做相机动画：
     前半段：CAM_START → CAM_END 的直线插值
     后半段：保持在 CAM_END，不移动
     旋转保持固定不变
     """
     scene = bpy.context.scene
-    mid_frame = TARGET_TOTAL_FRAMES // 2
+    mid_frame = BASE_ANIM_FRAMES // 2
 
-    for f in range(TARGET_TOTAL_FRAMES):
+    for f in range(1, BASE_ANIM_FRAMES + 1):
         scene.frame_set(f)
 
         if f <= mid_frame:
-            t = f / mid_frame
+            t = (f - 1) / mid_frame
             pos = CAM_START.lerp(CAM_END, t)
         else:
             pos = CAM_END
@@ -116,40 +124,46 @@ def animate_camera(camera):
         camera.keyframe_insert("location", frame=f)
         camera.keyframe_insert("rotation_euler", frame=f)
 
-    print("[INFO] Linear move + hold animation created.")
+    print("[INFO] Camera animation (1–{0}) created.".format(BASE_ANIM_FRAMES))
 
 
-def retime_all_existing_animation():
+def configure_frame_sampling():
     """
-    按你的需求保留：将原动画扩展到 TARGET_TOTAL_FRAMES。
-    不修改，你原来写死了 orig_end=30。
+    不再修改原始动画，只控制“渲染时如何抽帧”：
+    - 动画区间始终为 1–BASE_ANIM_FRAMES
+    - 若 TARGET_TOTAL_FRAMES >= BASE_ANIM_FRAMES：
+        渲染 1–BASE_ANIM_FRAMES，逐帧输出
+    - 若 TARGET_TOTAL_FRAMES < BASE_ANIM_FRAMES：
+        设置 frame_step，使得在 1–BASE_ANIM_FRAMES 中等距抽帧
+        （近似地得到 ~TARGET_TOTAL_FRAMES 帧）
     """
     scene = bpy.context.scene
 
-    orig_start = scene.frame_start
-    orig_end = 30
+    base = BASE_ANIM_FRAMES
+    target = TARGET_TOTAL_FRAMES
 
-    print(f"[INFO] Original animation range: {orig_start} → {orig_end}")
+    if target >= base:
+        # 目标帧数多于或等于基础动画帧 → 就按 1–base 全部渲染
+        scene.frame_start = 1
+        scene.frame_end = base
+        scene.frame_step = 1
+        print(f"[INFO] TARGET_TOTAL_FRAMES >= {base}, use full range 1–{base} with step=1.")
+    else:
+        # 目标帧数更少 → 在 1–base 中等距抽样
+        step_float = base / float(target)
+        step = max(1, int(round(step_float)))
+        scene.frame_start = 1
+        scene.frame_end = base
+        scene.frame_step = step
 
-    if orig_end <= orig_start:
-        print("[WARN] No valid animation. Skipping retime.")
-        return
+        # 实际输出帧数（约等于 target）
+        actual_frames = (base - 1) // step + 1
 
-    factor = (TARGET_TOTAL_FRAMES - 1) / (orig_end - orig_start)
-
-    for action in bpy.data.actions:
-        for fc in action.fcurves:
-            for key in fc.keyframe_points:
-                old = key.co.x
-                new = (old - orig_start) * factor
-                key.co.x = new
-                key.handle_left.x = new
-                key.handle_right.x = new
-
-    scene.frame_start = 0
-    scene.frame_end = TARGET_TOTAL_FRAMES - 1
-
-    print("[INFO] All original animations retimed.")
+        print(
+            "[INFO] TARGET_TOTAL_FRAMES = {0} < {1}, "
+            "use frame_step = {2}, actual rendered frames ≈ {3}."
+            .format(target, base, step, actual_frames)
+        )
 
 
 def setup_render():
@@ -158,8 +172,8 @@ def setup_render():
     scene.render.engine = "CYCLES"
     scene.render.fps = FPS
 
-    scene.frame_start = 0
-    scene.frame_end = TARGET_TOTAL_FRAMES - 1
+    # 帧区间 & 抽样由 configure_frame_sampling 决定
+    # 这里只负责渲染参数
     scene.render.resolution_x = 1080
     scene.render.resolution_y = 1080
     scene.render.resolution_percentage = 100
@@ -180,10 +194,13 @@ def main():
     print("[INFO] Starting...")
 
     enable_gpu_for_cycles()
-    retime_all_existing_animation()
 
+    # 不再做 retime，真实动画认为是 1–BASE_ANIM_FRAMES
     cam = ensure_camera()
     animate_camera(cam)
+
+    # 根据 TARGET_TOTAL_FRAMES 决定如何抽帧
+    configure_frame_sampling()
 
     setup_render()
 
