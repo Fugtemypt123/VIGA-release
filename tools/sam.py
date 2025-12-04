@@ -41,7 +41,7 @@ def initialize(args: dict) -> dict:
     _sam3_cfg = args.get("sam3d_config_path") or os.path.join(
         ROOT, "utils", "sam3d", "checkpoints", "hf", "pipeline.yaml"
     )
-    return {"status": "success", "output": {"text": ["sam bridge init ok"]}}
+    return {"status": "success", "output": {"text": ["sam bridge init ok"], "tool_configs": tool_configs}}
 
 
 @mcp.tool()
