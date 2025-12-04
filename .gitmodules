@@ -4,3 +4,6 @@
 [submodule "utils/sam3d"]
 	path = utils/sam3d
 	url = https://github.com/facebookresearch/sam-3d-objects.git
+[submodule "utils/sam3"]
+	path = utils/sam3
+	url = https://github.com/facebookresearch/sam3.git
