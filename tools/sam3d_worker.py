@@ -45,3 +45,5 @@ if __name__ == "__main__":
 
 
 # python tools/sam3d_worker.py --image data/static_scene/christmas/target.png --mask output/test/sam3/snowman_mask.npy --config utils/sam3d/checkpoints/hf/pipeline.yaml --glb output/test/sam3/snowman.glb
+
+# python tools/sam3d_worker.py --image data/static_scene/blackhouse/target.jpeg --mask output/static_scene/20251205_030616/blackhouse/house_mask.npy --config utils/sam3d/checkpoints/hf/pipeline.yaml --glb output/static_scene/20251205_030616/blackhouse/house.glb
