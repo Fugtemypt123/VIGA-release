@@ -100,7 +100,7 @@ def main():
                 "output_dir": os.path.join(ROOT, "output", "test", "sam3"),
             }
         )
-        print(get_better_object("house"))
+        print(get_better_object("xxx", "house"))
     else:
         mcp.run()
 
