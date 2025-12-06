@@ -17,7 +17,7 @@ def main():
 
     model = build_sam3_image_model()
     proc = Sam3Processor(model)
-    img = Image.open(args.image)
+    img = Image.open(args.image).convert("RGB")
     state = proc.set_image(img)
     out = proc.set_text_prompt(state=state, prompt=args.object)
     masks = out["masks"]
