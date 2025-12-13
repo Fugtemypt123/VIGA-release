@@ -174,7 +174,7 @@ def get_object_name_from_vlm(image_path, ori_img_path, model="gpt-4o", existing_
                     },
                     {
                         "type": "text",
-                        "text": f"Look at the first image showing a segmented object, and the second image showing the original image that contains this object. Identify what this object is and provide a concise, descriptive name for it (e.g., 'red_chair', 'wooden_table', 'snowman', 'christmas_tree'). Use only lowercase letters, numbers, and underscores. The name should be a single word or short phrase (2-3 words max, use underscores to separate words).{existing_names_str}\n\nRespond with ONLY the object name, nothing else."
+                        "text": f"Look at the first image showing a segmented object, and the second image showing the original image that contains this object. Identify what this object is and provide a concise, descriptive name for it (e.g., 'red_chair', 'wooden_table', 'background_wall'). Use only lowercase letters, numbers, and underscores. The name should be a single word or short phrase (2-3 words max, use underscores to separate words).{existing_names_str}\n\nRespond with ONLY the object name, nothing else."
                     }
                 ]
             }
