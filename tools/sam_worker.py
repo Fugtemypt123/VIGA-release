@@ -5,6 +5,7 @@ import re
 from PIL import Image
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(ROOT)
 sys.path.append(os.path.join(ROOT, "utils", "sam"))
 sys.path.append(os.path.join(ROOT, "utils"))
 
@@ -69,6 +70,13 @@ def panic_filtering_process(raw_masks):
             # 更新占用图：将当前 Mask 的区域标记为已占用
             occupancy_mask = np.logical_or(occupancy_mask, current_seg)
     
+    # ---------------------------------------------------------
+    # 第四步：按 area 排序并只返回前 k=12 个
+    # ---------------------------------------------------------
+    final_masks.sort(key=lambda x: x['area'], reverse=True)
+    k = 15
+    final_masks = final_masks[:k]
+    
     return final_masks
 
 
@@ -118,6 +126,7 @@ def sanitize_filename(name):
         sanitized = "object"
     return sanitized
 
+times = 0
 
 def get_object_name_from_vlm(image_path, model="gpt-4o", existing_names=None):
     """
@@ -131,6 +140,9 @@ def get_object_name_from_vlm(image_path, model="gpt-4o", existing_names=None):
     Returns:
         物体名称（字符串）
     """
+    global times
+    times = times + 1
+    return f"object_{times}"
     if existing_names is None:
         existing_names = []
     
@@ -232,7 +244,7 @@ def main():
         return
     
     # 确定输出目录
-    output_dir = os.path.dirname(args.out) if os.path.dirname(args.out) else "."
+    output_dir = args.out
     os.makedirs(output_dir, exist_ok=True)
     
     # 为每个 mask 保存 PNG 并使用 VLM 命名
