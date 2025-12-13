@@ -33,12 +33,10 @@ def main():
     # output.keys: ['6drotation_normalized', 'scale', 'shape', 'translation', 'translation_scale', 'coords_original', 'coords', 'downsample_factor', 'rotation', 'mesh', 'gaussian', 'glb', 'gs', 'pointmap', 'pointmap_colors']
     # convert tensor to list
     
-    glb_path = None
     glb = output.get("glb")
     if glb is not None and hasattr(glb, "export"):
         os.makedirs(os.path.dirname(args.glb), exist_ok=True)
         glb.export(args.glb)
-        glb_path = args.glb
     
     # 提取变换信息
     translation = None

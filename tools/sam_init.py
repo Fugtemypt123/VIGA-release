@@ -84,7 +84,7 @@ def reconstruct_full_scene() -> dict:
             capture_output=True,
         )
         
-        # Step 2: 加载 masks 并重建每个物体
+        # Step 2: 加载 masks 和物体名称映射
         masks = np.load(all_masks_path, allow_pickle=True)
         
         # 处理 masks 可能是 object array 的情况
@@ -97,18 +97,49 @@ def reconstruct_full_scene() -> dict:
             # 单个 mask 的情况
             masks = [masks]
         
+        # 加载物体名称映射信息
+        object_names_json_path = all_masks_path.replace('.npy', '_object_names.json')
+        object_mapping = None
+        if os.path.exists(object_names_json_path):
+            with open(object_names_json_path, 'r') as f:
+                object_names_info = json.load(f)
+                object_mapping = object_names_info.get("object_mapping", [])
+                print(f"[SAM_INIT] Loaded object names mapping from: {object_names_json_path}")
+        else:
+            print(f"[SAM_INIT] Warning: Object names mapping file not found: {object_names_json_path}, using default names")
+        
         print(f"[SAM_INIT] Step 2: Reconstructing {len(masks)} objects with SAM-3D...")
         
         glb_paths = []
         object_transforms = []  # 存储每个物体的位置信息
         for idx, mask in enumerate(masks):
-            # 保存单个 mask
-            mask_path = os.path.join(_output_dir, f"mask_{idx}.npy")
-            np.save(mask_path, mask)
+            # 获取物体名称（如果可用，否则使用默认名称）
+            if object_mapping and idx < len(object_mapping):
+                object_name = object_mapping[idx]
+            else:
+                object_name = f"object_{idx}"
             
-            # 重建 3D
-            glb_path = os.path.join(_output_dir, f"object_{idx}.glb")
-            if os.path.exists(glb_path):
+            # 使用 sam_worker.py 已经保存的 mask 文件（如果存在），否则保存新的
+            mask_path = os.path.join(_output_dir, f"{object_name}.npy")
+            if not os.path.exists(mask_path):
+                # 如果文件不存在，保存 mask（这种情况不应该发生，但为了健壮性保留）
+                np.save(mask_path, mask)
+            else:
+                print(f"[SAM_INIT] Using existing mask file: {mask_path}")
+            
+            # 重建 3D，使用相同的物体名称
+            # 首先检查基础文件名是否存在
+            glb_path = os.path.join(_output_dir, f"{object_name}.glb")
+            info_path = os.path.join(_output_dir, f"{object_name}.json")
+            
+            # 如果文件已存在（可能在之前的运行中生成），跳过重建
+            if os.path.exists(glb_path) and os.path.exists(info_path):
+                print(f"[SAM_INIT] GLB file already exists, skipping reconstruction: {glb_path}")
+                glb_paths.append(glb_path)
+                # 尝试从之前的 transforms.json 中恢复信息，或使用默认值
+                with open(info_path, 'r') as f:
+                    info = json.load(f)
+                    object_transforms.append(info)
                 continue
             try:
                 r = subprocess.run(
@@ -159,14 +190,17 @@ def reconstruct_full_scene() -> dict:
                         "rotation": info.get("rotation"),  # 四元数 [w, x, y, z]
                         "scale": info.get("scale", 1.0),
                     })
-                    print(f"[SAM_INIT] Successfully reconstructed object {idx}")
+                    # save info to json
+                    with open(os.path.join(_output_dir, f"{object_name}.json"), 'w') as f:
+                        json.dump(info, f, indent=2)
+                    print(f"[SAM_INIT] Successfully reconstructed object {idx} ({object_name})")
                 else:
-                    print(f"[SAM_INIT] Warning: Object {idx} reconstruction failed or no GLB generated")
+                    print(f"[SAM_INIT] Warning: Object {idx} ({object_name}) reconstruction failed or no GLB generated")
             except subprocess.CalledProcessError as e:
-                print(f"[SAM_INIT] Warning: Failed to reconstruct object {idx}: {e.stderr}")
+                print(f"[SAM_INIT] Warning: Failed to reconstruct object {idx} ({object_name}): {e.stderr}")
                 continue
             except json.JSONDecodeError:
-                print(f"[SAM_INIT] Warning: Failed to parse output for object {idx}")
+                print(f"[SAM_INIT] Warning: Failed to parse output for object {idx} ({object_name})")
                 continue
         
         if len(glb_paths) == 0:

@@ -2,6 +2,7 @@ import os, sys, argparse, numpy as np
 import cv2
 import torch
 import re
+import json
 from PIL import Image
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -303,6 +304,25 @@ def main():
             mask_arrays = np.stack(mask_arrays, axis=0)
             np.save(args.out, mask_arrays)
             print(f"Also saved combined masks to: {args.out}")
+        
+        # 保存物体名称映射信息，用于后续 sam_init.py 使用
+        object_names_json_path = args.out.replace('.npy', '_object_names.json')
+        # 从 npy_path 中提取最终的文件名（不带扩展名），因为可能包含了冲突后缀
+        object_mapping = []
+        for item in mask_files:
+            npy_path = item["npy_path"]
+            # 提取文件名（不包括路径和扩展名）
+            npy_filename = os.path.basename(npy_path)
+            object_name_final = os.path.splitext(npy_filename)[0]  # 去掉 .npy 扩展名
+            object_mapping.append(object_name_final)
+        
+        object_names_info = {
+            "object_names": object_names,  # 按顺序的物体基础名称列表
+            "object_mapping": object_mapping  # 每个 mask 的最终文件名（按顺序，包含冲突后缀如 _1, _2 等）
+        }
+        with open(object_names_json_path, 'w') as f:
+            json.dump(object_names_info, f, indent=2)
+        print(f"Also saved object names mapping to: {object_names_json_path}")
     
     print(f"\nGenerated {len(raw_masks)} raw masks, filtered to {len(filtered_masks)} masks")
     print(f"Identified objects: {', '.join(object_names)}")
