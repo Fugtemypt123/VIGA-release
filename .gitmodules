@@ -8,3 +8,6 @@
 	path = utils/sam3d
 	url = https://github.com/facebookresearch/sam-3d-objects.git
 	branch = main
+[submodule "utils/sam"]
+	path = utils/sam
+	url = https://github.com/facebookresearch/segment-anything.git
