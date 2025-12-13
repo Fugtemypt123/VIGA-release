@@ -53,8 +53,8 @@ def main():
         else:
             translation = trans_tensor.tolist() if hasattr(trans_tensor, "tolist") else trans_tensor
     
-    # 提取 rotation（3x3 矩阵）
-    rotation_3x3 = None
+    # 提取 rotation（四元数格式 w, x, y, z）
+    rotation_quaternion = None
     if "rotation" in output:
         rot_tensor = output["rotation"]
         # reshape to 4
@@ -65,18 +65,8 @@ def main():
             rot_np = rot_tensor.numpy()
         else:
             rot_np = rot_tensor
-        # 假设是 [w, x, y, z] 格式，转换为 3x3 矩阵
-        import numpy as np
-        if abs(rot_np[0]) > 0.9:  # w is first
-            w, x, y, z = rot_np
-        else:  # w is last
-            x, y, z, w = rot_np
-        # 转换为 3x3 旋转矩阵
-        rotation_3x3 = np.array([
-            [1 - 2*(y*y + z*z), 2*(x*y - w*z), 2*(x*z + w*y)],
-            [2*(x*y + w*z), 1 - 2*(x*x + z*z), 2*(y*z - w*x)],
-            [2*(x*z - w*y), 2*(y*z + w*x), 1 - 2*(x*x + y*y)]
-        ]).tolist()
+        # 直接输出四元数 [w, x, y, z] 格式
+        rotation_quaternion = rot_np.tolist()
     
     translation_scale = None
     if "translation_scale" in output:
@@ -105,10 +95,10 @@ def main():
     print(
         json.dumps(
             {
-                "glb": args.glb,  # 新格式使用 "glb"
+                "glb_path": args.glb,
                 "translation": translation,
                 "translation_scale": translation_scale,
-                "rotation": rotation_3x3,
+                "rotation": rotation_quaternion,  # 四元数格式 [w, x, y, z]
                 "scale": scale,
             }
         )

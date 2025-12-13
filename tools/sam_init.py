@@ -108,6 +108,8 @@ def reconstruct_full_scene() -> dict:
             
             # 重建 3D
             glb_path = os.path.join(_output_dir, f"object_{idx}.glb")
+            if os.path.exists(glb_path):
+                continue
             try:
                 r = subprocess.run(
                     [
@@ -130,15 +132,31 @@ def reconstruct_full_scene() -> dict:
                 
                 # 解析输出，检查是否成功生成 glb
                 info = json.loads(r.stdout.strip().splitlines()[-1])
-                glb_path_value = info.get("glb") or info.get("glb_path")
+                glb_path_value = info.get("glb_path")
                 if glb_path_value:
+                    # 修复 GLB 文件的贴图问题
+                    subprocess.run(
+                        [
+                            _blender_command,
+                            "-b",
+                            "-P",
+                            "tools/fix_glb.py",
+                            "--",
+                            glb_path_value,
+                            glb_path_value,
+                        ],
+                        cwd=ROOT,
+                        check=True,
+                        text=True,
+                        capture_output=True,
+                    )
                     glb_paths.append(glb_path_value)
                     # 保存位置信息（新格式）
                     object_transforms.append({
-                        "glb": glb_path_value,  # 使用 "glb" 键
+                        "glb_path": glb_path_value,
                         "translation": info.get("translation"),
                         "translation_scale": info.get("translation_scale", 1.0),
-                        "rotation": info.get("rotation"),  # 3x3 旋转矩阵
+                        "rotation": info.get("rotation"),  # 四元数 [w, x, y, z]
                         "scale": info.get("scale", 1.0),
                     })
                     print(f"[SAM_INIT] Successfully reconstructed object {idx}")
@@ -210,8 +228,8 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
         initialize(
             {
-                "target_image_path": "data/static_scene/christmas1/target_real.png",
-                "output_dir": os.path.join(ROOT, "output", "test", "christmas1"),
+                "target_image_path": "data/static_scene/items19/target.png",
+                "output_dir": os.path.join(ROOT, "output", "test", "items19"),
                 "blender_command": "utils/infinigen/blender/blender",
             }
         )

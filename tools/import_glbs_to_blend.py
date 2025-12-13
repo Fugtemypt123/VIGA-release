@@ -4,7 +4,7 @@ import os
 import json
 # mathutils 是 Blender 内置模块，只在 Blender 环境中可用
 import mathutils  # type: ignore
-from mathutils import Vector, Matrix, Euler  # type: ignore
+from mathutils import Vector, Matrix, Euler, Quaternion  # type: ignore
 
 # ----------------- 参数解析 -----------------
 def parse_args():
@@ -68,36 +68,6 @@ def get_coordinate_fix_matrix():
         [0.0, 0.0, 0.0, 1.0]
     ])
 
-# ----------------- 构建模型矩阵 -----------------
-def build_model_matrix(rotation_3x3, translation):
-    """
-    Build a 4x4 model matrix from 3x3 rotation matrix and translation vector.
-    
-    Args:
-        rotation_3x3: List of lists representing 3x3 rotation matrix
-        translation: List of 3 floats [x, y, z]
-    
-    Returns:
-        4x4 Matrix
-    """
-    # 确保 rotation 是 3x3
-    if len(rotation_3x3) != 3 or any(len(row) != 3 for row in rotation_3x3):
-        raise ValueError(f"Invalid rotation matrix shape: {rotation_3x3}")
-    
-    # 构建 4x4 矩阵
-    # M_model = [[R00, R01, R02, Tx],
-    #             [R10, R11, R12, Ty],
-    #             [R20, R21, R22, Tz],
-    #             [0,   0,   0,   1]]
-    model_matrix = Matrix([
-        [float(rotation_3x3[0][0]), float(rotation_3x3[0][1]), float(rotation_3x3[0][2]), float(translation[0])],
-        [float(rotation_3x3[1][0]), float(rotation_3x3[1][1]), float(rotation_3x3[1][2]), float(translation[1])],
-        [float(rotation_3x3[2][0]), float(rotation_3x3[2][1]), float(rotation_3x3[2][2]), float(translation[2])],
-        [0.0, 0.0, 0.0, 1.0]
-    ])
-    
-    return model_matrix
-
 # ----------------- 处理 translation_scale -----------------
 def get_translation_scale(translation_scale):
     """
@@ -128,15 +98,15 @@ def get_scale_vector(scale):
     return Vector((1.0, 1.0, 1.0))  # Default
 
 # ----------------- 导入 glb 并应用变换 -----------------
-def import_glb_with_transform(glb_path, translation, translation_scale, rotation_3x3, scale, name_prefix=""):
+def import_glb_with_transform(glb_path, translation, translation_scale, rotation_quaternion, scale, name_prefix=""):
     """
-    Import GLB file and apply transformation matrix.
+    Import GLB file and apply transformation.
     
     Args:
         glb_path: Path to GLB file
         translation: Translation vector [x, y, z]
         translation_scale: Scale factor for translation (scalar or list)
-        rotation_3x3: 3x3 rotation matrix (list of lists)
+        rotation_quaternion: Quaternion [w, x, y, z] format
         scale: Object scale (scalar or list [x, y, z])
         name_prefix: Prefix for object name
     """
@@ -170,41 +140,37 @@ def import_glb_with_transform(glb_path, translation, translation_scale, rotation
         root.name = f"{name_prefix}_{root.name}"
     
     # 1. 计算最终平移: T_final = translation * translation_scale
-    trans_scale = 1
+    trans_scale_val = 1
     if isinstance(translation, list) and len(translation) >= 3:
         # 处理嵌套列表
         if isinstance(translation[0], list):
             trans = translation[0]
         else:
             trans = translation
-        T_final = [float(trans[i]) * trans_scale for i in range(3)]
+        T_final = Vector([float(trans[i]) * trans_scale_val for i in range(3)])
     else:
         print(f"[WARN] Invalid translation format: {translation}, using [0, 0, 0]")
-        T_final = [0.0, 0.0, 0.0]
+        T_final = Vector((0.0, 0.0, 0.0))
     
-    # 2. 构建模型矩阵 M_model
-    if not isinstance(rotation_3x3, list) or len(rotation_3x3) != 3:
-        print(f"[WARN] Invalid rotation matrix format: {rotation_3x3}, using identity")
-        rotation_3x3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    # 2. 解析四元数 [w, x, y, z]
+    if not isinstance(rotation_quaternion, list) or len(rotation_quaternion) != 4:
+        print(f"[WARN] Invalid quaternion format: {rotation_quaternion}, using identity")
+        quat = Quaternion((1.0, 0.0, 0.0, 0.0))  # 单位四元数
+    else:
+        # Blender 的 Quaternion 使用 (w, x, y, z) 格式
+        quat = Quaternion((float(rotation_quaternion[0]), float(rotation_quaternion[1]), 
+                          float(rotation_quaternion[2]), float(rotation_quaternion[3])))
     
-    M_model = build_model_matrix(rotation_3x3, T_final)
+    # 3. 设置位置、旋转和缩放
+    root.location = T_final
+    root.rotation_mode = 'QUATERNION'
+    root.rotation_quaternion = quat
     
-    # 3. 应用坐标系统修正: M_blender = M_fix * M_model
-    M_fix = get_coordinate_fix_matrix()
-    M_blender = M_fix @ M_model
-    
-    # 4. 应用矩阵变换到根对象
-    # 注意：Blender 的 matrix_world 是 4x4，我们需要确保对象在正确的模式下
-    root.matrix_world = M_blender
-    
-    # 5. 应用缩放（在矩阵变换之后）
+    # 5. 应用缩放
     scale_vec = get_scale_vector(scale)
-    # 缩放是相对于对象本地坐标系的，所以需要小心处理
-    # 我们可以通过修改 matrix_world 来应用缩放，或者直接设置 scale
-    # 为了简单，我们直接设置 scale 属性
     root.scale = scale_vec
     
-    print(f"[INFO] Applied transform - Translation: {T_final}, Scale: {scale_vec}")
+    print(f"[INFO] Applied transform - Translation: {T_final}, Rotation (quaternion): {quat}, Scale: {scale_vec}")
     print(f"[INFO] Imported {len(imported_objects)} objects from {glb_path}")
     
     return root
@@ -237,9 +203,9 @@ def main():
     # 导入所有对象
     success_count = 0
     for idx, obj_data in enumerate(objects_data):
-        glb_path = obj_data.get("glb")
+        glb_path = obj_data.get("glb") or obj_data.get("glb_path")
         if not glb_path:
-            print(f"[WARN] No 'glb' key for object {idx}, skipping")
+            print(f"[WARN] No 'glb' or 'glb_path' key for object {idx}, skipping")
             continue
         
         # 获取变换参数
@@ -256,7 +222,7 @@ def main():
             glb_path=glb_path,
             translation=translation,
             translation_scale=translation_scale,
-            rotation_3x3=rotation,
+            rotation_quaternion=rotation,
             scale=scale,
             name_prefix=f"obj_{idx}"
         )
