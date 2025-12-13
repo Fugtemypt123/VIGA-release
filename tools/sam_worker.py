@@ -126,30 +126,26 @@ def sanitize_filename(name):
         sanitized = "object"
     return sanitized
 
-times = 0
-
-def get_object_name_from_vlm(image_path, model="gpt-4o", existing_names=None):
+def get_object_name_from_vlm(image_path, ori_img_path, model="gpt-4o", existing_names=None):
     """
     使用 VLM 识别图片中的物体并返回一个唯一的名称
     
     Args:
         image_path: PNG 图片路径
+        ori_img_path: 原始图片路径
         model: VLM 模型名称
         existing_names: 已存在的名称列表，用于确保不重复
     
     Returns:
         物体名称（字符串）
     """
-    global times
-    times = times + 1
-    return f"object_{times}"
     if existing_names is None:
         existing_names = []
     
     try:
         # 编码图片
         image_b64 = get_image_base64(image_path)
-        
+        ori_img_b64 = get_image_base64(ori_img_path)
         # 初始化 OpenAI client
         client = build_client(model)
         
@@ -170,8 +166,14 @@ def get_object_name_from_vlm(image_path, model="gpt-4o", existing_names=None):
                         }
                     },
                     {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": ori_img_b64
+                        }
+                    },
+                    {
                         "type": "text",
-                        "text": f"Look at this image showing a segmented object. Identify what this object is and provide a concise, descriptive name for it (e.g., 'red_chair', 'wooden_table', 'snowman', 'christmas_tree'). Use only lowercase letters, numbers, and underscores. The name should be a single word or short phrase (2-3 words max, use underscores to separate words).{existing_names_str}\n\nRespond with ONLY the object name, nothing else."
+                        "text": f"Look at the first image showing a segmented object, and the second image showing the original image that contains this object. Identify what this object is and provide a concise, descriptive name for it (e.g., 'red_chair', 'wooden_table', 'snowman', 'christmas_tree'). Use only lowercase letters, numbers, and underscores. The name should be a single word or short phrase (2-3 words max, use underscores to separate words).{existing_names_str}\n\nRespond with ONLY the object name, nothing else."
                     }
                 ]
             }
@@ -244,7 +246,7 @@ def main():
         return
     
     # 确定输出目录
-    output_dir = args.out
+    output_dir = os.path.dirname(args.out)
     os.makedirs(output_dir, exist_ok=True)
     
     # 为每个 mask 保存 PNG 并使用 VLM 命名
@@ -255,11 +257,12 @@ def main():
     for idx, mask_data in enumerate(filtered_masks):
         # 1. 保存 PNG（临时文件名，稍后会重命名）
         temp_png_path = os.path.join(output_dir, f"temp_mask_{idx}.png")
+        ori_img_path = args.image
         save_mask_as_png(mask_data, image, temp_png_path)
         
         # 2. 使用 VLM 识别物体并获取名称
         print(f"  Identifying object {idx+1}/{len(filtered_masks)}...")
-        object_name = get_object_name_from_vlm(temp_png_path, model=args.vlm_model, existing_names=object_names)
+        object_name = get_object_name_from_vlm(temp_png_path, ori_img_path, model=args.vlm_model, existing_names=object_names)
         object_names.append(object_name)
         
         # 3. 重命名 PNG 文件为 object_ID.png
@@ -310,5 +313,5 @@ if __name__ == "__main__":
     main()
 
 
-# python tools/sam_worker.py --image data/static_scene/christmas1/target.png --out output/test/sam
+# python tools/sam_worker.py --image data/static_scene/christmas1/target.png --out output/test/sam/all_masks.npy
 

@@ -170,7 +170,7 @@ def import_glb_with_transform(glb_path, translation, translation_scale, rotation
         root.name = f"{name_prefix}_{root.name}"
     
     # 1. 计算最终平移: T_final = translation * translation_scale
-    trans_scale = get_translation_scale(translation_scale)
+    trans_scale = 1
     if isinstance(translation, list) and len(translation) >= 3:
         # 处理嵌套列表
         if isinstance(translation[0], list):

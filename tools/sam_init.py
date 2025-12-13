@@ -210,8 +210,8 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
         initialize(
             {
-                "target_image_path": "data/static_scene/christmas1/target.png",
-                "output_dir": os.path.join(ROOT, "output", "test", "sam_init"),
+                "target_image_path": "data/static_scene/christmas1/target_real.png",
+                "output_dir": os.path.join(ROOT, "output", "test", "christmas1"),
                 "blender_command": "utils/infinigen/blender/blender",
             }
         )
@@ -223,3 +223,5 @@ def main():
 if __name__ == "__main__":
     main()
 
+# python tools/sam_init.py --test
+# utils/infinigen/blender/blender -b -P /mnt/data/users/shaofengyin/AgenticVerifier/tools/import_glbs_to_blend.py -- /mnt/data/users/shaofengyin/AgenticVerifier/output/test/sam_init/object_transforms.json /mnt/data/users/shaofengyin/AgenticVerifier/output/test/sam_init/scene.blend
