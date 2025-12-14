@@ -32,6 +32,17 @@ def main():
     output = inference(image, mask, seed=42)
     # output.keys: ['6drotation_normalized', 'scale', 'shape', 'translation', 'translation_scale', 'coords_original', 'coords', 'downsample_factor', 'rotation', 'mesh', 'gaussian', 'glb', 'gs', 'pointmap', 'pointmap_colors']
     # convert tensor to list
+    saved_output = {}
+    for key, value in output.items():
+        if hasattr(value, "cpu"):
+            saved_output[key] = value.cpu().numpy()
+        elif hasattr(value, "numpy"):
+            saved_output[key] = value.numpy()
+        else:
+            saved_output[key] = value.tolist() if hasattr(value, "tolist") else value
+    
+    with open(args.glb.replace('.glb', '_output.json'), 'w') as f:
+        json.dump(saved_output, f)
     
     glb = output.get("glb")
     if glb is not None and hasattr(glb, "export"):

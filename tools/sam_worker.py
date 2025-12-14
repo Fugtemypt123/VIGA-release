@@ -75,7 +75,7 @@ def panic_filtering_process(raw_masks):
     # 第四步：按 area 排序并只返回前 k=12 个
     # ---------------------------------------------------------
     final_masks.sort(key=lambda x: x['area'], reverse=True)
-    k = 15
+    k = 20
     final_masks = final_masks[:k]
     
     return final_masks
@@ -174,7 +174,7 @@ def get_object_name_from_vlm(image_path, ori_img_path, model="gpt-4o", existing_
                     },
                     {
                         "type": "text",
-                        "text": f"Look at the first image showing a segmented object, and the second image showing the original image that contains this object. Identify what this object is and provide a concise, descriptive name for it (e.g., 'red_chair', 'wooden_table', 'background_wall'). Use only lowercase letters, numbers, and underscores. The name should be a single word or short phrase (2-3 words max, use underscores to separate words).{existing_names_str}\n\nRespond with ONLY the object name, nothing else."
+                        "text": f"Look at the first image showing a segmented object, and the second image showing the original image that contains this object. Identify what this object is and provide a concise, descriptive name for it (e.g., 'red_chair', 'wooden_table'). If the first image is not clear, check the second image to get the whole context.\n\nIf you think the first image is not a object, but a background, please return 'background' as the object name.\n\n Use only lowercase letters, numbers, and underscores. The name should be a single word or short phrase (2-3 words max, use underscores to separate words).{existing_names_str}\n\nRespond with ONLY the object name, nothing else."
                     }
                 ]
             }
@@ -264,6 +264,9 @@ def main():
         # 2. 使用 VLM 识别物体并获取名称
         print(f"  Identifying object {idx+1}/{len(filtered_masks)}...")
         object_name = get_object_name_from_vlm(temp_png_path, ori_img_path, model=args.vlm_model, existing_names=object_names)
+        if object_name == "background":
+            os.remove(temp_png_path)
+            continue
         object_names.append(object_name)
         
         # 3. 重命名 PNG 文件为 object_ID.png
