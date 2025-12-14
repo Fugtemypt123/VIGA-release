@@ -117,7 +117,8 @@ def parse_trajectory(traj_path: str, animation: bool = False, fix_camera: bool =
                 continue
             image_path = user_message['content'][2]['text'].split("Image loaded from local path: ")[1]
             image_name = image_path.split("/renders/")[-1]
-            right_img_path = os.path.join(RENDERS_DIR, image_name)
+            right_img_path = os.path.join(str(RENDERS_DIR), image_name)
+            right_img_path = os.path.abspath(right_img_path)  # 转换为绝对路径并规范化
             if os.path.exists(right_img_path):
                 step_data["image_path"] = right_img_path
                 count += 1
@@ -204,11 +205,19 @@ def get_image(step_index):
         return jsonify({"error": "Step not found"}), 404
     
     step = STEPS_DATA[step_index]
-    if not step["image_path"] or not os.path.exists(step["image_path"]):
-        return jsonify({"error": "Image not found"}), 404
+    image_path = step.get("image_path")
     
-    image_dir = os.path.dirname(step["image_path"])
-    image_file = os.path.basename(step["image_path"])
+    # 确保路径是字符串格式
+    if image_path:
+        image_path = str(image_path)
+    
+    if not image_path or not os.path.exists(image_path):
+        # 添加调试信息
+        print(f"[DEBUG] Image not found for step {step_index}: {image_path}")
+        return jsonify({"error": f"Image not found: {image_path}"}), 404
+    
+    image_dir = os.path.dirname(image_path)
+    image_file = os.path.basename(image_path)
     return send_from_directory(image_dir, image_file)
 
 
@@ -248,22 +257,22 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", type=str, default="20251028_133713")
     ap.add_argument("--port", type=int, default=5000)
-    ap.add_argument("--host", type=str, default="127.0.0.1")
+    ap.add_argument("--host", type=str, default="0.0.0.0")
     ap.add_argument("--fix_camera", action="store_true", help="固定相机位置和方向")
     ap.add_argument("--animation", action="store_true", help="从video_path加载MP4文件并拼接（与fix_camera相同逻辑）")
     args = ap.parse_args()
     
     # Determine base path (same logic as video_script.py)
     if args.animation:
-        if os.path.exists(f'/home/shaofengyin/AgenticVerifier/output/dynamic_scene/demo/{args.name}'):
-            base_path = f'/home/shaofengyin/AgenticVerifier/output/dynamic_scene/demo/{args.name}'
+        if os.path.exists(f'output/dynamic_scene/demo/{args.name}'):
+            base_path = f'output/dynamic_scene/demo/{args.name}'
         else:
-            base_path = f'/home/shaofengyin/AgenticVerifier/output/dynamic_scene/{args.name}'
+            base_path = f'output/dynamic_scene/{args.name}'
     else:
-        if os.path.exists(f'/home/shaofengyin/AgenticVerifier/output/static_scene/demo/{args.name}'):
-            base_path = f'/home/shaofengyin/AgenticVerifier/output/static_scene/demo/{args.name}'
+        if os.path.exists(f'output/static_scene/demo/{args.name}'):
+            base_path = f'output/static_scene/demo/{args.name}'
         else:
-            base_path = f'/home/shaofengyin/AgenticVerifier/output/static_scene/{args.name}'
+            base_path = f'output/static_scene/{args.name}'
     
     BASE_PATH = base_path
     
