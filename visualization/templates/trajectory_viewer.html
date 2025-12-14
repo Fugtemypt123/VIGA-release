@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trajectory Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0f0f0f;
+            color: #ebebeb;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .left-panel {
+            width: 50%;
+            background: #14161a;
+            padding: 28px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .right-panel {
+            width: 50%;
+            background: #0a0a0a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section {
+            margin-bottom: 18px;
+        }
+
+        .section-label {
+            color: #b4dcff;
+            font-size: 22px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .thought-content {
+            color: #ebebeb;
+            font-size: 18px;
+            line-height: 1.6;
+            min-height: 50px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .separator {
+            height: 2px;
+            background: #464650;
+            margin: 18px 0;
+        }
+
+        .code-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .code-container {
+            flex: 1;
+            background: #101012;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+            min-height: 200px;
+        }
+
+        .code-content {
+            padding: 8px;
+            overflow-y: auto;
+            height: 100%;
+            font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .code-content pre {
+            margin: 0;
+            padding: 0;
+        }
+
+        .code-content code {
+            display: block;
+            color: #dcdcdc;
+        }
+
+        .image-container {
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .video-container {
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-container video {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        #threejs-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+
+        .continue-btn {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+
+        .continue-btn:hover {
+            background: #3a8eef;
+        }
+
+        .continue-btn:disabled {
+            background: #464650;
+            cursor: not-allowed;
+        }
+
+        .step-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 10;
+        }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: #ebebeb;
+            margin-left: 2px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .loading {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module">
+        // Three.js will be loaded as ES modules if needed for 3D viewer
+        // For now, we'll use a simpler approach with UMD build
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <div class="section">
+                <div class="section-label">Thought</div>
+                <div class="thought-content" id="thought-content"></div>
+            </div>
+            <div class="separator"></div>
+            <div class="section code-section">
+                <div class="section-label">Code (Python)</div>
+                <div class="code-container">
+                    <div class="code-content" id="code-content"></div>
+                </div>
+            </div>
+        </div>
+        <div class="right-panel">
+            <div class="step-indicator" id="step-indicator">Step 0 / 0</div>
+            <div class="image-container" id="image-container"></div>
+            <div class="video-container" id="video-container" style="display: none;"></div>
+            <div class="canvas-container" id="canvas-container" style="display: none;"></div>
+            <div class="controls">
+                <button class="continue-btn" id="continue-btn" onclick="nextStep()">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStepIndex = -1;
+        let totalSteps = 0;
+        let stepsData = [];
+        let isTyping = false;
+        let typingTimeout = null;
+        let scene3D = null;
+        let camera3D = null;
+        let renderer3D = null;
+        let controls3D = null;
+
+        // Initialize
+        async function init() {
+            try {
+                const response = await fetch('/api/steps');
+                const data = await response.json();
+                totalSteps = data.total_steps;
+                stepsData = data.steps;
+                
+                if (totalSteps > 0) {
+                    updateStepIndicator();
+                    // Auto-start first step
+                    nextStep();
+                } else {
+                    document.getElementById('thought-content').textContent = 'No steps found in trajectory.';
+                }
+            } catch (error) {
+                console.error('Error loading steps:', error);
+                document.getElementById('thought-content').textContent = 'Error loading trajectory data.';
+            }
+        }
+
+        function updateStepIndicator() {
+            document.getElementById('step-indicator').textContent = 
+                `Step ${currentStepIndex + 1} / ${totalSteps}`;
+        }
+
+        async function loadStep(stepIndex) {
+            if (stepIndex < 0 || stepIndex >= totalSteps) {
+                return;
+            }
+
+            currentStepIndex = stepIndex;
+            updateStepIndicator();
+
+            try {
+                const response = await fetch(`/api/step/${stepIndex}`);
+                const step = await response.json();
+
+                // Clear previous content
+                document.getElementById('thought-content').innerHTML = '';
+                document.getElementById('code-content').innerHTML = '';
+                document.getElementById('image-container').innerHTML = '';
+                document.getElementById('video-container').innerHTML = '';
+                document.getElementById('video-container').style.display = 'none';
+                document.getElementById('canvas-container').style.display = 'none';
+                
+                // Hide 3D canvas if exists
+                if (renderer3D) {
+                    renderer3D.domElement.style.display = 'none';
+                }
+
+                // Type thought character by character
+                await typeThought(step.thought);
+
+                // Display code with syntax highlighting
+                displayCode(step.code);
+
+                // Load image or video
+                if (step.has_video) {
+                    await loadVideo(stepIndex);
+                } else if (step.has_image) {
+                    await loadImage(stepIndex);
+                }
+
+                // Try to load 3D scene if blend file exists
+                if (step.has_blend) {
+                    // Note: Direct .blend loading in browser is complex
+                    // For now, we'll show the rendered image
+                    // Future: Could export to glTF and load with three.js
+                    console.log('Blend file available but not yet loaded in 3D viewer');
+                }
+
+                // Enable continue button
+                document.getElementById('continue-btn').disabled = false;
+            } catch (error) {
+                console.error('Error loading step:', error);
+                document.getElementById('thought-content').textContent = 'Error loading step data.';
+            }
+        }
+
+        async function typeThought(text) {
+            isTyping = true;
+            const thoughtEl = document.getElementById('thought-content');
+            thoughtEl.innerHTML = '';
+            
+            // Add typing cursor
+            const cursor = document.createElement('span');
+            cursor.className = 'typing-cursor';
+            thoughtEl.appendChild(cursor);
+
+            for (let i = 0; i < text.length; i++) {
+                if (!isTyping) break; // Allow interruption
+                
+                // Remove cursor, add character, add cursor back
+                cursor.remove();
+                thoughtEl.textContent += text[i];
+                thoughtEl.appendChild(cursor);
+                
+                // Small delay for typing effect (faster for spaces/newlines)
+                const delay = (text[i] === ' ' || text[i] === '\n') ? 10 : 30;
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+
+            // Remove cursor when done
+            cursor.remove();
+            isTyping = false;
+        }
+
+        function displayCode(code) {
+            const codeEl = document.getElementById('code-content');
+            const pre = document.createElement('pre');
+            const codeBlock = document.createElement('code');
+            codeBlock.className = 'language-python';
+            codeBlock.textContent = code;
+            pre.appendChild(codeBlock);
+            codeEl.appendChild(pre);
+            
+            // Highlight syntax
+            hljs.highlightElement(codeBlock);
+        }
+
+        async function loadImage(stepIndex) {
+            const container = document.getElementById('image-container');
+            container.innerHTML = '';
+            
+            const img = document.createElement('img');
+            img.src = `/api/image/${stepIndex}?t=${Date.now()}`;
+            img.onerror = () => {
+                container.innerHTML = '<div class="loading">Image not available</div>';
+            };
+            container.appendChild(img);
+        }
+
+        async function loadVideo(stepIndex) {
+            const container = document.getElementById('video-container');
+            container.style.display = 'flex';
+            container.innerHTML = '';
+            
+            const video = document.createElement('video');
+            video.src = `/api/video/${stepIndex}?t=${Date.now()}`;
+            video.controls = true;
+            video.autoplay = true;
+            video.loop = true;
+            video.onerror = () => {
+                container.innerHTML = '<div class="loading">Video not available</div>';
+            };
+            container.appendChild(video);
+        }
+
+        function nextStep() {
+            if (currentStepIndex < totalSteps - 1) {
+                document.getElementById('continue-btn').disabled = true;
+                isTyping = false; // Stop current typing
+                if (typingTimeout) {
+                    clearTimeout(typingTimeout);
+                }
+                loadStep(currentStepIndex + 1);
+            } else {
+                document.getElementById('continue-btn').disabled = true;
+                document.getElementById('thought-content').textContent = 'All steps completed!';
+            }
+        }
+
+        // Initialize 3D viewer (for future Blender file support)
+        // Note: Direct .blend file loading in browser requires conversion to glTF/glb
+        // For now, this is a placeholder for future 3D interaction
+        function init3DViewer() {
+            // 3D viewer initialization will be implemented when Blender files
+            // are converted to web-compatible formats (glTF/glb)
+            // For now, we display rendered images
+            console.log('3D viewer placeholder initialized');
+        }
+        
+        // Future function to load 3D scene from Blender file (requires conversion)
+        async function loadBlenderScene(blendUrl) {
+            // This would require:
+            // 1. Converting .blend to .glb/.gltf on the server
+            // 2. Loading with GLTFLoader
+            // 3. Setting up OrbitControls for camera interaction
+            console.log('3D scene loading not yet implemented - requires Blender to glTF conversion');
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            init();
+            init3DViewer();
+        });
+    </script>
+</body>
+</html>
+
