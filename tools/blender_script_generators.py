@@ -44,7 +44,7 @@ for obj in bpy.data.objects:
         "visible": not (obj.hide_viewport or obj.hide_render),
         "bbox": bbox
     }})
-    if len(scene_info["objects"]) >= 15:
+    if len(scene_info["objects"]) >= 25:
         break
 
 for mat in bpy.data.materials:
@@ -53,7 +53,7 @@ for mat in bpy.data.materials:
         "use_nodes": mat.use_nodes,
         "diffuse_color": [round(x, 2) for x in mat.diffuse_color],
     }})
-    if len(scene_info["materials"]) >= 5:
+    if len(scene_info["materials"]) >= 10:
         break
         
 for light in [o for o in bpy.data.objects if o.type == 'LIGHT']:
