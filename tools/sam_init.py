@@ -1,5 +1,6 @@
 import os, sys, json, subprocess
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from mcp.server.fastmcp import FastMCP
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from utils.path import path_to_cmd
@@ -47,6 +48,111 @@ def initialize(args: dict) -> dict:
     _sam_env_bin = path_to_cmd.get("tools/sam_worker.py") or _sam3d_env_bin
     
     return {"status": "success", "output": {"text": ["sam init initialized"], "tool_configs": tool_configs}}
+
+
+def process_single_object(args_tuple):
+    """
+    处理单个物体的 3D 重建任务（用于并行处理）
+    
+    Args:
+        args_tuple: (idx, mask, object_name, _target_image, _output_dir, _sam3_cfg, 
+                     _blender_command, _sam3d_env_bin, ROOT, SAM3D_WORKER)
+    
+    Returns:
+        tuple: (success: bool, glb_path: str or None, object_transform: dict or None, error_msg: str or None)
+    """
+    idx, mask, object_name, _target_image, _output_dir, _sam3_cfg, _blender_command, _sam3d_env_bin, ROOT, SAM3D_WORKER = args_tuple
+    
+    try:
+        # 使用 sam_worker.py 已经保存的 mask 文件（如果存在），否则保存新的
+        mask_path = os.path.join(_output_dir, f"{object_name}.npy")
+        if not os.path.exists(mask_path):
+            # 如果文件不存在，保存 mask（这种情况不应该发生，但为了健壮性保留）
+            np.save(mask_path, mask)
+        else:
+            print(f"[SAM_INIT] Using existing mask file: {mask_path}")
+        
+        # 重建 3D，使用相同的物体名称
+        glb_path = os.path.join(_output_dir, f"{object_name}.glb")
+        info_path = os.path.join(_output_dir, f"{object_name}.json")
+        
+        # 如果文件已存在（可能在之前的运行中生成），跳过重建
+        if os.path.exists(glb_path) and os.path.exists(info_path):
+            print(f"[SAM_INIT] GLB file already exists, skipping reconstruction: {glb_path}")
+            with open(info_path, 'r') as f:
+                info = json.load(f)
+            return (True, glb_path, info, None)
+        
+        # 运行 SAM-3D 重建
+        r = subprocess.run(
+            [
+                _sam3d_env_bin,
+                SAM3D_WORKER,
+                "--image",
+                _target_image,
+                "--mask",
+                mask_path,
+                "--config",
+                _sam3_cfg,
+                "--glb",
+                glb_path,
+            ],
+            cwd=ROOT,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        
+        # 解析输出，检查是否成功生成 glb
+        info = json.loads(r.stdout.strip().splitlines()[-1])
+        glb_path_value = info.get("glb_path")
+        if glb_path_value:
+            # 修复 GLB 文件的贴图问题
+            subprocess.run(
+                [
+                    _blender_command,
+                    "-b",
+                    "-P",
+                    "tools/fix_glb.py",
+                    "--",
+                    glb_path_value,
+                    glb_path_value,
+                ],
+                cwd=ROOT,
+                check=True,
+                text=True,
+                capture_output=True,
+            )
+            # 构建变换信息
+            object_transform = {
+                "glb_path": glb_path_value,
+                "translation": info.get("translation"),
+                "translation_scale": info.get("translation_scale", 1.0),
+                "rotation": info.get("rotation"),  # 四元数 [w, x, y, z]
+                "scale": info.get("scale", 1.0),
+            }
+            # 保存 info 到 json
+            with open(os.path.join(_output_dir, f"{object_name}.json"), 'w') as f:
+                json.dump(info, f, indent=2)
+            print(f"[SAM_INIT] Successfully reconstructed object {idx} ({object_name})")
+            return (True, glb_path_value, object_transform, None)
+        else:
+            error_msg = f"Object {idx} ({object_name}) reconstruction failed or no GLB generated"
+            print(f"[SAM_INIT] Warning: {error_msg}")
+            return (False, None, None, error_msg)
+            
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Failed to reconstruct object {idx} ({object_name}): {e.stderr}"
+        print(f"[SAM_INIT] Warning: {error_msg}")
+        return (False, None, None, error_msg)
+    except json.JSONDecodeError as e:
+        error_msg = f"Failed to parse output for object {idx} ({object_name}): {str(e)}"
+        print(f"[SAM_INIT] Warning: {error_msg}")
+        return (False, None, None, error_msg)
+    except Exception as e:
+        error_msg = f"Unexpected error processing object {idx} ({object_name}): {str(e)}"
+        print(f"[SAM_INIT] Error: {error_msg}")
+        return (False, None, None, error_msg)
 
 
 @mcp.tool()
@@ -108,10 +214,10 @@ def reconstruct_full_scene() -> dict:
         else:
             print(f"[SAM_INIT] Warning: Object names mapping file not found: {object_names_json_path}, using default names")
         
-        print(f"[SAM_INIT] Step 2: Reconstructing {len(masks)} objects with SAM-3D...")
+        print(f"[SAM_INIT] Step 2: Reconstructing {len(masks)} objects with SAM-3D (parallel processing)...")
         
-        glb_paths = []
-        object_transforms = []  # 存储每个物体的位置信息
+        # 准备参数列表
+        tasks = []
         for idx, mask in enumerate(masks):
             # 获取物体名称（如果可用，否则使用默认名称）
             if object_mapping and idx < len(object_mapping):
@@ -119,89 +225,39 @@ def reconstruct_full_scene() -> dict:
             else:
                 object_name = f"object_{idx}"
             
-            # 使用 sam_worker.py 已经保存的 mask 文件（如果存在），否则保存新的
-            mask_path = os.path.join(_output_dir, f"{object_name}.npy")
-            if not os.path.exists(mask_path):
-                # 如果文件不存在，保存 mask（这种情况不应该发生，但为了健壮性保留）
-                np.save(mask_path, mask)
-            else:
-                print(f"[SAM_INIT] Using existing mask file: {mask_path}")
+            tasks.append((
+                idx, mask, object_name, _target_image, _output_dir, _sam3_cfg,
+                _blender_command, _sam3d_env_bin, ROOT, SAM3D_WORKER
+            ))
+        
+        # 使用线程池并行处理
+        glb_paths = []
+        object_transforms = []  # 存储每个物体的位置信息
+        max_workers = min(4, len(tasks))  # 限制并发数，避免资源耗尽
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_idx = {executor.submit(process_single_object, task): task[0] for task in tasks}
             
-            # 重建 3D，使用相同的物体名称
-            # 首先检查基础文件名是否存在
-            glb_path = os.path.join(_output_dir, f"{object_name}.glb")
-            info_path = os.path.join(_output_dir, f"{object_name}.json")
-            
-            # 如果文件已存在（可能在之前的运行中生成），跳过重建
-            if os.path.exists(glb_path) and os.path.exists(info_path):
-                print(f"[SAM_INIT] GLB file already exists, skipping reconstruction: {glb_path}")
+            # 按完成顺序收集结果（保持顺序）
+            results = [None] * len(tasks)
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    success, glb_path, object_transform, error_msg = future.result()
+                    results[idx] = (success, glb_path, object_transform, error_msg)
+                except Exception as e:
+                    print(f"[SAM_INIT] Error processing object {idx}: {str(e)}")
+                    results[idx] = (False, None, None, str(e))
+        
+        # 按原始顺序处理结果
+        for idx, result in enumerate(results):
+            if result is None:
+                continue
+            success, glb_path, object_transform, error_msg = result
+            if success and glb_path and object_transform:
                 glb_paths.append(glb_path)
-                # 尝试从之前的 transforms.json 中恢复信息，或使用默认值
-                with open(info_path, 'r') as f:
-                    info = json.load(f)
-                    object_transforms.append(info)
-                continue
-            try:
-                r = subprocess.run(
-                    [
-                        _sam3d_env_bin,
-                        SAM3D_WORKER,
-                        "--image",
-                        _target_image,
-                        "--mask",
-                        mask_path,
-                        "--config",
-                        _sam3_cfg,
-                        "--glb",
-                        glb_path,
-                    ],
-                    cwd=ROOT,
-                    check=True,
-                    text=True,
-                    capture_output=True,
-                )
-                
-                # 解析输出，检查是否成功生成 glb
-                info = json.loads(r.stdout.strip().splitlines()[-1])
-                glb_path_value = info.get("glb_path")
-                if glb_path_value:
-                    # 修复 GLB 文件的贴图问题
-                    subprocess.run(
-                        [
-                            _blender_command,
-                            "-b",
-                            "-P",
-                            "tools/fix_glb.py",
-                            "--",
-                            glb_path_value,
-                            glb_path_value,
-                        ],
-                        cwd=ROOT,
-                        check=True,
-                        text=True,
-                        capture_output=True,
-                    )
-                    glb_paths.append(glb_path_value)
-                    # 保存位置信息（新格式）
-                    object_transforms.append({
-                        "glb_path": glb_path_value,
-                        "translation": info.get("translation"),
-                        "translation_scale": info.get("translation_scale", 1.0),
-                        "rotation": info.get("rotation"),  # 四元数 [w, x, y, z]
-                        "scale": info.get("scale", 1.0),
-                    })
-                    # save info to json
-                    with open(os.path.join(_output_dir, f"{object_name}.json"), 'w') as f:
-                        json.dump(info, f, indent=2)
-                    print(f"[SAM_INIT] Successfully reconstructed object {idx} ({object_name})")
-                else:
-                    print(f"[SAM_INIT] Warning: Object {idx} ({object_name}) reconstruction failed or no GLB generated")
-            except subprocess.CalledProcessError as e:
-                print(f"[SAM_INIT] Warning: Failed to reconstruct object {idx} ({object_name}): {e.stderr}")
-                continue
-            except json.JSONDecodeError:
-                print(f"[SAM_INIT] Warning: Failed to parse output for object {idx} ({object_name})")
-                continue
+                object_transforms.append(object_transform)
         
         if len(glb_paths) == 0:
             return {"status": "error", "output": {"text": ["No objects were successfully reconstructed"]}}
