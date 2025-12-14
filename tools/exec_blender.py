@@ -11,6 +11,7 @@ import logging
 from typing import Tuple, Dict
 from mcp.server.fastmcp import FastMCP
 import json
+from tools.blender_script_generators import generate_scene_info_script
 
 execute_and_evaluate_tool = {
     "type": "function",
@@ -136,66 +137,7 @@ class Executor:
 
     def _generate_scene_info_script(self) -> str:
         """Generate script to get scene information"""
-        return f'''import bpy
-import json
-import sys
-
-# Get scene information
-scene_info = {{"objects": [], "materials": [], "lights": [], "cameras": []}}
-
-for obj in bpy.data.objects:
-    if obj.type == 'CAMERA' or obj.type == 'LIGHT':
-        continue
-    scene_info["objects"].append({{
-        "name": obj.name, 
-        "type": obj.type,
-        "location": [round(x, 2) for x in obj.matrix_world.translation],
-        "rotation": [round(x, 2) for x in obj.rotation_euler],
-        "scale": [round(x, 2) for x in obj.scale],
-        "visible": not (obj.hide_viewport or obj.hide_render)
-    }})
-    if len(scene_info["objects"]) >= 15:
-        break
-
-for mat in bpy.data.materials:
-    scene_info["materials"].append({{
-        "name": mat.name,
-        "use_nodes": mat.use_nodes,
-        "diffuse_color": [round(x, 2) for x in mat.diffuse_color],
-    }})
-    if len(scene_info["materials"]) >= 5:
-        break
-
-for light in [o for o in bpy.data.objects if o.type == 'LIGHT']:
-    scene_info["lights"].append({{
-        "name": light.name,
-        "type": light.data.type,
-        "energy": light.data.energy,
-        "color": [round(x, 2) for x in light.data.color],
-        "location": [round(x, 2) for x in light.matrix_world.translation],
-        "rotation": [round(x, 2) for x in light.rotation_euler]
-    }})
-    if len(scene_info["lights"]) >= 5:
-        break
-        
-for cam in [o for o in bpy.data.objects if o.type == 'CAMERA']:
-    scene = bpy.context.scene
-    scene_info["cameras"].append({{
-        "name": cam.name,
-        "lens": cam.data.lens,
-        "location": [round(x, 2) for x in cam.matrix_world.translation],
-        "rotation": [round(x, 2) for x in cam.rotation_euler],
-        "is_active": cam == scene.camera,
-    }})
-    if len(scene_info["cameras"]) >= 3:
-        break
-
-# Save to file for retrieval
-with open("{self.render_path.parent}/tmp/scene_info.json", "w") as f:
-    json.dump(scene_info, f)
-
-print("Scene info extracted successfully")
-'''
+        return generate_scene_info_script(str(self.render_path.parent / "tmp" / "scene_info.json"))
 
     def execute(self, code: str) -> Dict:
         self.count += 1
