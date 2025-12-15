@@ -8,7 +8,7 @@
 	ignore = all
 [submodule "utils/sam3d"]
 	path = utils/sam3d
-	url = https://github.com/facebookresearch/sam-3d-objects.git
+	url = https://github.com/Fugtemypt123/sam-3d-texture-baking.git
 	branch = main
 	ignore = all
 [submodule "utils/sam"]
