@@ -155,15 +155,59 @@ def index():
 
 @app.route('/api/preview-images')
 def get_preview_images():
-    """Get preview images for entry page (first 10 images)"""
+    """Get preview images for entry page (10 target images)"""
     preview_images = []
-    for i, step in enumerate(STEPS_DATA[:10]):  # Only first 10 steps
-        if step.get("image_path"):
+    
+    # List of target images to display (scene name, file extension)
+    target_images = [
+        ("goldengate8", "png"),
+        ("christmas1", "png"),
+        ("restroom5", "png"),
+        ("whitehouse9", "png"),
+        ("house11", "png"),
+        ("cake15", "png"),
+        ("bathroom20", "png"),
+        ("glass24", "png"),
+        ("blueroom26", "jpeg"),
+        ("bedroom32", "png")
+    ]
+    
+    # Add all target images
+    for idx, (scene_name, ext) in enumerate(target_images):
+        target_path = os.path.abspath(f'data/static_scene/{scene_name}/target.{ext}')
+        if os.path.exists(target_path):
             preview_images.append({
-                "step_index": step["step_index"],
-                "image_url": f"/api/image/{step['step_index']}"
+                "step_index": -1 - idx,  # Special negative index for target images
+                "image_url": f"/api/target-image/{scene_name}",
+                "is_target": True,
+                "scene_name": scene_name
             })
+    
     return jsonify({"images": preview_images})
+
+
+@app.route('/api/target-image/<scene_name>')
+def get_target_image(scene_name):
+    """Serve target image for a specific scene"""
+    # Try different file extensions
+    possible_extensions = ['png', 'jpeg', 'jpg']
+    target_path = None
+    
+    for ext in possible_extensions:
+        path = os.path.abspath(f'data/static_scene/{scene_name}/target.{ext}')
+        if os.path.exists(path):
+            target_path = path
+            break
+    
+    if not target_path or not os.path.exists(target_path):
+        print(f"[DEBUG] Target image not found for scene: {scene_name}")
+        return jsonify({"error": f"Target image not found for scene: {scene_name}"}), 404
+    
+    # 确保路径是字符串格式
+    target_path = str(target_path)
+    image_dir = os.path.dirname(target_path)
+    image_file = os.path.basename(target_path)
+    return send_from_directory(image_dir, image_file)
 
 
 @app.route('/api/steps')

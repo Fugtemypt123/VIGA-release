@@ -400,9 +400,10 @@
                     div.className = 'preview-item';
                     const img = document.createElement('img');
                     img.src = `${item.image_url}?t=${Date.now()}`;
-                    img.alt = `Step ${item.step_index}`;
+                    img.alt = item.is_target ? (item.scene_name || 'Target Image') : `Step ${item.step_index}`;
                     div.appendChild(img);
-                    div.onclick = () => startFromStep(item.step_index);
+                    // For target images, start from step 0, otherwise use the step_index
+                    div.onclick = () => startFromStep(item.is_target ? 0 : item.step_index);
                     grid.appendChild(div);
                 });
             } catch (error) {
