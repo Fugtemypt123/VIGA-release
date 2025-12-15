@@ -89,21 +89,21 @@ def get_better_object(object_name: str) -> dict:
             text=True,
             capture_output=True,
         )
-        subprocess.run(
-            [
-                _blender_command,
-                "-b",
-                "-P",
-                "tools/fix_glb.py",
-                "--",
-                glb_path,
-                glb_path,
-            ],
-            cwd=ROOT,
-            check=True,
-            text=True,
-            capture_output=True,
-        )
+        # subprocess.run(
+        #     [
+        #         _blender_command,
+        #         "-b",
+        #         "-P",
+        #         "tools/fix_glb.py",
+        #         "--",
+        #         glb_path,
+        #         glb_path,
+        #     ],
+        #     cwd=ROOT,
+        #     check=True,
+        #     text=True,
+        #     capture_output=True,
+        # )
         info = json.loads(r2.stdout.strip().splitlines()[-1])
         info["glb_path"] = info.get("glb_path") or glb_path
         return {"status": "success", "output": {"text": [f"Successfully generated asset, downloaded to: {info['glb_path']}", f"Asset information: {json.dumps(info)}"]}}

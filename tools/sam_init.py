@@ -1,4 +1,4 @@
-import os, sys, json, subprocess
+import os, sys, json, subprocess, shutil
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from mcp.server.fastmcp import FastMCP
@@ -37,6 +37,8 @@ def initialize(args: dict) -> dict:
     global _target_image, _output_dir, _sam3_cfg, _blender_command, _sam_env_bin
     _target_image = args["target_image_path"]
     _output_dir = args.get("output_dir") + "/sam_init"
+    if os.path.exists(_output_dir):
+        shutil.rmtree(_output_dir)
     os.makedirs(_output_dir, exist_ok=True)
     _sam3_cfg = args.get("sam3d_config_path") or os.path.join(
         ROOT, "utils", "sam3d", "checkpoints", "hf", "pipeline.yaml"
