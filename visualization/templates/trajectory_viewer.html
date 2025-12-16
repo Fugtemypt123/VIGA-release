@@ -936,8 +936,13 @@
                                     
                                     loadStep(0);
                                 } else {
-                                    // New steps available, but wait for current step to finish
-                                    // The auto-advance will handle loading new steps
+                                    // New steps available after first step
+                                    // 如果当前这一步已经完整展示（codeGenerated && imageLoaded），而且没有暂停，
+                                    // 且还有下一步尚未展示，则立即加载下一步，避免只触发一次的自动前进计时器错过慢模型的新增 step。
+                                    if (!isPaused && codeGenerated && imageLoaded && currentStepDataIndex < totalSteps - 1) {
+                                        // 这里使用 currentStepDataIndex 而不是 currentStepIndex（后者是显示用计数器）
+                                        loadStep(currentStepDataIndex + 1);
+                                    }
                                 }
                             }
                         }
