@@ -2,11 +2,12 @@ import os, sys, argparse, json
 import numpy as np
 import torch
 from pytorch3d.transforms import quaternion_to_matrix, Transform3d
-from inference import Inference, load_image
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(os.path.join(ROOT, "utils", "sam3d", "notebook"))
 sys.path.append(os.path.join(ROOT, "utils", "sam3d"))
+
+from inference import Inference, load_image
 
 if "CONDA_PREFIX" not in os.environ:
     python_bin = sys.executable
