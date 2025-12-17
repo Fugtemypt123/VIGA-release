@@ -74,7 +74,7 @@ def process_single_object(idx, mask, object_name):
                 "--image", _target_image,
                 "--mask", mask_path,
                 "--config", _sam3_cfg,
-                "--out", glb_path,
+                "--glb", glb_path,
             ],
             cwd=ROOT,
             check=True,
