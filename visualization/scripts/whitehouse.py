@@ -10,8 +10,8 @@ except ImportError:
     )
 
 # ================== 可按需修改的参数 ==================
-FRAMES = 10         # 总帧数
-FPS = 1         # 帧率
+FRAMES = 300         # 总帧数
+FPS = 30         # 帧率
 START_POS = (0.0, -40.0, -20.0)     # 摄像机起点
 END_POS   = (0.0, -40.0, 32.0)   # 摄像机终点
 TARGET_POS = (0.0, 0.0, 6.0)     # 摄像机始终对准的目标点
@@ -87,13 +87,17 @@ def create_camera():
     scene = bpy.context.scene
 
     cam_data = bpy.data.cameras.new("TravelCamera")
+    # 设置焦距（单位：mm），焦距越小，视野越大
+    # 默认是 50mm，这里设置为 24mm 以获得更大的视野
+    cam_data.lens = 30
+    
     camera = bpy.data.objects.new("TravelCamera", cam_data)
     scene.collection.objects.link(camera)
 
     # 设置为场景主摄像机
     scene.camera = camera
 
-    print("[INFO] Camera created.")
+    print(f"[INFO] Camera created with focal length: {cam_data.lens}mm")
     return camera
 
 
@@ -101,12 +105,29 @@ def animate_arc_rotation(camera, start_pos, end_pos, target_pos, frames):
     """
     让摄像机从 start_pos 沿圆弧旋转到 end_pos，
     摄像机始终对准 target_pos 点。
+    圆弧是以 target_pos 为圆心的球面上的弧线。
     """
     scene = bpy.context.scene
 
     start = Vector(start_pos)
     end = Vector(end_pos)
     target = Vector(target_pos)
+
+    # 计算相对于目标点的向量
+    vec_start = start - target
+    vec_end = end - target
+
+    # 验证距离是否相等（应该在同一球面上）
+    radius_start = vec_start.length
+    radius_end = vec_end.length
+    print(f"[INFO] Start radius: {radius_start:.2f}, End radius: {radius_end:.2f}")
+    
+    # 如果距离不完全相等，使用平均半径
+    radius = (radius_start + radius_end) / 2.0
+    
+    # 归一化向量
+    vec_start_norm = vec_start.normalized()
+    vec_end_norm = vec_end.normalized()
 
     for f in range(frames):
         # t 从 0 到 1，均匀插值
@@ -115,8 +136,12 @@ def animate_arc_rotation(camera, start_pos, end_pos, target_pos, frames):
         else:
             t = 0.0
 
-        # 线性插值位置（摄像机沿直线从起点到终点）
-        pos = start.lerp(end, t)
+        # 使用球面线性插值 (slerp) 在球面上插值
+        # slerp 在单位球面上插值，然后乘以半径
+        vec_interpolated = vec_start_norm.slerp(vec_end_norm, t) * radius
+        
+        # 转换回世界坐标
+        pos = target + vec_interpolated
 
         # 计算从摄像机位置指向目标点的方向
         direction_to_target = (target - pos).normalized()
