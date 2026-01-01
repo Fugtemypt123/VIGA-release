@@ -64,10 +64,9 @@ if __name__ == "__main__":
 
     # ---- 读取动画范围 ----
     # 若外部代码未设置，Blender 默认 1..250
-    frame_start = 1
-    frame_end   = 30
+    frame_start = 1 if scene.frame_start is None else scene.frame_start
+    frame_end   = 120 if scene.frame_end is None else scene.frame_end
     
-    # 确保帧范围设置正确
     scene.frame_start = frame_start
     scene.frame_end = frame_end
     
