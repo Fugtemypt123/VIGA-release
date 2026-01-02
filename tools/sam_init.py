@@ -28,9 +28,9 @@ IMPORT_SCRIPT = os.path.join(os.path.dirname(__file__), "import_glbs_to_blend.py
 
 mcp = FastMCP("sam-init")
 _target_image = _output_dir = _sam3_cfg = _blender_command = _blender_file = None
-_log_file = None  # 日志文件句柄
+_log_file = None  # Log file handle
 
-# 安全地获取路径，避免 KeyError 导致未捕获的异常
+# Safely get paths to avoid uncaught KeyError exceptions
 try:
     _sam_env_bin = path_to_cmd.get("tools/sam_worker.py")
     _sam3d_env_bin = path_to_cmd.get("tools/sam3d_worker.py")
@@ -42,47 +42,47 @@ except Exception as e:
 
 def log(message: str):
     """
-    同时输出到 stderr 和日志文件
+    Output to both stderr and log file
     """
-    # 输出到 stderr（用于实时查看）
+    # Output to stderr (for real-time viewing)
     print(message, file=sys.stderr)
-    # 输出到日志文件（用于后续查看）
+    # Output to log file (for later viewing)
     if _log_file is not None:
         try:
             _log_file.write(message + "\n")
-            _log_file.flush()  # 立即刷新，确保内容写入
+            _log_file.flush()  # Flush immediately to ensure content is written
         except Exception:
-            pass  # 如果日志文件写入失败，不影响主流程
+            pass  # If log file write fails, don't affect the main process
 
 
 def get_conda_prefix_from_python_path(python_path: str) -> str:
     """
-    从 Python 可执行文件路径推断 CONDA_PREFIX
-    例如: /path/to/envs/env_name/bin/python -> /path/to/envs/env_name
+    Infer CONDA_PREFIX from Python executable path
+    Example: /path/to/envs/env_name/bin/python -> /path/to/envs/env_name
     """
     if not python_path:
         return None
     
-    # 标准化路径（处理相对路径和绝对路径）
+    # Normalize path (handle both relative and absolute paths)
     if os.path.isabs(python_path):
         normalized_path = python_path
     else:
         normalized_path = os.path.abspath(python_path)
-    
-    # 方法1: 如果路径以 /bin/python 或 /bin/python3 结尾，去掉最后两级目录
+
+    # Method 1: If path ends with /bin/python or /bin/python3, remove the last two directory levels
     if normalized_path.endswith('/bin/python') or normalized_path.endswith('/bin/python3'):
         conda_prefix = os.path.dirname(os.path.dirname(normalized_path))
         return conda_prefix
-    
-    # 方法2: 如果路径包含 /envs/，提取环境路径
+
+    # Method 2: If path contains /envs/, extract environment path
     if '/envs/' in normalized_path:
         parts = normalized_path.split('/envs/')
         if len(parts) == 2:
             env_part = parts[1].split('/')[0]
             conda_prefix = os.path.join(parts[0], 'envs', env_part)
             return conda_prefix
-    
-    # 方法3: 如果路径以 /bin/python 结尾（相对路径的情况）
+
+    # Method 3: If path contains /bin/python (for relative path cases)
     if '/bin/python' in normalized_path:
         idx = normalized_path.rfind('/bin/python')
         conda_prefix = normalized_path[:idx]
@@ -93,18 +93,18 @@ def get_conda_prefix_from_python_path(python_path: str) -> str:
 
 def prepare_env_with_conda_prefix(python_path: str) -> dict:
     """
-    准备环境变量字典，确保包含 CONDA_PREFIX
-    总是从 Python 路径推断 CONDA_PREFIX，因为子进程可能运行在不同的 conda 环境中
+    Prepare environment variable dictionary, ensuring CONDA_PREFIX is included
+    Always infer CONDA_PREFIX from Python path, as subprocess may run in a different conda environment
     """
     env = os.environ.copy()
-    
-    # 总是从 Python 路径推断 CONDA_PREFIX，确保子进程使用正确的环境
+
+    # Always infer CONDA_PREFIX from Python path to ensure subprocess uses the correct environment
     conda_prefix = get_conda_prefix_from_python_path(python_path)
     if conda_prefix:
         env["CONDA_PREFIX"] = conda_prefix
         log(f"[SAM_INIT] Set CONDA_PREFIX={conda_prefix} from Python path: {python_path}")
     else:
-        # 如果无法推断，但当前环境有 CONDA_PREFIX，保留它
+        # If unable to infer, but current environment has CONDA_PREFIX, keep it
         if "CONDA_PREFIX" in env:
             log(f"[SAM_INIT] Could not infer CONDA_PREFIX from {python_path}, keeping existing: {env['CONDA_PREFIX']}")
         else:
@@ -123,7 +123,7 @@ def initialize(args: dict) -> dict:
             shutil.rmtree(_output_dir)
         os.makedirs(_output_dir, exist_ok=True)
         
-        # 初始化日志文件
+        # Initialize log file
         log_path = os.path.join(_output_dir, "sam_init.log")
         _log_file = open(log_path, 'w', encoding='utf-8')
         log(f"[SAM_INIT] Initialized. Log file: {log_path}")
@@ -131,11 +131,11 @@ def initialize(args: dict) -> dict:
             ROOT, "utils", "sam3d", "checkpoints", "hf", "pipeline.yaml"
         )
         _blender_command = args.get("blender_command") or "utils/infinigen/blender/blender"
-        # 记录传入的 blender_file 参数，用于后续重建时直接写入到该路径
+        # Record the passed blender_file parameter for later writing directly to that path during reconstruction
         _blender_file = args.get("blender_file")
-        
-        # 尝试获取 sam_worker.py 的 python 路径
-        # 如果没有配置，使用 sam3d 的环境（假设它们可能在同一环境）
+
+        # Try to get the python path for sam_worker.py
+        # If not configured, use sam3d environment (assuming they might be in the same environment)
         _sam_env_bin = path_to_cmd.get("tools/sam_worker.py") or _sam3d_env_bin
         
         log("[SAM_INIT] sam init initialized")
@@ -151,41 +151,41 @@ def initialize(args: dict) -> dict:
 
 def process_single_object(args_tuple):
     """
-    处理单个物体的 3D 重建任务（用于并行处理）
-    
+    Process 3D reconstruction task for a single object (for parallel processing)
+
     Args:
-        args_tuple: (idx, mask, object_name, _target_image, _output_dir, _sam3_cfg, 
+        args_tuple: (idx, mask, object_name, _target_image, _output_dir, _sam3_cfg,
                      _blender_command, _sam3d_env_bin, ROOT, SAM3D_WORKER)
-    
+
     Returns:
         tuple: (success: bool, glb_path: str or None, object_transform: dict or None, error_msg: str or None)
     """
     idx, mask, object_name, _target_image, _output_dir, _sam3_cfg, _blender_command, _sam3d_env_bin, ROOT, SAM3D_WORKER = args_tuple
     
     try:
-        # 使用 sam_worker.py 已经保存的 mask 文件（如果存在），否则保存新的
+        # Use mask file already saved by sam_worker.py (if exists), otherwise save a new one
         mask_path = os.path.join(_output_dir, f"{object_name}.npy")
         if not os.path.exists(mask_path):
-            # 如果文件不存在，保存 mask（这种情况不应该发生，但为了健壮性保留）
+            # If file doesn't exist, save the mask (this shouldn't happen, but kept for robustness)
             np.save(mask_path, mask)
         else:
             log(f"[SAM_INIT] Using existing mask file: {mask_path}")
-        
-        # 重建 3D，使用相同的物体名称
+
+        # Reconstruct 3D using the same object name
         glb_path = os.path.join(_output_dir, f"{object_name}.glb")
         info_path = os.path.join(_output_dir, f"{object_name}.json")
-        
-        # 如果文件已存在（可能在之前的运行中生成），跳过重建
+
+        # If file already exists (possibly generated in previous run), skip reconstruction
         if os.path.exists(glb_path) and os.path.exists(info_path):
             log(f"[SAM_INIT] GLB file already exists, skipping reconstruction: {glb_path}")
             with open(info_path, 'r') as f:
                 info = json.load(f)
             return (True, glb_path, info, None)
-        
-        # 运行 SAM-3D 重建，使用 --info 参数将 JSON 输出写入文件而不是 stdout
-        # 将 subprocess 的输出重定向到日志文件，避免污染 stdout
+
+        # Run SAM-3D reconstruction, using --info parameter to write JSON output to file instead of stdout
+        # Redirect subprocess output to log file to avoid polluting stdout
         log_path = os.path.join(_output_dir, f"{object_name}_sam3d.log")
-        # 准备环境变量，确保包含 CONDA_PREFIX（从 Python 路径推断）
+        # Prepare environment variables, ensuring CONDA_PREFIX is included (inferred from Python path)
         env = prepare_env_with_conda_prefix(_sam3d_env_bin)
         with open(log_path, 'w') as log_file:
             r = subprocess.run(
@@ -201,17 +201,17 @@ def process_single_object(args_tuple):
                     "--glb",
                     glb_path,
                     "--info",
-                    info_path,  # 指定 JSON 输出文件路径
+                    info_path,  # Specify JSON output file path
                 ],
                 cwd=ROOT,
                 check=True,
                 text=True,
                 stdout=log_file,
-                stderr=subprocess.STDOUT,  # 将 stderr 也重定向到 stdout
-                env=env,  # 传递环境变量
+                stderr=subprocess.STDOUT,  # Also redirect stderr to stdout
+                env=env,  # Pass environment variables
             )
-        
-        # 从文件读取 JSON 输出，而不是从 stdout 解析（避免 stdout 污染）
+
+        # Read JSON output from file instead of parsing from stdout (avoid stdout pollution)
         if not os.path.exists(info_path):
             error_msg = f"Object {idx} ({object_name}) reconstruction failed: info file not created"
             log(f"[SAM_INIT] Warning: {error_msg}")
@@ -240,14 +240,14 @@ def process_single_object(args_tuple):
             return (False, None, None, error_msg)
             
     except subprocess.CalledProcessError as e:
-        # 读取日志文件内容以获取详细错误信息
+        # Read log file content to get detailed error information
         log_path = os.path.join(_output_dir, f"{object_name}_sam3d.log")
         log_content = ""
         if os.path.exists(log_path):
             try:
                 with open(log_path, 'r') as f:
                     log_content = f.read()
-                    # 只取最后 500 个字符，避免日志过长
+                    # Only take last 500 characters to avoid overly long logs
                     if len(log_content) > 500:
                         log_content = "..." + log_content[-500:]
             except Exception:
@@ -270,10 +270,10 @@ def process_single_object(args_tuple):
 @mcp.tool()
 def reconstruct_full_scene() -> dict:
     """
-    从输入图片重建完整的 3D 场景
-    1. 使用 SAM 检测所有物体
-    2. 对每个物体使用 SAM-3D 重建
-    3. 将所有物体导入 Blender 并保存为 .blend 文件
+    Reconstruct complete 3D scene from input image
+    1. Use SAM to detect all objects
+    2. Use SAM-3D to reconstruct each object
+    3. Import all objects into Blender and save as .blend file
     """
     global _target_image, _output_dir, _sam3_cfg, _blender_command, _sam_env_bin, _sam3d_env_bin, _blender_file
     
@@ -284,12 +284,12 @@ def reconstruct_full_scene() -> dict:
         return {"status": "error", "output": {"text": ["SAM worker python path not configured"]}}
     
     try:
-        # Step 1: 使用 SAM 获取所有物体的 masks
+        # Step 1: Use SAM to get masks for all objects
         all_masks_path = os.path.join(_output_dir, "all_masks.npy")
         sam_log_path = os.path.join(_output_dir, "sam_worker.log")
         log(f"[SAM_INIT] Step 1: Detecting all objects with SAM...")
         log(f"[SAM_INIT] SAM worker output will be saved to: {sam_log_path}")
-        # 准备环境变量，确保包含 CONDA_PREFIX（从 Python 路径推断）
+        # Prepare environment variables, ensuring CONDA_PREFIX is included (inferred from Python path)
         env = prepare_env_with_conda_prefix(_sam_env_bin)
         with open(sam_log_path, 'w') as log_file:
             subprocess.run(
@@ -305,24 +305,24 @@ def reconstruct_full_scene() -> dict:
                 check=True,
                 text=True,
                 stdout=log_file,
-                stderr=subprocess.STDOUT,  # 将 stderr 也重定向到 stdout
-                env=env,  # 传递环境变量
+                stderr=subprocess.STDOUT,  # Also redirect stderr to stdout
+                env=env,  # Pass environment variables
             )
-        
-        # Step 2: 加载 masks 和物体名称映射
+
+        # Step 2: Load masks and object name mapping
         masks = np.load(all_masks_path, allow_pickle=True)
-        
-        # 处理 masks 可能是 object array 的情况
+
+        # Handle case where masks might be an object array
         if masks.dtype == object:
             masks = [m for m in masks]
         elif masks.ndim == 3:
-            # 如果是 3D 数组 (N, H, W)，转换为列表
+            # If it's a 3D array (N, H, W), convert to list
             masks = [masks[i] for i in range(masks.shape[0])]
         else:
-            # 单个 mask 的情况
+            # Single mask case
             masks = [masks]
-        
-        # 加载物体名称映射信息
+
+        # Load object name mapping information
         object_names_json_path = all_masks_path.replace('.npy', '_object_names.json')
         object_mapping = None
         if os.path.exists(object_names_json_path):
@@ -332,13 +332,13 @@ def reconstruct_full_scene() -> dict:
                 log(f"[SAM_INIT] Loaded object names mapping from: {object_names_json_path}")
         else:
             log(f"[SAM_INIT] Warning: Object names mapping file not found: {object_names_json_path}, using default names")
-        
+
         log(f"[SAM_INIT] Step 2: Reconstructing {len(masks)} objects with SAM-3D (parallel processing)...")
-        
-        # 准备参数列表
+
+        # Prepare parameter list
         tasks = []
         for idx, mask in enumerate(masks):
-            # 获取物体名称（如果可用，否则使用默认名称）
+            # Get object name (if available, otherwise use default name)
             if object_mapping and idx < len(object_mapping):
                 object_name = object_mapping[idx]
             else:
@@ -349,11 +349,11 @@ def reconstruct_full_scene() -> dict:
                 _blender_command, _sam3d_env_bin, ROOT, SAM3D_WORKER
             ))
         
-        # 串行处理所有任务
+        # Process all tasks serially
         glb_paths = []
-        object_transforms = []  # 存储每个物体的位置信息
-        
-        # 按顺序处理每个任务
+        object_transforms = []  # Store position information for each object
+
+        # Process each task in order
         for task in tasks:
             idx = task[0]
             try:
@@ -366,32 +366,32 @@ def reconstruct_full_scene() -> dict:
         
         if len(glb_paths) == 0:
             return {"status": "error", "output": {"text": ["No objects were successfully reconstructed"]}}
-        
-        # Step 3: 将所有 GLB 导入 Blender 并保存为 .blend 文件
+
+        # Step 3: Import all GLBs into Blender and save as .blend file
         log(f"[SAM_INIT] Step 3: Importing {len(glb_paths)} objects into Blender...")
-        # 如果在 initialize 中提供了 blender_file，则直接写入到该路径
-        # 否则默认写入到输出目录下的 scene.blend
+        # If blender_file was provided in initialize, write directly to that path
+        # Otherwise default to scene.blend in the output directory
         blend_path = _blender_file or os.path.join(_output_dir, "scene.blend")
-        
-        # 保存位置信息到 JSON 文件
+
+        # Save position information to JSON file
         transforms_json_path = os.path.join(_output_dir, "object_transforms.json")
         with open(transforms_json_path, 'w') as f:
             json.dump(object_transforms, f, indent=2)
-        
-        # 构建 Blender 命令
+
+        # Build Blender command
         blender_cmd = [
             _blender_command,
-            "-b",  # 后台模式
-            "-P",  # 运行 Python 脚本
+            "-b",  # Background mode
+            "-P",  # Run Python script
             IMPORT_SCRIPT,
             "--",
-            transforms_json_path,  # 传递位置信息 JSON 文件路径
-            blend_path,  # 输出 .blend 文件路径
+            transforms_json_path,  # Pass position information JSON file path
+            blend_path,  # Output .blend file path
         ]
-        
+
         blender_log_path = os.path.join(_output_dir, "blender_import.log")
         log(f"[SAM_INIT] Blender import output will be saved to: {blender_log_path}")
-        # 对于 Blender，使用当前环境的环境变量（Blender 通常不需要 CONDA_PREFIX）
+        # For Blender, use current environment's environment variables (Blender typically doesn't need CONDA_PREFIX)
         env = os.environ.copy()
         with open(blender_log_path, 'w') as log_file:
             subprocess.run(
@@ -400,12 +400,12 @@ def reconstruct_full_scene() -> dict:
                 check=True,
                 text=True,
                 stdout=log_file,
-                stderr=subprocess.STDOUT,  # 将 stderr 也重定向到 stdout
-                env=env,  # 传递环境变量
+                stderr=subprocess.STDOUT,  # Also redirect stderr to stdout
+                env=env,  # Pass environment variables
             )
-            
+
         log(f"[SAM_INIT] Deleting .blend1 files in {os.path.dirname(_output_dir)}")
-        # 将可能多出的.blend1文件删除
+        # Delete any extra .blend1 files that may have been created
         for file in os.listdir(os.path.dirname(_output_dir)):
             if file.endswith(".blend1"):
                 os.remove(os.path.join(os.path.dirname(_output_dir), file))
@@ -426,7 +426,7 @@ def reconstruct_full_scene() -> dict:
         }
     
     except subprocess.CalledProcessError as e:
-        # 尝试读取相关日志文件内容
+        # Try to read relevant log file contents
         error_msg = str(e)
         log_files = []
         if os.path.exists(os.path.join(_output_dir, "sam_worker.log")):
