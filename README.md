@@ -65,7 +65,7 @@ conda activate agent
 pip install -r requirements/requirement_agent.txt
 
 # Blender environment (for 3D modes)
-conda create -n blender python=3.10
+conda create -n blender python=3.11
 conda activate blender
 pip install -r requirements/requirement_blender.txt
 
@@ -78,6 +78,36 @@ pip install -r requirements/requirement_pptx.txt
 conda create -n web python=3.10
 conda activate web
 pip install -r requirements/requirement_web.txt
+
+# VLLM environment (for Qwen model deployment)
+conda create -n vllm python=3.10
+conda activate vllm
+pip install -r requirements/requirement_vllm.txt
+
+# Eval-Blender environment (for evaluating 3D modes)
+conda create -n eval-blender python=3.11
+conda activate eval-blender
+pip install -r requirements/requirement_eval-blender.txt
+
+# Eval-PPTX environment (for evaluating AutoPresent)
+conda create -n eval-pptx python=3.10
+conda activate eval-pptx
+pip install -r requirements/requirement_eval-pptx.txt
+
+# SAM environment (for SAM tool)
+conda create -n sam python=3.10
+conda activate sam
+pip install -r requirements/requirement_sam.txt
+
+# SAM3 environment (for SAM tool)
+conda create -n sam3 python=3.12
+conda activate sam3
+pip install -r requirements/requirement_sam3.txt
+
+# SAM3D environment (for SAM tool)
+conda create -n sam3d-objects python=3.11
+conda activate sam3d-objects
+pip install -r requirements/requirement_sam3d-objects.txt
 ```
 
 ### 2. External Dependencies
