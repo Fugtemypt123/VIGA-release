@@ -37,71 +37,78 @@ VIGA naturally generalizes across 2D, 3D, and 4D visual tasks through its analys
 
 ## Installation
 
-### 1. Requirements
+### Prerequisites
 
-VIGA requires Python 3.10+ and uses separate environments for agents and tools (via MCP):
+- Docker (version 20.10+)
+- NVIDIA GPU with CUDA 12.8+ support
+- NVIDIA Container Toolkit
 
-```bash
-# Agent environment (required)
-conda create -n agent python=3.10
-conda activate agent
-pip install -r requirements/requirement_agent.txt
-```
+### Docker Setup (Recommended)
 
-### 2. Tool Environments
+#### For Users: Pull and Run the Docker Image
 
-Install tool environments based on the modes you want to run:
+1. **Install Docker and NVIDIA Container Toolkit**:
 
 ```bash
-# For 3D modes (BlenderGym, BlenderStudio, Static/Dynamic Scene)
-conda create -n blender python=3.11
-conda activate blender
-pip install -r requirements/requirement_blender.txt
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
 
-# For AutoPresent
-conda create -n pptx python=3.10
-conda activate pptx
-pip install -r requirements/requirement_pptx.txt
-
-# For Design2Code
-conda create -n web python=3.10
-conda activate web
-pip install -r requirements/requirement_web.txt
+# Install NVIDIA Container Toolkit
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
+  sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo systemctl restart docker
 ```
 
-### 3. External Dependencies
-
-#### Blender (for 3D modes)
-
-For BlenderGym:
-```bash
-cd utils
-git clone git@github.com:richard-guyunqi/infinigen.git
-cd infinigen
-INFINIGEN_MINIMAL_INSTALL=True bash scripts/install/interactive_blender.sh
-```
-
-For other 3D modes (static_scene, dynamic_scene, blenderstudio):
-```bash
-cd utils
-git clone https://github.com/princeton-vl/infinigen.git
-bash scripts/install/interactive_blender.sh
-```
-
-#### LibreOffice (for AutoPresent)
+2. **Pull the VIGA Docker image**:
 
 ```bash
-sudo apt install -y libreoffice unoconv
+docker pull <your-dockerhub-username>/viga:latest
 ```
 
-#### Google Chrome (for Design2Code)
+3. **Run the Docker container**:
 
 ```bash
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo apt install ./google-chrome-stable_current_amd64.deb
+docker run --gpus all -it \
+  -v $(pwd)/data:/workspace/data \
+  -v $(pwd)/output:/workspace/output \
+  -v $(pwd)/utils:/workspace/utils \
+  <your-dockerhub-username>/viga:latest
 ```
 
-### 4. Configuration
+This mounts your local `data`, `output`, and `utils` directories into the container.
+
+#### For Developers: Build and Push the Docker Image
+
+1. **Build the Docker image**:
+
+```bash
+# Create Dockerfile (see docs/DOCKER.md for complete configuration)
+docker build -t viga:latest .
+```
+
+2. **Tag and push to Docker Hub**:
+
+```bash
+docker tag viga:latest <your-dockerhub-username>/viga:latest
+docker login
+docker push <your-dockerhub-username>/viga:latest
+```
+
+3. **Build multi-architecture images** (optional):
+
+```bash
+docker buildx create --use
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t <your-dockerhub-username>/viga:latest --push .
+```
+
+See [docs/DOCKER.md](docs/DOCKER.md) for complete Dockerfile configuration and build instructions.
+
+### Configuration
 
 Create configuration files in `utils/`:
 
@@ -125,6 +132,10 @@ path_to_cmd = {
     # Add other tool paths as needed
 }
 ```
+
+### Alternative: Conda Installation
+
+If you prefer to set up environments using Conda instead of Docker, please refer to [docs/CONDA_SETUP.md](docs/CONDA_SETUP.md) for detailed instructions.
 
 ## Quick Start
 
@@ -195,6 +206,8 @@ See [docs/RUNNERS.md](docs/RUNNERS.md) for detailed runner documentation.
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) - System design and skill library
+- [Docker Setup](docs/DOCKER.md) - Complete Docker configuration guide
+- [Conda Setup](docs/CONDA_SETUP.md) - Alternative Conda installation guide
 - [Runners](docs/RUNNERS.md) - Batch execution and command-line options
 - [Evaluation](docs/EVALUATION.md) - Metrics and benchmarks
 
