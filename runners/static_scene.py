@@ -9,7 +9,7 @@ import time
 import argparse
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import shutil
@@ -100,7 +100,7 @@ def load_static_scene_dataset(base_path: str, task_name: str, setting: str, test
     return tasks
 
 
-def run_static_scene_task(task_config: Dict, args) -> tuple:
+def run_static_scene_task(task_config: Dict, args: argparse.Namespace) -> Tuple[str, bool, Optional[str]]:
     """
     Run a single static scene task using main.py
     
@@ -186,7 +186,7 @@ def run_static_scene_task(task_config: Dict, args) -> tuple:
         return task_name, False, error_msg
 
 
-def run_static_scene_tasks_parallel(tasks: List[Dict], args, max_workers: int = 4):
+def run_static_scene_tasks_parallel(tasks: List[Dict], args: argparse.Namespace, max_workers: int = 4) -> None:
     """Run static scene tasks in parallel."""
     print(f"Running {len(tasks)} static scene tasks with {max_workers} workers")
     
@@ -220,7 +220,8 @@ def run_static_scene_tasks_parallel(tasks: List[Dict], args, max_workers: int = 
     print(f"  Total: {len(tasks)}")
 
 
-def main():
+def main() -> None:
+    """Entry point for the static scene runner."""
     parser = argparse.ArgumentParser(description="Static Scene Runner for AgenticVerifier")
     time_str = time.strftime('%Y%m%d_%H%M%S')
     

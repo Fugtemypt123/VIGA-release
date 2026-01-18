@@ -474,7 +474,7 @@ def tournament_select_best(candidate_results: List[Dict], target_image_path: str
     return current_candidates[0]
 
 
-def run_iterative_alchemy(task_config: Dict, args) -> Dict:
+def run_iterative_alchemy(task_config: Dict, args: argparse.Namespace) -> Dict:
     """
     Run iterative alchemy process: generate candidates -> tournament -> update -> repeat.
     Saves results in the format: renders/1/, renders/2/, ..., renders/10/ and scripts/1.py, ..., scripts/10.py
@@ -641,7 +641,8 @@ def run_iterative_alchemy(task_config: Dict, args) -> Dict:
     }
 
 
-def main():
+def main() -> None:
+    """Entry point for the BlenderGym alchemy runner."""
     parser = argparse.ArgumentParser(description="Iterative Alchemy Runner for BlenderGym")
     
     # Input parameters

@@ -20,7 +20,17 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.common import get_model_info
 
 def load_blendergym_dataset(base_path: str, task_name: str, test_id: Optional[str] = None, task_id: Optional[int] = None) -> List[Dict]:
+    """Load BlenderGym dataset structure.
 
+    Args:
+        base_path: Path to BlenderGym dataset root.
+        task_name: Name of the task type to load.
+        test_id: Optional test ID for filtering completed tasks.
+        task_id: Optional specific task ID to run.
+
+    Returns:
+        List of task configurations.
+    """
     tasks = []
     base_path = Path(base_path)
     
@@ -89,7 +99,7 @@ def load_blendergym_dataset(base_path: str, task_name: str, test_id: Optional[st
     
     return tasks
 
-def run_blendergym_task(task_config: Dict, args) -> Tuple[str, bool, str]:
+def run_blendergym_task(task_config: Dict, args: argparse.Namespace) -> Tuple[str, bool, str]:
     """
     Run a single BlenderGym task using main.py
     
@@ -160,7 +170,7 @@ def run_blendergym_task(task_config: Dict, args) -> Tuple[str, bool, str]:
         print(error_msg)
         return (task_name, False, str(e))
 
-def run_tasks_parallel(tasks: List[Dict], args, max_workers: int = 10) -> tuple:
+def run_tasks_parallel(tasks: List[Dict], args: argparse.Namespace, max_workers: int = 10) -> Tuple[int, int, List[Dict]]:
     """
     Run tasks in parallel using ThreadPoolExecutor
     
@@ -213,7 +223,8 @@ def run_tasks_parallel(tasks: List[Dict], args, max_workers: int = 10) -> tuple:
     
     return successful_tasks, failed_tasks, failed_task_details
 
-def main():
+def main() -> None:
+    """Entry point for the BlenderGym runner."""
     parser = argparse.ArgumentParser(description="BlenderGym Runner for AgenticVerifier")
     
     # Dataset parameters

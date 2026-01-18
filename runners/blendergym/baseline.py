@@ -86,7 +86,7 @@ def load_blendergym_dataset(base_path: str, task_name: str, test_id: Optional[st
     
     return tasks
 
-def run_blendergym_task(task_config: Dict, args) -> Tuple[str, bool, str]:
+def run_blendergym_task(task_config: Dict, args: argparse.Namespace) -> Tuple[str, bool, str]:
     """
     Run a single BlenderGym task using main.py
     
@@ -137,7 +137,7 @@ def run_blendergym_task(task_config: Dict, args) -> Tuple[str, bool, str]:
     return task_name, True, ""
     
 
-def run_tasks_parallel(tasks: List[Dict], args, max_workers: int = 10) -> tuple:
+def run_tasks_parallel(tasks: List[Dict], args: argparse.Namespace, max_workers: int = 10) -> Tuple[int, int, List[Dict]]:
     """
     Run tasks in parallel using ThreadPoolExecutor
     
@@ -190,7 +190,8 @@ def run_tasks_parallel(tasks: List[Dict], args, max_workers: int = 10) -> tuple:
     
     return successful_tasks, failed_tasks, failed_task_details
 
-def main():
+def main() -> None:
+    """Entry point for the BlenderGym baseline runner."""
     parser = argparse.ArgumentParser(description="BlenderGym Runner for AgenticVerifier")
     
     # Dataset parameters

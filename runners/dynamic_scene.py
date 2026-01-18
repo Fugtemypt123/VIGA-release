@@ -13,7 +13,7 @@ import asyncio
 import signal
 import shutil
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
@@ -106,7 +106,7 @@ def load_dynamic_scene_dataset(base_path: str, task_name: str, test_id: Optional
     return tasks
 
 
-def run_dynamic_scene_task(task_config: Dict, args) -> tuple:
+def run_dynamic_scene_task(task_config: Dict, args: argparse.Namespace) -> Tuple[str, bool, Optional[str]]:
     """
     Run a single dynamic scene task using main.py
     
@@ -188,7 +188,7 @@ def run_dynamic_scene_task(task_config: Dict, args) -> tuple:
         return task_name, False, error_msg
 
 
-def run_dynamic_scene_tasks_parallel(tasks: List[Dict], args, max_workers: int = 4):
+def run_dynamic_scene_tasks_parallel(tasks: List[Dict], args: argparse.Namespace, max_workers: int = 4) -> None:
     """Run dynamic scene tasks in parallel."""
     print(f"Running {len(tasks)} dynamic scene tasks with {max_workers} workers")
     
@@ -222,7 +222,8 @@ def run_dynamic_scene_tasks_parallel(tasks: List[Dict], args, max_workers: int =
     print(f"  Total: {len(tasks)}")
 
 
-def main():
+def main() -> None:
+    """Entry point for the dynamic scene runner."""
     parser = argparse.ArgumentParser(description="Dynamic Scene Runner for AgenticVerifier")
     time_str = time.strftime('%Y%m%d_%H%M%S')
     
