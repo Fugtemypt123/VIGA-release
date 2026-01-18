@@ -189,7 +189,13 @@ def run_dynamic_scene_task(task_config: Dict, args: argparse.Namespace) -> Tuple
 
 
 def run_dynamic_scene_tasks_parallel(tasks: List[Dict], args: argparse.Namespace, max_workers: int = 4) -> None:
-    """Run dynamic scene tasks in parallel."""
+    """Run dynamic scene tasks in parallel.
+
+    Args:
+        tasks: List of task configurations.
+        args: Command line arguments.
+        max_workers: Maximum number of parallel workers.
+    """
     print(f"Running {len(tasks)} dynamic scene tasks with {max_workers} workers")
     
     successful_tasks = 0
