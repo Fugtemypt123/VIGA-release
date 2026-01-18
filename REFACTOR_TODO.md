@@ -10,8 +10,9 @@ This document tracks all code quality issues that need to be fixed for open-sour
 - [x] Phase 4: runners/ ✅ COMPLETED
 - [x] Phase 5: visualization/ ✅ N/A (directory removed)
 - [x] Phase 6: evaluators/ ✅ COMPLETED
-- [ ] Phase 7: utils/
+- [x] Phase 7: utils/ ✅ COMPLETED
 - [ ] Phase 8: prompts/
+- [ ] Phase 9: data/ (helper scripts)
 
 ---
 
@@ -248,19 +249,60 @@ Large files have been improved with better documentation but splitting is deferr
 
 ---
 
-## Phase 7: utils/
+## Phase 7: utils/ ✅ COMPLETED
 
-### 7.1 Exception Handling
+### Changes Made:
 
-| File | Line | Issue |
-|------|------|-------|
-| `common.py` | 26-27 | Generic `Exception` should be `RuntimeError` |
+**Note**: Consider renaming `utils/` to `third_party/` - this folder contains external helper libraries (SlidesLib, library) rather than general project utilities.
 
-### 7.2 Hardcoded Values
+**Core Utils Files:**
+- **common.py**: Added module docstring, fixed import order (stdlib → third-party → local), moved `logging` import from inline to top, added return type hints to `get_model_response()`, `build_client()`, `get_model_info()`, `get_meshy_info()`, fixed "Rets:" to "Returns:" in docstrings
+- **path.py**: Added module docstring explaining configuration purpose
 
-| File | Line | Issue |
-|------|------|-------|
-| `common.py` | 19-28 | Hardcoded `max_retries = 1` and `time.sleep(10)` |
+**Library Submodule (utils/library/):**
+- **__init__.py**: Added module docstring
+- **get_docs.py**: Added module docstring
+- **library.py**: Added module docstring, fixed import order, changed "Rets:" to "Returns:"
+- **library_basic.py**: Added module docstring, fixed import order, changed "Rets:" to "Returns:"
+- **library_image.py**: Added module docstring, changed "Rets:" to "Returns:"
+
+**SlidesLib Submodule (utils/SlidesLib/):**
+- **__init__.py**: Added module docstring, fixed import order (third-party → local), **removed duplicate RGBColor import**, fixed spacing in function signatures
+- **image_gen.py**: Added module docstring, fixed import order, added class docstring and return type hints
+- **llm.py**: Added module docstring, **removed unused `requests` import**, fixed import order, added return type hints, fixed spacing
+- **plotting.py**: Added module docstring, fixed import order, **converted Sphinx-style docstrings to Google-style**, added return type hints, fixed incomplete `get_plot` method
+- **ppt_gen.py**: Added module docstring, fixed import order
+- **search.py**: Added module docstring, fixed import order, **removed duplicate `search_image_prev` method** (was defined twice identically), added return type hints, changed bare `except Exception:` to specific exceptions
+- **vqa.py**: Added module docstring, **removed unused `requests` import**, moved inline imports to top of file, added return type hints
+
+### Bug Fixes:
+- **SlidesLib/__init__.py**: Removed duplicate `RGBColor` import (was imported twice)
+- **SlidesLib/search.py**: Removed duplicate `search_image_prev` method definition (lines 86-113 were identical to 100-113)
+- **SlidesLib/search.py**: Changed bare `except Exception:` to `except (requests.RequestException, IOError):` for proper error handling
+
+---
+
+## Phase 8: prompts/
+
+**Files to review (17 Python files):**
+- `prompt_manager.py`
+- `__init__.py`
+- `blenderbench/__init__.py`, `generator.py`, `verifier.py`
+- `blendergym/__init__.py`, `generator.py`, `verifier.py`
+- `dynamic_scene/__init__.py`, `generator.py`, `verifier.py`
+- `slidebench/__init__.py`, `generator.py`, `verifier.py`
+- `static_scene/__init__.py`, `generator.py`, `verifier.py`
+
+---
+
+## Phase 9: data/ (helper scripts)
+
+**Files to review (20+ Python scripts):**
+- `blenderbench/generator_script.py`, `verifier_script.py`
+- `blendergym/pipeline_render_script.py`, `cp_blender_files.py`, `generator_script.py`, etc.
+- `dynamic_scene/generator_script.py`, `verifier_script.py`
+- `slidebench/library.py`, `reproduce_code.py`, `create_dataset.py`, etc.
+- `static_scene/generator_init_script.py`
 
 ---
 
