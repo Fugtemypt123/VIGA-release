@@ -1,11 +1,15 @@
 """Block matching algorithm for slide evaluation using Hungarian algorithm."""
-import numpy as np
-from copy import deepcopy
 from collections import Counter
+from copy import deepcopy
 from difflib import SequenceMatcher
+from typing import Any, Dict, List, Tuple
+
+import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-def calculate_similarity(block1: dict, block2: dict) -> float:
+
+def calculate_similarity(block1: Dict[str, Any], block2: Dict[str, Any]) -> float:
+    """Calculate text similarity between two blocks."""
     if block1.get("text", None) is None or block2.get("text", None) is None:
         return 0.0
     text_similarity = SequenceMatcher(None, block1["text"], block2["text"]).ratio()
@@ -45,7 +49,23 @@ def adjust_cost_for_context(cost_matrix: list[list[float]], consecutive_bonus=1.
 def calculate_current_cost(cost_matrix, row_ind, col_ind):
     return cost_matrix[row_ind, col_ind].tolist()
 
-def find_maximum_matching(A, B, consecutive_bonus, window_size):
+def find_maximum_matching(
+    A: List[Dict[str, Any]],
+    B: List[Dict[str, Any]],
+    consecutive_bonus: float,
+    window_size: int
+) -> Tuple[List[Tuple[int, int]], List[float], np.ndarray]:
+    """Find maximum matching between two lists of blocks using Hungarian algorithm.
+
+    Args:
+        A: List of blocks from first source.
+        B: List of blocks from second source.
+        consecutive_bonus: Bonus for consecutive matches.
+        window_size: Window size for context adjustment.
+
+    Returns:
+        Tuple of (matching pairs, costs, cost matrix).
+    """
     cost_matrix = create_cost_matrix(A, B)
     cost_matrix = adjust_cost_for_context(cost_matrix, consecutive_bonus, window_size)
     row_ind, col_ind = linear_sum_assignment(cost_matrix)

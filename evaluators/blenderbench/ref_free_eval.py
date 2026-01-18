@@ -132,7 +132,7 @@ def evaluate_image_with_gpt(image_path: str, target_image_path: str, task_descri
         try:
             score, justification = response_text.split(".", 1)
             score = float(score.strip())
-        except:
+        except (ValueError, AttributeError):
             score, justification = 0.0, response_text
             
         return {
@@ -334,7 +334,8 @@ def extract_task_type_and_number(task_dir_name):
     return None, None
 
 
-def main():
+def main() -> None:
+    """Run reference-free evaluation using GPT for BlenderBench results."""
     parser = argparse.ArgumentParser(description='Reference-free evaluation for AgenticVerifier blendergym results')
     parser.add_argument('test_id', type=str, help='Test ID (e.g., 20250815_150016)')
     parser.add_argument('--output_dir', type=str, default=None, 

@@ -1,15 +1,24 @@
 """Evaluation on two PPTX files, predicted and ground truth."""
-
-import os
-import json
-import pptx
 import argparse
-from metrics import *
-from match import find_maximum_matching
+import json
+import os
+from typing import Any, Dict, List, Optional, Tuple
+
+import pptx
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
-def viz_scores(scores: dict) -> dict:
-    """Print the scores in a human-readable format."""
+from match import find_maximum_matching
+from metrics import get_color_similarity, get_position_similarity, get_shape_fill_similarity, get_text_similarity
+
+def viz_scores(scores: Dict[str, Any]) -> Dict[str, float]:
+    """Print the scores in a human-readable format.
+
+    Args:
+        scores: Dictionary of metric names to score values (list or scalar).
+
+    Returns:
+        Dictionary of metric names to final scores (scaled to 0-100).
+    """
     final = {}
     for key, values in scores.items():
         if isinstance(values, list):
@@ -18,7 +27,7 @@ def viz_scores(scores: dict) -> dict:
                 print(f"{key:10s}: N/A")
                 final[key] = 100.0
                 continue
-        else: 
+        else:
             valid_values = values
         if isinstance(valid_values, list) or isinstance(valid_values, int):
             score = sum(valid_values) / len(valid_values)
@@ -28,7 +37,16 @@ def viz_scores(scores: dict) -> dict:
         final[key] = score * 100
     return final
 
-def merge_scores(scores: dict) -> dict:
+
+def merge_scores(scores: Dict[str, Any]) -> Dict[str, float]:
+    """Merge scores by averaging list values.
+
+    Args:
+        scores: Dictionary of metric names to score values.
+
+    Returns:
+        Dictionary of metric names to averaged scores.
+    """
     merged = {}
     for key, values in scores.items():
         if isinstance(values, list) or isinstance(values, int):
@@ -38,23 +56,37 @@ def merge_scores(scores: dict) -> dict:
         merged[key] = score
     return merged
 
-def extract_text(block: dict) -> str:
+
+def extract_text(block: Dict[str, Any]) -> Optional[str]:
+    """Extract text content from a block."""
     return block["text"]
 
-def extract_color(block: dict) -> tuple:
+
+def extract_color(block: Dict[str, Any]) -> Any:
+    """Extract color/fill from a block."""
     return block["color"]
 
-def extract_position(block) -> tuple:
+
+def extract_position(block: Dict[str, Any]) -> Dict[str, Tuple[float, float, float, float]]:
+    """Extract bounding box position from a block."""
     return {"bbox": (
-        block["position"][0], # left
-        block["position"][1], # top
-        block["position"][0] + block["size"][0], #right
-        block["position"][1] + block["size"][1], # bottom
+        block["position"][0],  # left
+        block["position"][1],  # top
+        block["position"][0] + block["size"][0],  # right
+        block["position"][1] + block["size"][1],  # bottom
     )}
 
 
-def parse_blocks(slide, size: tuple[int, int]) -> list:
-    """Parse the PPTX file and extract the blocks."""
+def parse_blocks(slide: Any, size: Tuple[int, int]) -> List[Dict[str, Any]]:
+    """Parse the PPTX slide and extract the blocks.
+
+    Args:
+        slide: PPTX slide object.
+        size: Slide dimensions as (width, height).
+
+    Returns:
+        List of block dictionaries with type, text, color, position, and size.
+    """
     blocks = []
     
     for shape in slide.shapes:
@@ -77,7 +109,21 @@ def parse_blocks(slide, size: tuple[int, int]) -> list:
     return blocks
 
 
-def block_match_score(gen_blocks, ref_blocks, matching) -> float:
+def block_match_score(
+    gen_blocks: List[Dict[str, Any]],
+    ref_blocks: List[Dict[str, Any]],
+    matching: List[Tuple[int, int]]
+) -> float:
+    """Calculate the block match score based on matched areas.
+
+    Args:
+        gen_blocks: List of generated blocks.
+        ref_blocks: List of reference blocks.
+        matching: List of (gen_idx, ref_idx) pairs.
+
+    Returns:
+        Match score as ratio of matched area to total area.
+    """
     gen_indices = [i for i, _ in matching]
     sum_area, matched_area = 0, 0
     for i, gb in enumerate(gen_blocks):
@@ -96,7 +142,8 @@ def block_match_score(gen_blocks, ref_blocks, matching) -> float:
     return matched_area / sum_area
 
 
-def main():
+def main() -> None:
+    """Run the evaluation on generated vs reference PPTX files."""
     # load the first slide from each PPTX file
     gen_prs = pptx.Presentation(args.generated_pptx)
     gen_slide = gen_prs.slides[args.generated_page-1]
@@ -127,7 +174,7 @@ def main():
             scores_dict["color"].append(get_color_similarity(
                 color1=gen_slide_bg, color2=ref_slide_bg
             ))
-        except:
+        except Exception:
             scores_dict["color"].append(gen_slide.background.fill == ref_slide.background.fill)
         scores_dict["position"].append(get_position_similarity(
             extract_position(gen_block), extract_position(ref_block)
@@ -141,7 +188,18 @@ def main():
             f.write(f"{key}: {value:.1f}\n")
 
 
-def eval_page(gen_prs, gen_page, ref_prs, ref_page) -> dict:
+def eval_page(gen_prs: Any, gen_page: int, ref_prs: Any, ref_page: int) -> Dict[str, float]:
+    """Evaluate a single page comparison between generated and reference presentations.
+
+    Args:
+        gen_prs: Generated PPTX presentation object.
+        gen_page: Page index in generated presentation.
+        ref_prs: Reference PPTX presentation object.
+        ref_page: Page index in reference presentation.
+
+    Returns:
+        Dictionary of merged scores for this page.
+    """
     gen_slide = gen_prs.slides[gen_page]
     ref_slide = ref_prs.slides[ref_page]
 

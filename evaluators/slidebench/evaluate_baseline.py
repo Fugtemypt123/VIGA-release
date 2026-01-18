@@ -67,7 +67,8 @@ def evaluate_single_slide(slide_dirs: str, index: int, model_name: str) -> int:
     print(f"Finish evaluating slide {index} !")
     return index
 
-def main():
+def main() -> None:
+    """Run baseline evaluation for all slides."""
     if args.slide_name == 'all':
         slides_list = ['art_photos', 'business', 'design', 'entrepreneur', 'environment', 'food', 'marketing', 'social_media', 'technology']
     else:

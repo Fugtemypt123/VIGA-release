@@ -1,9 +1,9 @@
 """Text similarity metric using sentence embeddings."""
+from difflib import SequenceMatcher
 from typing import Optional
 
-from difflib import SequenceMatcher
-from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Lazy-loaded model
 _model: Optional[SentenceTransformer] = None

@@ -5,11 +5,13 @@ Combines reference-based (CLIP + photometric loss) and reference-free (GPT) eval
 Baseline renders are located at: data/blenderbench/{level}/{task}/baseline/{model_name}/render1.png
 """
 
-import os
-import sys
 import argparse
-import json
 import base64
+import json
+import os
+import re
+import sys
+
 from PIL import Image
 from tqdm import tqdm
 import numpy as np
@@ -201,15 +203,15 @@ def evaluate_image_with_gpt(image_path: str, target_image_path: str, task_descri
         try:
             score, justification = response_text.split(".", 1)
             score = float(score.strip())
-        except:
+        except (ValueError, AttributeError):
             score, justification = 0.0, response_text
-            
+
         return {
             "score": score,
             "justification": justification.strip(),
             "criteria": criteria_name
         }
-        
+
     except Exception as e:
         print(f"Error evaluating image {image_path}: {e}")
         return {
@@ -363,7 +365,6 @@ def extract_task_type_and_number(task_dir_name):
             # Extract number from task name (camera1 -> 1, attribute5 -> 5)
             try:
                 # Find the last digit sequence in the task name
-                import re
                 numbers = re.findall(r'\d+', task_name)
                 if numbers:
                     task_number = int(numbers[-1])
@@ -373,7 +374,8 @@ def extract_task_type_and_number(task_dir_name):
     return None, None
 
 
-def main():
+def main() -> None:
+    """Run evaluation for BlenderBench baseline results."""
     parser = argparse.ArgumentParser(description='Evaluate AgenticVerifier blenderbench baseline results')
     parser.add_argument('--data_dir', type=str, default='data/blenderbench',
                        help='Base directory containing baseline results (default: data/blenderbench)')

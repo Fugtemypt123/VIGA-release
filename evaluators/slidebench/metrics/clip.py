@@ -1,20 +1,20 @@
 """CLIP image-pair similarity score."""
-from typing import List, Dict
-
-import cv2
-import clip
-import torch
 import argparse
+from typing import Any, Dict, List, Optional, Tuple
+
+import clip
+import cv2
 import numpy as np
+import torch
 from PIL import Image
 
 # Lazy-loaded model
-_device = None
-_model = None
-_preprocess = None
+_device: Optional[str] = None
+_model: Optional[Any] = None
+_preprocess: Optional[Any] = None
 
 
-def _get_model():
+def _get_model() -> Tuple[str, Any, Any]:
     """Get or initialize the CLIP model."""
     global _device, _model, _preprocess
     if _model is None:
