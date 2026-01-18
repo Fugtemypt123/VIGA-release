@@ -69,4 +69,4 @@ services:
       - ./utils/_path.py:/workspace/utils/_path.py
     profiles:
       - worker
-    command: python runners/blendergym.py --dataset-path data/blendergym --task all --model gpt-4o
+    command: python runners/blendergym/ours.py --dataset-path data/blendergym --task all --model gpt-4o
