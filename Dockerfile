@@ -62,6 +62,8 @@ WORKDIR /workspace
 
 # Copy project files
 COPY requirements/ /workspace/requirements/
+COPY agents/ /workspace/agents/
+COPY prompts/ /workspace/prompts/
 COPY utils/ /workspace/utils/
 COPY tools/ /workspace/tools/
 COPY models/ /workspace/models/
