@@ -20,14 +20,15 @@ from utils.common import get_model_info, get_meshy_info
 def load_static_scene_dataset(base_path: str, task_name: str, setting: str, test_id: Optional[str] = None) -> List[Dict]:
     """
     Load static scene dataset structure.
-    
+
     Args:
-        base_path: Path to static scene dataset root
-        task_name: Task name to load
-        test_id: Optional test ID for filtering
+        base_path: Path to static scene dataset root.
+        task_name: Task name to load.
+        setting: Initialization setting for the task.
+        test_id: Optional test ID for filtering.
 
     Returns:
-        List of task configurations
+        List of task configurations.
     """
     base_path = Path(base_path)
     if not base_path.exists():
