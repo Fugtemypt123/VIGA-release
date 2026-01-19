@@ -37,45 +37,32 @@ VIGA naturally generalizes across 2D, 3D, and 4D visual tasks through its analys
 
 ## Quick Setup
 
-### 1. Create Conda Environments
-
+### 1. Clone & Init Submodules
 ```bash
-# Agent environment
-conda create -n agent python=3.10 -y && conda activate agent
-pip install -r requirements/requirement_agent.txt
-
-# Blender environment with Infinigen
-conda create -n blender python=3.11 -y && conda activate blender
-pip install -r requirements/requirement_blender.txt
-cd utils && git clone https://github.com/princeton-vl/infinigen.git && cd infinigen
-bash scripts/install/interactive_blender.sh && cd ../..
-
-# SAM environments
-conda create -n sam python=3.10 -y && conda activate sam
-pip install -r requirements/requirement_sam.txt
-
-conda create -n sam3 python=3.10 -y && conda activate sam3
-pip install -r requirements/requirement_sam3.txt
-
-conda create -n sam3d-objects python=3.11 -y && conda activate sam3d-objects
-pip install -r requirements/requirement_sam3d-objects.txt
+git clone https://github.com/Fugtemypt123/VIGA-release.git && cd VIGA-release
+git submodule update --init --recursive
 ```
 
-### 2. Configure API Keys
-
-Create `utils/_api_keys.py`:
-```python
-OPENAI_API_KEY = "your-key"
-OPENAI_BASE_URL = "https://api.openai.com/v1"
-MESHY_API_KEY = "your-meshy-key"  # For 3D assets
-```
-
-### 3. Run Dynamic Scene
-
+### 2. Setup Environments
 ```bash
-conda activate agent
-python runners/dynamic_scene.py --dataset-path data/dynamic_scene --task all --model gpt-4o
+conda create -n agent python=3.10 -y && conda activate agent && pip install -r requirements/requirement_agent.txt
+conda create -n blender python=3.11 -y && conda activate blender && pip install -r requirements/requirement_blender.txt
+conda create -n sam python=3.10 -y && conda activate sam && pip install -r requirements/requirement_sam.txt
+conda create -n sam3d python=3.11 -y && conda activate sam3d && pip install -r requirements/requirement_sam3d-objects.txt
 ```
+
+### 3. Configure API Keys
+```bash
+cp utils/_api_keys.py.example utils/_api_keys.py
+# Edit utils/_api_keys.py: add OPENAI_API_KEY and MESHY_API_KEY
+```
+
+### 4. Run
+```bash
+conda activate agent && python runners/dynamic_scene.py --task=artist --model=gpt-5
+```
+
+You can customize any data you like. Please refer to the format in `data/dynamic_scene/artist` (put your new data in `data/dynamic_scene/<your-data-name>`).
 
 ## Full Documentation
 
