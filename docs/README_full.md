@@ -24,7 +24,9 @@
 <p align="center">
     <a href="#about">About</a> •
     <a href="#supported-domains">Supported Domains</a> •
-    <a href="#quickstart">Quickstart</a>
+    <a href="#quickstart">Quickstart</a> •
+    <a href="#documentation">Documentation</a> •
+    <a href="#citation">Citation</a>
 </p>
 
 <br>
@@ -110,3 +112,33 @@ python runners/dynamic_scene.py --task=artist --model=gpt-5
 ```
 
 Custom data: place in `data/dynamic_scene/<your-data-name>` following the format in `data/dynamic_scene/artist`.
+
+<br>
+
+# Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [Architecture](docs/architecture.md) | System design and agent tools |
+| [Requirements](requirements/README.md) | Conda environment setup |
+| [Runners](runners/README.md) | Batch execution options |
+
+<br>
+
+# Citation
+
+You can find a paper writeup of the framework on [arXiv](https://arxiv.org/abs/2601.11109).
+
+If you find this project useful for your research, please consider citing:
+
+```bibtex
+@misc{yin2026visionasinversegraphicsagentinterleavedmultimodal,
+      title={Vision-as-Inverse-Graphics Agent via Interleaved Multimodal Reasoning},
+      author={Shaofeng Yin and Jiaxin Ge and Zora Zhiruo Wang and Xiuyu Li and Michael J. Black and Trevor Darrell and Angjoo Kanazawa and Haiwen Feng},
+      year={2026},
+      eprint={2601.11109},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2601.11109},
+}
+```
