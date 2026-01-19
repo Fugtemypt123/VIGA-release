@@ -43,20 +43,18 @@ The agent maintains an evolving contextual memory with plans, code diffs, and re
 
 ### 1. Installation: Setup the environment
 
----
-
-#### Prerequisites
+**Prerequisites**
 
 You need [Conda](https://docs.conda.io/en/latest/miniconda.html) installed. For 3D modes, an NVIDIA GPU with CUDA support is recommended.
 
-#### Clone repository
+**Clone repository**
 
 ```bash
 git clone https://github.com/Fugtemypt123/VIGA-release.git && cd VIGA-release
 git submodule update --init --recursive
 ```
 
-#### Create conda environments
+**Create conda environments**
 
 VIGA requires separate environments for the agent and tools.
 
@@ -76,7 +74,7 @@ pip install -r requirements/requirement_sam3d-objects.txt
 
 See [Requirements](requirements/README.md) for additional options.
 
-#### Configure API keys
+**Configure API keys**
 
 ```bash
 cp utils/_api_keys.py.example utils/_api_keys.py
@@ -85,8 +83,6 @@ cp utils/_api_keys.py.example utils/_api_keys.py
 Edit `utils/_api_keys.py` and add your `OPENAI_API_KEY` and `MESHY_API_KEY`.
 
 ### 2. Usage: Run the agent
-
----
 
 ```bash
 conda activate agent
