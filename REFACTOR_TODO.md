@@ -413,3 +413,42 @@ All files in prompts/ have been refactored to follow the coding standards:
 - Import order follows the coding standard consistently
 - All commented-out code has been cleaned up
 - API key configuration template provided for easy setup
+
+---
+
+## Future Improvements (Optional)
+
+These are optional improvements that can be done post-release:
+
+### 1. Split Large Files (God Files)
+Files exceeding 500 lines should be split by functionality:
+
+| File | Lines | Suggested Split |
+|------|-------|-----------------|
+| `tools/investigator.py` | 603 | Split camera/render/viewpoint into separate modules |
+| `tools/meshy.py` | 602 | Split API client/image processing/asset management |
+| `runners/blendergym/alchemy.py` | 783 | Split evaluation/rendering/task management |
+| `runners/blenderbench/alchemy.py` | 770 | Same as above |
+
+### 2. Exception Handling
+- Replace generic `except Exception:` with specific exception types
+- Remove any remaining bare `except:` clauses
+
+### 3. Configuration System
+- Replace `args: Dict[str, Any]` with typed `@dataclass` configurations
+```python
+@dataclass
+class AgentConfig:
+    model: str
+    max_rounds: int
+    memory_length: int
+    ...
+```
+
+### 4. Testing
+- Add pytest unit tests for core modules (agents/, tools/)
+- Add integration tests for the dual-agent loop
+
+### 5. Documentation
+- Generate API documentation (Sphinx/MkDocs)
+- Add more usage examples to README.md
