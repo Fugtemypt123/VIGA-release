@@ -129,7 +129,7 @@ def run_blendergym_task(task_config: Dict, args: argparse.Namespace) -> Tuple[st
     print(f"Saving code to {os.path.join(output_base, f'{output_name}.py')}")
         
     cmd = [
-        "utils/infinigen/blender/blender",
+        "utils/third_party/infinigen/blender/blender",
         "--background", task_config['blender_file'],
         "--python", "data/blendergym/generator_script.py",
         "--", os.path.join(output_base, f"{output_name}.py"), os.path.join(output_base, f"{output_name}")

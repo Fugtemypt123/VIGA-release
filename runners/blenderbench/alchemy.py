@@ -278,7 +278,7 @@ def main() -> None:
     parser.add_argument("--num-candidates", type=int, default=4, help="Number of candidate codes to generate per iteration")
 
     # Blender parameters
-    parser.add_argument("--blender-command", default="utils/infinigen/blender/blender", help="Blender command path")
+    parser.add_argument("--blender-command", default="utils/third_party/infinigen/blender/blender", help="Blender command path")
     parser.add_argument("--blender-script", default="data/blenderbench/generator_script.py", help="Blender execution script")
     parser.add_argument("--gpu-devices", default=None, help="GPU devices string (e.g., '0,1')")
 

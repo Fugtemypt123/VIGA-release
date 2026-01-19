@@ -79,9 +79,9 @@ python runners/dynamic_scene.py --dataset-path data/dynamic_scene --task all --m
 
 ## Full Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) - System design and skill library
+- [Architecture](docs/architecture.md) - System design and skill library
 - [Conda Setup](requirements/readme.md) - Detailed Conda installation guide
-- [Runners](docs/RUNNERS.md) - Batch execution and command-line options
+- [Runners](runners/readme.md) - Batch execution and command-line options
 
 ## Citation
 

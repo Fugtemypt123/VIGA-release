@@ -82,7 +82,7 @@ def initialize(args: Dict[str, object]) -> Dict[str, object]:
     _sam3_cfg = args.get("sam3d_config_path") or os.path.join(
         ROOT, "utils", "sam3d", "checkpoints", "hf", "pipeline.yaml"
     )
-    _blender_command = args.get("blender_command") or "utils/infinigen/blender/blender"
+    _blender_command = args.get("blender_command") or "utils/third_party/infinigen/blender/blender"
     return {
         "status": "success",
         "output": {"text": ["SAM bridge initialized successfully"], "tool_configs": tool_configs}
@@ -175,7 +175,7 @@ def main() -> None:
             {
                 "target_image_path": "data/static_scene/blackhouse25/target.jpeg",
                 "output_dir": os.path.join(ROOT, "output", "test", "sam3"),
-                "blender_command": "utils/infinigen/blender/blender",
+                "blender_command": "utils/third_party/infinigen/blender/blender",
             }
         )
         print(get_better_object("house"))

@@ -367,7 +367,7 @@ def test_tools() -> None:
     # Read test paths from environment variables
     blender_file = os.getenv("BLENDER_FILE", "data/blendergym/placement2/blender_file.blend")
     test_save_dir = os.getenv("THOUGHT_SAVE", "output/test/investigator/")
-    blender_command = os.getenv("BLENDER_COMMAND", "utils/blender/infinigen/blender/blender")
+    blender_command = os.getenv("BLENDER_COMMAND", "utils/third_party/blender/infinigen/blender/blender")
     blender_script = os.getenv("BLENDER_SCRIPT", "data/blendergym/pipeline_render_script.py")
     gpu_devices = os.getenv("GPU_DEVICES", "0,1,2,3,4,5,6,7")
 

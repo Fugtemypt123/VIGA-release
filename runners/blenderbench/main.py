@@ -130,7 +130,7 @@ def run_blenderbench_task(task_config: Dict, args: argparse.Namespace) -> Tuple[
     print(f"Saving code to {os.path.join(output_base, f'{output_name}.py')}")
         
     cmd = [
-        "utils/infinigen/blender/blender",
+        "utils/third_party/infinigen/blender/blender",
         "--background", task_config['blender_file'],
         "--python", "data/blenderbench/generator_script.py",
         "--", os.path.join(output_base, f"{output_name}.py"), os.path.join(output_base, f"{output_name}")

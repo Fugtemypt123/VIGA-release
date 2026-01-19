@@ -133,7 +133,7 @@ def initialize(args: Dict[str, object]) -> Dict[str, object]:
         _sam3_cfg = args.get("sam3d_config_path") or os.path.join(
             ROOT, "utils", "sam3d", "checkpoints", "hf", "pipeline.yaml"
         )
-        _blender_command = args.get("blender_command") or "utils/infinigen/blender/blender"
+        _blender_command = args.get("blender_command") or "utils/third_party/infinigen/blender/blender"
         # Record the passed blender_file parameter for later writing directly to that path during reconstruction
         _blender_file = args.get("blender_file")
 
@@ -460,7 +460,7 @@ def main() -> None:
             {
                 "target_image_path": f"data/static_scene/{task}/target.png",
                 "output_dir": os.path.join(ROOT, "output", "test", task),
-                "blender_command": "utils/infinigen/blender/blender",
+                "blender_command": "utils/third_party/infinigen/blender/blender",
             }
         )
         result = reconstruct_full_scene()

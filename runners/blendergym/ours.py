@@ -234,7 +234,7 @@ def main() -> None:
     parser.add_argument("--memory-length", type=int, default=24, help="Memory length")
     
     # Blender parameters
-    parser.add_argument("--blender-command", default="utils/infinigen/blender/blender", help="Blender command path")
+    parser.add_argument("--blender-command", default="utils/third_party/infinigen/blender/blender", help="Blender command path")
     parser.add_argument("--blender-script", default="data/blendergym/generator_script.py", help="Blender execution script")
     parser.add_argument("--save-blender-file", action="store_true", help="Save blender file")
     

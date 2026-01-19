@@ -12,7 +12,7 @@ for i in range(1, 51):
     render_path = geo_path + f"{i}/baseline/Qwen3_VL_8B_Instruct"
     os.makedirs(render_path, exist_ok=True)
     cmd = [
-        "utils/infinigen/blender/blender",
+        "utils/third_party/infinigen/blender/blender",
         "--background", geo_path + f"{i}/blender_file.blend",
         "--python", "data/blendergym/pipeline_render_script.py",
         "--", code_path, render_path

@@ -339,7 +339,7 @@ def main() -> None:
         # Read args from environment for convenience
         args = {
             "mode": "blenderstudio",
-            "blender_command": os.getenv("BLENDER_COMMAND", "utils/infinigen/blender/blender"),
+            "blender_command": os.getenv("BLENDER_COMMAND", "utils/third_party/infinigen/blender/blender"),
             "blender_file": os.getenv("BLENDER_FILE", "data/static_scene/christmas1/reasonable_init/christmas1_gt.blend"),
             "blender_script": os.getenv("BLENDER_SCRIPT", "data/static_scene/generator_script.py"),
             "output_dir": os.getenv("OUTPUT_DIR", "output/test/exec_blender"),

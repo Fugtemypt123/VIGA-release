@@ -82,7 +82,7 @@ class SlidesExecutor:
         Returns:
             "Success" on success, or error message on failure.
         """
-        generate_dir = "utils/slides"
+        generate_dir = "utils/third_party/slides"
         env = os.environ.copy()
         env['PYTHONPATH'] = f"{generate_dir}:{env.get('PYTHONPATH', '')}"
         try:
