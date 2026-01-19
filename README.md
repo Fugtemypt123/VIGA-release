@@ -6,6 +6,35 @@
   <a href="https://huggingface.co/datasets/DietCoke4671/blenderbench"><img src="https://img.shields.io/badge/Benchmark-HF-yellow" alt="Hugging Face"></a>
 </p>
 
+## Introduction
+
+VIGA is an **analysis-by-synthesis** code agent for programmatic visual reconstruction. It approaches vision-as-inverse-graphics through an iterative loop of generating, rendering, and verifying scenes against target images.
+
+<p align="center">
+  <img src="docs/images/method_new.png" alt="VIGA Method Overview" width="800">
+</p>
+
+A single self-reflective agent alternates between two roles:
+
+- **Generator**: Writes and executes scene programs using tools for planning, code execution, asset retrieval, and scene queries.
+
+- **Verifier**: Examines rendered output from multiple viewpoints, identifies visual discrepancies, and provides feedback for the next iteration.
+
+The agent maintains an **evolving contextual memory** with plans, code diffs, and render history. This write → run → compare → revise loop is **self-correcting and requires no finetuning**, enabling the same protocol to run across different foundation VLMs.
+
+## Supported Domains
+
+VIGA naturally generalizes across 2D, 3D, and 4D visual tasks through its analysis-by-synthesis loop:
+
+| Mode | Description | Output |
+|------|-------------|--------|
+| **BlenderGym** | Single-step 3D graphics editing | Blender Python code |
+| **BlenderBench** | Multi-step 3D graphics editing (Level 1-3) | Blender Python code |
+| **SlideBench** | 2D programmatic slide/document layout synthesis | PowerPoint (PPTX) |
+| **Custom Static Scene** | Single-view 3D scene reconstruction from scratch | Blender scene (.blend) |
+| **Custom Dynamic Scene** | 4D dynamic scene reconstruction with physics | Blender animation |
+
+
 ## Quick Setup
 
 ### 1. Create Conda Environments
