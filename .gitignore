@@ -1,7 +1,5 @@
 data/*/*/
-_reference
-_reference*
-_not_used
+_*
 __pycache__
 __MACOSX
 _test

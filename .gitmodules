@@ -1,17 +1,17 @@
-[submodule "utils/infinigen"]
-	path = utils/infinigen
+[submodule "utils/third_party/infinigen"]
+	path = utils/third_party/infinigen
 	url = https://github.com/princeton-vl/Infinigen.git
 	ignore = all
-[submodule "utils/sam3"]
-	path = utils/sam3
+[submodule "utils/third_party/sam3"]
+	path = utils/third_party/sam3
 	url = https://github.com/facebookresearch/sam3.git
 	ignore = all
-[submodule "utils/sam3d"]
-	path = utils/sam3d
+[submodule "utils/third_party/sam3d"]
+	path = utils/third_party/sam3d
 	url = https://github.com/Fugtemypt123/sam-3d-texture-baking.git
 	branch = main
 	ignore = all
-[submodule "utils/sam"]
-	path = utils/sam
+[submodule "utils/third_party/sam"]
+	path = utils/third_party/sam
 	url = https://github.com/facebookresearch/segment-anything.git
 	ignore = all
