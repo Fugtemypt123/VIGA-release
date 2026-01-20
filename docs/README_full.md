@@ -16,7 +16,7 @@
     <a href="https://fugtemypt123.github.io/VIGA-website/"><img src="https://img.shields.io/badge/Page-Project-blue" alt="Project Page"></a>
     <a href="https://arxiv.org/abs/2601.11109"><img src="https://img.shields.io/badge/Paper-arXiv-b31b1b" alt="arXiv Paper"></a>
     <a href="https://huggingface.co/datasets/DietCoke4671/blenderbench"><img src="https://img.shields.io/badge/Benchmark-HuggingFace-yellow" alt="HuggingFace Benchmark"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-green" alt="License"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="License"></a>
 </p>
 
 <p align="center"><img src="docs/images/art_cropped.png" width="33%"><img src="docs/images/render.gif" width="33%"><img src="docs/images/dynamic.gif" width="33%"></p>
