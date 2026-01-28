@@ -1,0 +1,4 @@
+openai
+python-pptx
+pdf2image
+matplotlib

@@ -1,0 +1,237 @@
+"""Generator Agent for code synthesis in the VIGA system.
+
+The Generator Agent is responsible for iteratively generating and refining code
+based on visual targets, using tool calls to execute and evaluate the generated code.
+"""
+
+import json
+import os
+from typing import Any, Dict, List, Optional
+
+from openai import OpenAI
+
+from agents.prompt_builder import PromptBuilder
+from agents.tool_client import ExternalToolClient
+from agents.verifier import VerifierAgent
+from utils.common import get_image_base64, get_model_response, tournament_select_best
+
+class GeneratorAgent:
+    """Agent responsible for generating and refining code based on visual targets.
+
+    The Generator Agent iteratively produces code, executes it, and refines based
+    on feedback from the Verifier Agent. It uses MCP tools for code execution
+    and scene manipulation.
+
+    Attributes:
+        config: Configuration dictionary containing model settings and paths.
+        memory: Conversation memory for the agent.
+        verifier: The Verifier Agent instance for feedback.
+        tool_client: Client for calling external MCP tools.
+    """
+
+    def __init__(self, args: Dict[str, Any], verifier: VerifierAgent) -> None:
+        """Initialize the Generator Agent.
+
+        Args:
+            args: Configuration dictionary with keys like 'model', 'api_key',
+                  'generator_tools', 'max_rounds', etc.
+            verifier: Verifier agent instance for analyzing generated outputs.
+        """
+        self.config = args
+        self.memory: List[Dict[str, Any]] = []
+        self.init_plan: Optional[str] = None
+        self.verifier = verifier
+
+        # Initialize chat args
+        self.init_chat_args: Dict[str, Any] = {}
+        if 'gpt' in self.config.get("model") and not self.config.get("no_tools"):
+            self.init_chat_args['parallel_tool_calls'] = False
+
+        # Initialize tool client
+        self.tool_client = ExternalToolClient(self.config.get("generator_tools"), self.config)
+
+        # Initialize OpenAI client
+        client_kwargs = {
+            "api_key": self.config.get("api_key"),
+            "base_url": self.config.get("api_base_url") or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        }
+        self.client = OpenAI(**client_kwargs)
+
+        # Initialize system prompt
+        self.prompt_builder = PromptBuilder(self.client, self.config)
+        self.system_prompt = self.prompt_builder.build_prompt("generator", "system")
+        self.memory.extend(self.system_prompt)
+
+    async def run(self) -> None:
+        """Run the generator agent loop to produce and refine code.
+
+        Iteratively generates code, executes it via tools, and incorporates
+        feedback from the verifier until completion or max rounds reached.
+        """
+        print("\n=== Running generator agent ===\n")
+
+        # If init.py is in the tool servers, auto-call reconstruct_full_scene
+        # to initialize the 3D scene before the conversation begins.
+        try:
+            if any("init.py" in server for server in self.tool_client.tool_servers):
+                print("=== Auto-calling init.reconstruct_full_scene to initialize scene ===")
+                _ = await self.tool_client.call_tool("reconstruct_full_scene", {})
+                print("=== init.reconstruct_full_scene finished ===")
+        except Exception as e:
+            print(f"Warning: auto init reconstruct_full_scene failed: {e}")
+
+        for i in range(self.config.get("max_rounds")):
+            print(f"=== Round {i} ===\n")
+            
+            # Prepare chat args
+            print("Prepare chat args...")
+            memory = self.prompt_builder.build_memory(self.memory)
+            tool_configs = self.tool_client.tool_configs
+            tool_configs = [x for v in tool_configs.values() for x in v]
+            if self.config.get("no_tools"):
+                chat_args = {"model": self.config.get("model"), "messages": memory, **self.init_chat_args}
+            else:
+                chat_args = {"model": self.config.get("model"), "messages": memory, "tools": tool_configs, "tool_choice": "auto", **self.init_chat_args}
+
+            # Generate response
+            print("Generate response...")
+            responses = get_model_response(self.client, chat_args, self.config.get("num_candidates", 4))
+            message = responses[0].choices[0].message
+            
+            # Handle tool call
+            print("Handle tool call...")
+            if not message.tool_calls and not self.config.get("no_tools"):
+                if message.content != '':
+                    self.memory.append({"role": "assistant", "content": message.content})
+                else:
+                    self.memory.append({"role": "assistant", "content": "No output"})
+                self.memory.append({"role": "user", "content": "Every single output must contain a 'tool_call' field. Your previous message did not contain a 'tool_call' field. Please reconsider."})
+                self._save_memory()
+                continue
+            elif self.config.get("no_tools"):
+                # We can support multiple candidates here
+                tool_responses = []
+                for response in responses:
+                    message = response.choices[0].message
+                    content = message.content
+                    try:
+                        json_content = content.split('```json')[1].split('```')[0]
+                        json_content = json.loads(json_content)
+                        json_content = {'thought': str(json_content.get('thought', '')), 'code_diff': str(json_content.get('code_diff', '')), 'code': str(json_content.get('code', ''))}
+                        tool_name = "execute_and_evaluate"
+                        tool_response = await self.tool_client.call_tool("execute_and_evaluate", json_content)
+                        tool_responses.append(tool_response)
+                    except Exception as e:
+                        print(f"Error executing tool: {e}")
+                        self.memory.append({"role": "assistant", "content": content})
+                        self.memory.append({"role": "user", "content": f"Error executing tool: {e}. Please try again."})
+                        self._save_memory()
+                        continue
+                best_idx = tournament_select_best(tool_responses, self.config.get("target_image_path"), self.config.get("model"))
+                tool_response = tool_responses[best_idx]
+                if tool_response.get('require_verifier', False):
+                    verifier_result = await self.verifier.run({"argument": json_content, "execution": tool_response})
+                    tool_response['verifier_result'] = verifier_result
+            else:
+                tool_call = message.tool_calls[0]
+                tool_name = tool_call.function.name
+                print(f"Call tool {tool_name}...")
+                tool_arguments = json.loads(tool_call.function.arguments)
+                    
+                tool_response = await self.tool_client.call_tool(tool_name, tool_arguments)
+                if tool_name == "get_better_object":
+                    with open(self.config.get("output_dir") + f"/_tool_call.json", "w") as f:
+                        json.dump({'name': tool_name, 'arguments': tool_arguments, 'response': tool_response}, f, indent=4, ensure_ascii=False)
+                
+                # If the tool is execute_and_evaluate, run the verifier
+                if tool_response.get('require_verifier', False):
+                    verifier_result = await self.verifier.run({"argument": tool_arguments, "execution": tool_response, "init_plan": self.init_plan})
+                    tool_response['verifier_result'] = verifier_result
+                    
+            # Update and save memory
+            print("Update and save memory...")
+            self._update_memory({"assistant": message, "user": tool_response})
+            self._save_memory()
+            
+            if tool_name == "end":
+                break
+        
+        print("\n=== Finish generator process ===\n")
+    
+    def _update_memory(self, message: Dict[str, Any]) -> None:
+        """Update the conversation memory with the new assistant and tool messages.
+
+        Args:
+            message: Dictionary containing 'assistant' (the model response) and
+                     'user' (the tool response with text, images, and optional verifier result).
+        """
+        # Add tool calling
+        assistant_content = message['assistant'].content
+        if not self.config.get("no_tools"):
+            assistant_tool_calls = message['assistant'].tool_calls[0].model_dump()
+            self.memory.append({"role": "assistant", "content": assistant_content, "tool_calls": [assistant_tool_calls]})
+        else:
+            self.memory.append({"role": "assistant", "content": assistant_content})
+        
+        # Add tool response
+        if not self.config.get("no_tools"):
+            tool_call_id = message['assistant'].tool_calls[0].id
+            tool_call_name = message['assistant'].tool_calls[0].function.name
+        else:
+            tool_call_id = ''
+            tool_call_name = ''
+        tool_response = []
+        user_response = []
+        
+        if 'image' in message['user']:
+            for text, image in zip(message['user']['text'], message['user']['image']):
+                user_response.append({"type": "text", "text": text})
+                user_response.append({"type": "image_url", "image_url": {"url": get_image_base64(image)}})
+                user_response.append({"type": "text", "text": f"Image loaded from local path: {image}"})
+        else:
+            for text in message['user']['text']:
+                tool_response.append({"type": "text", "text": text})
+        if 'verifier_result' in message['user']:
+            tool_response.append({"type": "text", "text": "The following information is what the verifier agent returns to you: (1) Visual difference analysis between the current scene and the target scene (2) Suggested code modifications to follow."})
+            for text in message['user']['verifier_result']['text']:
+                tool_response.append({"type": "text", "text": text})
+        if 'image' in message['user']:
+            tool_response.append({"type": "text", "text": "The next user message contains the image result of the tool call."})
+        
+        if self.config.get("no_tools"):
+            self.memory.append({"role": "assistant", "content": tool_response})
+        else:
+            self.memory.append({"role": "tool", "content": tool_response, "name": tool_call_name, "tool_call_id": tool_call_id})
+        if user_response:
+            self.memory.append({"role": "user", "content": user_response})
+        
+        # Add initial plan
+        if tool_call_name == "initialize_plan":
+            have_plan = False
+            self.init_plan = "\n".join(message['user']['plan'])
+            for info in self.memory[1]['content']:
+                if info['type'] == 'text' and info['text'].startswith('Initial plan:'):
+                    info['text'] = f"Initial plan: {self.init_plan}"
+                    have_plan = True
+                    break
+            if not have_plan:
+                self.memory[1]['content'].append({"type": "text", "text": f"Initial plan: {self.init_plan}"})
+
+        # Add downloaded assets
+        if tool_call_name == "get_better_object":
+            try:
+                object_name = json.loads(message['assistant'].tool_calls[0].function.arguments)['object_name']
+                object_path = message['user']['text'][0].split('downloaded to: ')[1]
+                self.memory[1]['content'].append({"type": "text", "text": f"Downloaded {object_name} to {object_path}"})
+            except Exception as e:
+                print(f"Error adding downloaded assets: {e}")
+    
+    def _save_memory(self) -> None:
+        """Save the conversation memory to a JSON file in the output directory."""
+        output_file = self.config.get("output_dir") + "/generator_memory.json"
+        with open(output_file, "w") as f:
+            json.dump(self.memory, f, indent=4, ensure_ascii=False)
+    
+    async def cleanup(self) -> None:
+        """Clean up external connections."""
+        await self.tool_client.cleanup()

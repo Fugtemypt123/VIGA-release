@@ -1,0 +1,43 @@
+__pycache__
+__MACOSX
+_test
+_docker
+test.py
+_examples
+_api_keys.py
+_path.py
+*.json
+*.jsonl
+output
+.venv
+*.zip
+*.pt
+web
+logs
+chroma
+TODO.md
+*.jpg
+*.pdf
+*.mp4
+run.sh
+*.blend
+*.out
+*.bin
+
+utils/infinigen
+utils/sam3
+utils/sam3d
+utils/sam
+utils/blender
+
+# Claude Code files
+CLAUDE.md
+REFACTOR_TODO.md
+OPEN_SOURCE_TODO.md
+MODULARIZATION_PLAN.md
+
+# macOS
+.DS_Store
+
+# Unused assets
+docs/images/art.png

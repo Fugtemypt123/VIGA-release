@@ -1,0 +1,319 @@
+#!/usr/bin/env python3
+"""
+Dynamic Scene Runner for AgenticVerifier
+Loads dynamic scene dataset and runs the dual-agent system for 3D dynamic scene generation from scratch.
+"""
+import os
+import sys
+import json
+import time
+import argparse
+import subprocess
+import asyncio
+import signal
+import shutil
+from pathlib import Path
+from typing import List, Dict, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.common import get_model_info, get_meshy_info
+
+def load_dynamic_scene_dataset(base_path: str, task_name: str, test_id: Optional[str] = None) -> List[Dict]:
+    """
+    Load dynamic scene dataset structure.
+    
+    Args:
+        base_path: Path to dynamic scene dataset root
+        task_name: Task name to load
+        test_id: Optional test ID for filtering
+    
+    Returns:
+        List of task configurations
+    """
+    base_path = Path(base_path)
+    if not base_path.exists():
+        print(f"Error: Dynamic scene dataset path not found: {base_path}")
+        return []
+    
+    tasks = []
+    
+    # For dynamic scenes, we typically have target images and descriptions
+    if task_name == "all":
+        # Load all available dynamic scene tasks
+        task_dirs = [d for d in base_path.iterdir() if d.is_dir()]
+        task_list = [d.name for d in task_dirs]
+    else:
+        task_list = [task_name]
+    
+    # Create task configurations
+    for task in task_list:
+        task_path = base_path / task
+        if not task_path.exists():
+            print(f"Warning: Task directory not found: {task_path}")
+            continue
+        
+        print("task_path:", task_path)
+            
+        # Look for target images
+        target_image_path = None
+        if (task_path / "target.png").exists():
+            target_image_path = str(task_path / "target.png")
+        elif (task_path / "target.jpg").exists():
+            target_image_path = str(task_path / "target.jpg")
+        elif (task_path / "target.jpeg").exists():
+            target_image_path = str(task_path / "target.jpeg")
+        elif (task_path / "target").exists() and (task_path / "target").is_dir():
+            target_image_path = str(task_path / "target")
+        
+        if not target_image_path:
+            print(f"Warning: No target image found for task: {task}")
+            continue
+        
+        # Look for description file
+        description_path = task_path / "description.txt"
+        target_description = None
+        if description_path.exists():
+            with open(description_path, 'r') as f:
+                target_description = f.read().strip()
+        
+        # Check for assets directory
+        assets_path = task_path / "assets"
+        os.makedirs(assets_path, exist_ok=True)
+        assets_dir = str(assets_path)
+        
+        # Look for init image 
+        init_image_path = task_path / "start.png"
+        if init_image_path.exists():
+            init_image_path = str(init_image_path)
+        else:
+            init_image_path = ""
+        
+        task_config = {
+            "task_name": task,
+            "task_id": task,
+            "target_image_path": target_image_path,
+            "target_description": target_description,
+            "assets_dir": assets_dir,  # Add assets directory path
+            "output_dir": f"output/dynamic_scene/{test_id or time.strftime('%Y%m%d_%H%M%S')}/{task}",
+            "init_code_path": "",  # Dynamic scenes start from scratch
+            "init_image_path": init_image_path
+        }
+        
+        tasks.append(task_config)
+    
+    return tasks
+
+
+def run_dynamic_scene_task(task_config: Dict, args: argparse.Namespace) -> Tuple[str, bool, Optional[str]]:
+    """
+    Run a single dynamic scene task using main.py
+    
+    Args:
+        task_config: Task configuration dictionary
+        args: Command line arguments
+    
+    Returns:
+        Tuple of (task_name, success, error_message)
+    """
+    task_name = task_config["task_name"]
+    print(f"Running dynamic scene task: {task_name}")
+    
+    # Create output directory
+    os.makedirs(task_config["output_dir"], exist_ok=True)
+
+    # Create an empty blender file inside output_dir for build-from-scratch flows
+    created_blender_file = os.path.join(task_config["output_dir"], "blender_file.blend")
+    # copy the blender file to the output directory
+    if os.path.exists(args.blender_file):
+        shutil.copy(args.blender_file, created_blender_file)
+    else:
+        create_empty_blend_cmd = (
+            f"{args.blender_command} --background --factory-startup "
+            f"--python-expr \"import bpy; bpy.ops.wm.read_factory_settings(use_empty=True); bpy.ops.wm.save_mainfile(filepath='" + created_blender_file + "')\""
+        )
+        subprocess.run(create_empty_blend_cmd, shell=True, check=True)
+    
+    # Build main.py command
+    cmd = [
+        sys.executable, "main.py",
+        "--mode", "dynamic_scene",
+        "--model", args.model,
+        "--api-key", get_model_info(args.model)["api_key"],
+        "--api-base-url", get_model_info(args.model)["base_url"],
+        "--max-rounds", str(args.max_rounds),
+        "--memory-length", str(args.memory_length),
+        "--target-image-path", task_config["target_image_path"] if not args.text_only else "",
+        "--output-dir", task_config["output_dir"],
+        "--task-name", task_name,
+        "--generator-tools", args.generator_tools,
+        "--verifier-tools", args.verifier_tools,
+        "--blender-command", args.blender_command,
+        "--blender-file", created_blender_file,
+        "--blender-script", args.blender_script,
+        "--meshy_api_key", get_meshy_info()["meshy_api_key"],
+        "--va_api_key", get_meshy_info()["va_api_key"],
+        "--blender-save", created_blender_file,
+        "--assets-dir", task_config["assets_dir"],
+        "--init-code-path", task_config["init_code_path"],
+        "--init-image-path", task_config["init_image_path"],
+        "--clear-memory",
+        "--prompt-setting", args.prompt_setting,
+    ]
+    
+    if args.gpu_devices:
+        cmd.extend(["--gpu-devices", args.gpu_devices])
+    if task_config["target_description"]:
+        cmd.extend(["--target-description", task_config["target_description"]])
+    
+    try:
+        result = subprocess.run(cmd)  # no timeout
+        
+        if result.returncode == 0:
+            print(f"Dynamic scene task {task_name} completed successfully")
+            return task_name, True, None
+        else:
+            error_msg = f"Task failed with return code {result.returncode}: {result.stderr}"
+            print(f"Dynamic scene task {task_name} failed: {error_msg}")
+            return task_name, False, error_msg
+            
+    except subprocess.TimeoutExpired:
+        error_msg = f"Task timed out after 1 hour"
+        print(f"Dynamic scene task {task_name} timed out")
+        return task_name, False, error_msg
+    except Exception as e:
+        error_msg = f"Unexpected error: {str(e)}"
+        print(f"Dynamic scene task {task_name} failed with exception: {error_msg}")
+        return task_name, False, error_msg
+
+
+def run_dynamic_scene_tasks_parallel(tasks: List[Dict], args: argparse.Namespace, max_workers: int = 4) -> None:
+    """Run dynamic scene tasks in parallel.
+
+    Args:
+        tasks: List of task configurations.
+        args: Command line arguments.
+        max_workers: Maximum number of parallel workers.
+    """
+    print(f"Running {len(tasks)} dynamic scene tasks with {max_workers} workers")
+    
+    successful_tasks = 0
+    failed_tasks = 0
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_task = {
+            executor.submit(run_dynamic_scene_task, task_config, args): task_config 
+            for task_config in tasks
+        }
+        
+        # Process completed tasks
+        for future in as_completed(future_to_task):
+            task_config = future_to_task[future]
+            try:
+                task_name, success, error_msg = future.result()
+                if success:
+                    successful_tasks += 1
+                else:
+                    failed_tasks += 1
+                    print(f"Failed task: {task_name} - {error_msg}")
+            except Exception as e:
+                failed_tasks += 1
+                print(f"Task {task_config['task_name']} generated an exception: {e}")
+    
+    print(f"\nDynamic scene task execution completed:")
+    print(f"  Successful: {successful_tasks}")
+    print(f"  Failed: {failed_tasks}")
+    print(f"  Total: {len(tasks)}")
+
+
+def main() -> None:
+    """Entry point for the dynamic scene runner."""
+    parser = argparse.ArgumentParser(description="Dynamic Scene Runner for AgenticVerifier")
+    time_str = time.strftime('%Y%m%d_%H%M%S')
+    
+    # Dataset parameters
+    parser.add_argument("--dataset-path", default="data/dynamic_scene", help="Path to dynamic scene dataset root directory")
+    parser.add_argument("--output-dir", default=f"output/dynamic_scene/{time_str}", help="Output directory for results")
+    
+    # Task selection
+    parser.add_argument("--task", default="all", help="Specific task to run (default: all)")
+    parser.add_argument("--test-id", help="Test ID for output directory naming")
+    
+    # Main.py parameters
+    parser.add_argument("--max-rounds", type=int, default=100, help="Maximum number of interaction rounds")
+    parser.add_argument("--model", default="gpt-5", help="OpenAI vision model to use")
+    parser.add_argument("--memory-length", type=int, default=12, help="Memory length")
+    
+    # Blender parameters
+    parser.add_argument("--blender-command", default="utils/third_party/infinigen/blender/blender", help="Blender command path")
+    parser.add_argument("--blender-file", default="data/dynamic_scene/empty_scene.blend", help="Empty blender file for dynamic scenes")
+    parser.add_argument("--blender-script", default="data/dynamic_scene/generator_script.py", help="Blender execution script")
+    parser.add_argument("--blender-save", default=f"data/dynamic_scene/empty_scene.blend", help="Save blender file")
+    
+    # Tool server scripts (comma-separated)
+    parser.add_argument("--generator-tools", default="tools/blender/exec.py,tools/generator_base.py,tools/initialize_plan.py", help="Comma-separated list of generator tool server scripts")
+    parser.add_argument("--verifier-tools", default="tools/blender/investigator.py,tools/verifier_base.py", help="Comma-separated list of verifier tool server scripts")
+    
+    # Execution parameters
+    parser.add_argument("--max-workers", type=int, default=1, help="Maximum number of parallel workers")
+    parser.add_argument("--gpu-devices", default=os.getenv("CUDA_VISIBLE_DEVICES"), help="GPU devices for Blender")
+    
+    # Additional parameters
+    parser.add_argument("--text-only", action="store_true", help="Only use text as reference")
+    parser.add_argument("--prompt-setting", choices=["none", "init"], default="none", help="Setting for the prompt")
+    
+    args = parser.parse_args()
+    
+    # Load dataset
+    print(f"Loading dynamic scene dataset from: {args.dataset_path}")
+    tasks = load_dynamic_scene_dataset(args.dataset_path, args.task, args.test_id)
+    
+    if not tasks:
+        print("No valid dynamic scene tasks found in dataset!")
+        sys.exit(1)
+    
+    print(f"Found {len(tasks)} dynamic scene tasks")
+    for task in tasks:
+        print(f"  - {task['task_name']}: {task['target_image_path']}")
+    
+    # Create output directory
+    os.makedirs(args.output_dir, exist_ok=True)
+    
+    with open(args.output_dir + "/args.json", "w") as f:
+        json.dump(args.__dict__, f, indent=4, ensure_ascii=False)
+    
+    start_time = time.time()
+    
+    # Run tasks
+    if args.max_workers == 1:
+        # Sequential execution
+        successful_tasks = 0
+        failed_tasks = 0
+        
+        for i, task_config in enumerate(tasks, 1):
+            print(f"\nTask {i}/{len(tasks)}")
+            task_name, success, error_msg = run_dynamic_scene_task(task_config, args)
+            
+            if success:
+                successful_tasks += 1
+            else:
+                failed_tasks += 1
+                print(f"Failed: {error_msg}")
+        
+        print(f"\nDynamic scene task execution completed:")
+        print(f"  Successful: {successful_tasks}")
+        print(f"  Failed: {failed_tasks}")
+        print(f"  Total: {len(tasks)}")
+    else:
+        # Parallel execution
+        run_dynamic_scene_tasks_parallel(tasks, args, args.max_workers)
+        
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"Execution time: {execution_time:.2f} seconds")
+
+
+if __name__ == "__main__":
+    main()

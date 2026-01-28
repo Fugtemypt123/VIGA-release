@@ -1,0 +1,144 @@
+<h1 align="center">VIGA: Vision-as-Inverse-Graphics Agent via Interleaved Multimodal Reasoning</h1>
+
+<p align="center">
+    <a href="https://fugtemypt123.github.io/VIGA-website/"><img src="https://img.shields.io/badge/Page-Project-blue" alt="Project Page"></a>
+    <a href="https://arxiv.org/abs/2601.11109"><img src="https://img.shields.io/badge/Paper-arXiv-b31b1b" alt="arXiv Paper"></a>
+    <a href="https://huggingface.co/datasets/DietCoke4671/blenderbench"><img src="https://img.shields.io/badge/Benchmark-HuggingFace-yellow" alt="HuggingFace Benchmark"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="License"></a>
+</p>
+
+<p align="center"><img src="docs/images/art_cropped.png" width="33%"><img src="docs/images/render.gif" width="33%"><img src="docs/images/dynamic.gif" width="33%"></p>
+
+<p align="center">
+    <a href="#about">About</a> •
+    <a href="#supported-domains">Supported Domains</a> •
+    <a href="#quickstart">Quickstart</a> •
+    <a href="#documentation">Documentation</a> •
+    <a href="#citation">Citation</a>
+</p>
+
+<br>
+
+# About
+
+VIGA is an analysis-by-synthesis code agent for programmatic visual reconstruction. It approaches vision-as-inverse-graphics through an iterative loop of generating, rendering, and verifying scenes against target images.
+
+A single self-reflective agent alternates between two roles:
+
+- **Generator** — Writes and executes scene programs using tools for planning, code execution, asset retrieval, and scene queries.
+
+- **Verifier** — Examines rendered output from multiple viewpoints, identifies visual discrepancies, and provides feedback for the next iteration.
+
+The agent maintains an evolving contextual memory with plans, code diffs, and render history. This write-run-compare-revise loop is self-correcting and requires no finetuning.
+
+<p align="center">
+    <img src="docs/images/trajectory.png" alt="VIGA Trajectory" width="100%">
+</p>
+
+<br>
+
+# Supported Domains
+
+| Mode | Description | Output |
+|------|-------------|--------|
+| [BlenderBench](https://huggingface.co/datasets/DietCoke4671/blenderbench) | Multi-step 3D graphics editing (Level 1-3) | Blender Python |
+| [BlenderGym](https://github.com/richard-guyunqi/BlenderGym-Open) | Single-step 3D graphics editing | Blender Python |
+| [SlideBench](https://github.com/para-lost/AutoPresent) | 2D slide/document layout synthesis | PowerPoint |
+| Custom Static Scene | Single-view 3D reconstruction | Blender scene |
+| Custom Dynamic Scene | 4D dynamic scene with physics | Blender animation |
+
+<br>
+
+# Quickstart
+
+## 1. Installation: Setup the environment
+
+### Prerequisites
+
+You need [Conda](https://docs.conda.io/en/latest/miniconda.html) installed. For 3D modes, an NVIDIA GPU with CUDA support is recommended.
+
+### Clone repository
+
+```bash
+git clone https://github.com/Fugtemypt123/VIGA-release.git && cd VIGA-release
+git submodule update --init --recursive
+# download sam module
+wget -P utils/third_party/sam https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+```
+
+### Create conda environments
+
+VIGA requires separate environments for the agent and tools.
+
+```bash
+conda create -n agent python=3.10 -y && conda activate agent
+pip install -r requirements/requirement_agent.txt
+
+conda create -n blender python=3.11 -y && conda activate blender
+pip install -r requirements/requirement_blender.txt
+cd utils/third_party/infinigen
+INFINIGEN_MINIMAL_INSTALL=True bash scripts/install/interactive_blender.sh # You can ignore the errors as long as you can see `utils/third_party/infinigen/blender`
+
+conda create -n sam python=3.10 -y && conda activate sam
+pip install -r requirements/requirement_sam.txt
+
+conda create -n sam3d python=3.11 -y && conda activate sam3d
+./requirements/install_sam3d.sh
+```
+
+See [Requirements](requirements/README.md) for additional options.
+
+### Configure API keys
+
+```bash
+cp utils/_api_keys.py.example utils/_api_keys.py
+```
+
+Edit `utils/_api_keys.py` and add your `OPENAI_API_KEY` and `MESHY_API_KEY`.
+
+### Configure environment paths
+
+```bash
+cp utils/_path.py.example utils/_path.py
+```
+
+Edit `utils/_path.py` to set your conda installation path. By default, it points to `~/anaconda3/envs`. Update the `CONDA_BASE` variable or set the `VIGA_CONDA_BASE` environment variable to match your conda environments location.
+
+## 2. Usage: Run the agent
+
+```bash
+conda activate agent
+python runners/dynamic_scene.py --task=artist --model=gpt-5
+```
+
+Custom data: place in `data/dynamic_scene/<your-data-name>` following the format in `data/dynamic_scene/artist`.
+
+<br>
+
+# Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [Architecture](docs/architecture.md) | System design and agent tools |
+| [Requirements](requirements/README.md) | Conda environment setup |
+| [Runners](runners/README.md) | Batch execution options |
+
+<br>
+
+# Citation
+
+You can find a paper writeup of the framework on [arXiv](https://arxiv.org/abs/2601.11109).
+
+If you find this project useful for your research, please consider citing:
+
+```bibtex
+@misc{yin2026visionasinversegraphicsagentinterleavedmultimodal,
+      title={Vision-as-Inverse-Graphics Agent via Interleaved Multimodal Reasoning},
+      author={Shaofeng Yin and Jiaxin Ge and Zora Zhiruo Wang and Xiuyu Li and Michael J. Black and Trevor Darrell and Angjoo Kanazawa and Haiwen Feng},
+      year={2026},
+      eprint={2601.11109},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2601.11109},
+}
+```

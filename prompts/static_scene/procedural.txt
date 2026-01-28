@@ -1,0 +1,32 @@
+# Procedural Instruction (Simplified, Relative-Position Version)
+
+1. **Generate lounge set**  
+   - Call `get_better_object` to generate a **lounge set** (sofa, floor lamp, coffee table, round rug, snowman).  
+   - Place the lounge set near the **front side of the room**, centered horizontally and slightly closer to the viewer than the room center.
+
+2. **Generate main Christmas tree**  
+   - Call `get_better_object` to generate a **main Christmas tree**.  
+   - Place it **behind the lounge**, toward the **left-rear corner** of the room, close to the back wall.
+
+3. **Generate gift boxes**  
+   - Call `get_better_object` to generate several **gift boxes**.  
+   - Place them **under and around the main Christmas tree**, resting on the floor near the tree trunk.
+
+4. **Generate fireplace**  
+   - Call `get_better_object` to generate a **fireplace**.  
+   - Place it **to the left of the main Christmas tree**, centered along the **left wall**, at approximately the same front–back depth as the tree.
+
+5. **Generate golden bells (above fireplace)**  
+   - Call `get_better_object` to generate **golden bells**.  
+   - Mount them **directly above the fireplace**, high on the left wall.
+
+6. **Generate wall clock**  
+   - Call `get_better_object` to generate a **wall clock**.  
+   - Place it on the **front wall**, positioned **above and slightly to the left of the lounge**.
+
+7. **Generate small tree decorations**  
+   - Call `get_better_object` to generate two **small decorative wall trees**.  
+   - Place **Tree 1** on the **front wall**, slightly **to the right of the wall clock**.  
+   - Place **Tree 2** further **rightward on the same wall**, near the **right-side upper area** of the room.
+
+# NOTE: Do not add any camera in the scene.
